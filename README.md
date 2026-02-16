@@ -4,9 +4,7 @@
 [![Version](https://img.shields.io/badge/version-1.0.0-green.svg)]()
 [![Postey API](https://img.shields.io/badge/Postey-API-3B9AF8)](https://postey.com/docs/api)
 
-AI agent skills for drafting, scheduling, and managing social media posts across X, LinkedIn, Threads, Bluesky, and Mastodon. Give your AI agent the ability to manage your social media scheduling directly from your IDE or terminal.
-
-Built on the [Postey API](https://postey.com/docs/api). [Postey](https://postey.com) is a writing and scheduling app used by 200k+ top creators and teams to grow on X, LinkedIn, Threads, and Bluesky.
+AI agent skills for drafting, scheduling, and managing social media posts across X and LinkedIn. Give your AI agent the ability to manage your social media scheduling directly from your IDE or terminal.
 
 ## What Are Skills?
 

@@ -3,10 +3,22 @@ const assert = require('node:assert/strict');
 const http = require('node:http');
 const { spawn } = require('node:child_process');
 const fs = require('node:fs/promises');
+const fsSync = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 
-const CLI_PATH = path.resolve(__dirname, '..', 'skills', 'postey', 'scripts', 'postey.js');
+function resolveCliPath() {
+  const candidates = [
+    path.resolve(__dirname, '..', 'skills', 'scripts', 'postey.js'),
+    path.resolve(__dirname, '..', 'skills', 'postey', 'scripts', 'postey.js'),
+  ];
+  for (const candidate of candidates) {
+    if (fsSync.existsSync(candidate)) return candidate;
+  }
+  return candidates[0];
+}
+
+const CLI_PATH = resolveCliPath();
 
 async function mkdtemp(prefix) {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix));
