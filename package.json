@@ -1,0 +1,11 @@
+{
+  "name": "agent-skills",
+  "private": true,
+  "type": "commonjs",
+  "contributors": [
+    "Rahul Adhikari"
+  ],
+  "scripts": {
+    "test": "node --test"
+  }
+}

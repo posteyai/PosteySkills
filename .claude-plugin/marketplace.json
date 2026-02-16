@@ -1,0 +1,21 @@
+{
+  "name": "postey-skills",
+  "owner": {
+    "name": "Postey",
+    "url": "https://postey.ai"
+  },
+  "metadata": {
+    "description": "Official Postey skills for AI agents",
+    "version": "1.0.0",
+    "repository": "https://github.com/quantplay-admin/PosteySkills"
+  },
+  "plugins": [
+    {
+      "name": "postey",
+      "source": "./skills/postey",
+      "description": "Draft, schedule, and manage social media posts across X, LinkedIn, Threads, Bluesky, and Mastodon",
+      "strict": false,
+      "skills": ["./skills/postey"]
+    }
+  ]
+}
