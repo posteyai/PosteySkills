@@ -634,7 +634,7 @@ async function cmdSetup(args) {
     console.error(fmt.title("Postey CLI Setup"));
     console.error("");
     console.error(
-      fmt.dim("Sign up free at postey.com if you don't have an account."),
+      fmt.dim("Sign up free at postey.ai if you don't have an account."),
     );
     console.error("");
     console.error(fmt.info(`Get your API key at: ${fmt.link(API_KEY_URL)}`));
@@ -812,10 +812,10 @@ async function cmdSetup(args) {
         console.error("");
         console.error(fmt.warn("No social sets found."));
         console.error(
-          fmt.dim("To get started, connect a social account at postey.com:"),
+          fmt.dim("To get started, connect a social account at postey.ai:"),
         );
         console.error(
-          fmt.info(`${fmt.link("https://postey.com/?settings=accounts")}`),
+          fmt.info(`${fmt.link("https://app.postey.ai")}`),
         );
         console.error("");
         console.error(

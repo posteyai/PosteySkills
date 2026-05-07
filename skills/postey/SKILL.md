@@ -96,10 +96,10 @@ The API uses `account_id` for most operations and `post_id` for draft/post opera
 | "Post this now" | `drafts:create ... --schedule now` or `drafts:publish <draft_id>` |
 | "Read parsed content for X" | `drafts:content <post_id> --platform X` |
 | "Check available tags" | `tags:list` |
-| "Make captions from this reel: \<url\>" | `video2post.js <url>` → use prompts from `prompts.md` to generate platform captions |
-| "Post this video to Instagram/TikTok/YouTube" | `video2post.js <url>` → generate captions → `drafts:create` |
-| "Cross-post this reel to Instagram, TikTok, and YouTube" | `video2post.js <url>` → per-platform captions → `drafts:create` per platform |
-| "Get YouTube title and description from \<url\>" | `video2post.js <url>` → generate YouTube outputs only |
+| "Make captions from this reel: \<url\>" | `video2post.js <url>` → apply Caption Generation Guide to transcript → `drafts:create` |
+| "Post this video to Instagram/TikTok/YouTube" | `video2post.js <url>` → generate captions using Caption Generation Guide → `drafts:create` |
+| "Cross-post this reel to Instagram, TikTok, and YouTube" | `video2post.js <url>` → per-platform captions via Caption Generation Guide → `drafts:create` per platform |
+| "Get YouTube title and description from \<url\>" | `video2post.js <url>` → apply YouTube rules from Caption Generation Guide |
 
 ## Workflow
 
@@ -329,7 +329,7 @@ node ./scripts/video2post.js <url> --platform INSTAGRAM,TIKTOK,YOUTUBE --account
 node ./scripts/video2post.js <url>
 ```
 
-When `--platform` is given, `video2post.js` automatically calls `postey.js` to create a draft per platform using the transcript as content. The video's original title is used as the YouTube title. Content is truncated to each platform's character limit.
+When `--platform` is given, `video2post.js` automatically calls `postey.js` to create a draft per platform using the raw transcript. For better quality captions, use the manual workflow below to generate platform-optimized content first.
 
 ### video2post.js flags
 
@@ -363,31 +363,80 @@ node ./scripts/video2post.js <video-url> [options]
 
 `drafts` is only present when `--platform` is set.
 
-### Manual workflow — customize captions first
+### Caption Generation Guide
 
-If you want to tailor the captions before creating drafts:
+After transcribing, generate platform-optimized captions using the rules below. Apply them yourself — do not paste them into another tool. Never use the raw transcript as a caption; always rewrite it into platform-native format. Start by reading the full transcript to identify the single most compelling insight or hook.
+
+#### YouTube
+
+**Title** (max 70 chars):
+- Keyword-rich and SEO-friendly
+- Create a curiosity gap or strong value proposition
+- No clickbait — title must accurately reflect the content
+- Prefer "–" or "|" as separator, not colons
+- No emojis
+
+**Description** (max 5,000 chars, aim for ~500 words):
+- First 2–3 lines are "above the fold" — make them the hook (viewers see these before clicking "more")
+- Summarize the key value/takeaway in plain language
+- Add timestamps for videos with clear sections (format: `0:00 Intro`)
+- Include 3–5 relevant hashtags at the very end
+- Natural, conversational tone — not a listicle
+
+#### Instagram (max 2,200 chars)
+- First line is the hook — must stop the scroll (ask a question, make a bold claim, or tease the value)
+- 150–300 words, short paragraphs with line breaks for readability
+- Include a clear call-to-action (save this, follow for more, comment below)
+- End with 5–8 relevant hashtags on their own line
+- Conversational and relatable tone — no corporate-speak
+
+#### TikTok (max 2,200 chars)
+- First 150 characters are the hook shown before "more" — punchy, immediate curiosity or FOMO
+- 1–3 emojis max, used effectively
+- End with 5–10 trending, relevant hashtags
+- Fast, energetic, casual tone — like you're talking to a friend
+
+#### X / Twitter (max 280 chars)
+- Lead with the single most compelling insight or hook
+- Direct and punchy — no fluff
+- 1–2 hashtags max (only if they genuinely add reach)
+- No emojis unless they add meaning
+
+#### LinkedIn (max 3,000 chars)
+- First line: bold statement, counterintuitive insight, or relatable struggle — never "I'm excited to share..."
+- 150–400 words, short paragraphs (1–3 lines each) with blank lines between for mobile readability
+- Tell a story or share a specific lesson — not a generic list
+- End with a question to drive comments
+- Professional but human tone — avoid corporate jargon
+- 3–5 relevant hashtags at the end on their own line
+- No emojis unless used once for emphasis
+
+#### Threads (max 500 chars)
+- One clear thought or insight per post
+- Conversational and authentic — Threads rewards genuine voice over polished marketing
+- Optional: end with a question to spark replies
+- No hashtags (they don't work well on Threads)
+- Tone: like a thoughtful text message to your audience
+
+#### Bluesky (max 300 chars)
+- Lead with the most interesting or surprising insight
+- Values authenticity, tech-savviness, and nuance
+- Conversational and direct
+- 1 hashtag max (only if highly relevant)
+- No corporate marketing language
+
+---
+
+### Manual workflow — generate captions first, then create drafts
 
 **Step 1** — Transcribe only:
 ```bash
 node ./scripts/video2post.js <url>
 ```
 
-**Step 2** — Generate platform captions from the `transcript` field using the prompts in [`prompts.md`](./prompts.md):
+**Step 2** — Generate platform captions yourself using the Caption Generation Guide above. Apply the rules for each requested platform to the `transcript` field from the output. Produce the captions directly — do not call an external tool.
 
-Use the **multi-platform batch prompt** in `prompts.md` to generate all captions at once, or use individual platform prompts for more control. Replace `{{transcript}}` with the `transcript` field from the video2post.js output.
-
-| Platform | Char Limit | Key Rules |
-|----------|-----------|-----------|
-| X | 280 | Hook in first line, punchy, 1–2 hashtags |
-| LinkedIn | 3,000 | Professional tone, story-led, no hashtag spam |
-| Instagram | 2,200 | Hook in first line, 5–8 hashtags, call-to-action |
-| TikTok | 150 hook + hashtags | Fast, energetic, 5–10 trending hashtags |
-| Threads | 500 | Conversational, one clear point, no hashtags |
-| Bluesky | 300 | Authentic, tech-savvy, 1 hashtag max |
-| YouTube title | 70 chars | Keyword-rich, curiosity gap, no clickbait |
-| YouTube desc | 5,000 | Hook above the fold, timestamps if >3 min, 3–5 hashtags at end |
-
-**Step 3** — Create drafts with your customized captions:
+**Step 3** — Create drafts with the generated captions:
 ```bash
 ./scripts/postey.js drafts:create <account_id> --platform INSTAGRAM --text "<caption>"
 ./scripts/postey.js drafts:create <account_id> --platform YOUTUBE --youtube-title "<title>" --youtube-description "<description>" --text "<description>"
