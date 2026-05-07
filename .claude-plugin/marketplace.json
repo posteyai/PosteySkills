@@ -7,7 +7,7 @@
   "metadata": {
     "description": "Official Postey skills for AI agents",
     "version": "1.0.0",
-    "repository": "https://github.com/quantplay-admin/PosteySkills"
+    "repository": "https://github.com/posteyai/PosteySkills"
   },
   "plugins": [
     {

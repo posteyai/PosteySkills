@@ -10,6 +10,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const readline = require("readline");
+const { validateMedia, MIME_TYPES } = require("./mediaValidator");
 
 // Allow overriding API base for tests / self-hosted mocks.
 const API_BASE = process.env.POSTEY_API_BASE || "https://srvr.postey.ai/v1";
@@ -33,7 +34,15 @@ const TAG_COLORS = new Set([
   "PINK_PURPLE",
   "PINK",
 ]);
-const SOCIAL_PLATFORMS = new Set(["X", "LINKEDIN"]);
+const SOCIAL_PLATFORMS = new Set(["X", "LINKEDIN","TIKTOK","INSTAGRAM","YOUTUBE","THREADS","BLUESKY"]);
+
+const POST_TYPE_MAP = { X: 0, LINKEDIN: 2, THREADS: 9, FACEBOOK: 4, INSTAGRAM: 5, YOUTUBE: 10, TIKTOK: 7, BLUESKY: 8 };
+
+function postToDocId(postId, platform) {
+  const typeId = POST_TYPE_MAP[platform];
+  if (typeId === undefined) error(`Unknown platform for doc_id: ${platform}`);
+  return postId * 256 + typeId;
+}
 
 // ============================================================================
 // ANSI Color Helpers (no dependencies)
@@ -241,6 +250,26 @@ async function apiRequest(method, endpoint, body = null, opts = {}) {
     throw err;
   }
 
+  return data;
+}
+
+async function apiUploadFile(endpoint, formData) {
+  const apiKey = requireApiKey();
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    method: "POST",
+    headers: { "X-API-Key": apiKey },
+    body: formData,
+  });
+  const text = await response.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = { raw: text };
+  }
+  if (!response.ok) {
+    error(`HTTP ${response.status}`, { response: data });
+  }
   return data;
 }
 
@@ -988,20 +1017,23 @@ async function cmdDraftsCreate(args) {
     share: "boolean",
     all: "boolean",
     "publish-now": "boolean",
+    "youtube-made-for-kids": "boolean",
+    "youtube-notify-subscribers": "boolean",
+    "youtube-embeddable": "boolean",
   });
   const accountId = requireIntId(
     resolveAccountIdFromParsed(parsed, parsed._positional[0]),
     "account_id",
   );
 
-  const unsupportedFlags = ["media", "reply-to", "community", "share", "notes"];
+  const unsupportedFlags = ["reply-to", "community", "share", "notes"];
   const usedUnsupported = unsupportedFlags.filter((k) =>
     Object.prototype.hasOwnProperty.call(parsed, k),
   );
   if (usedUnsupported.length > 0) {
     error("Unsupported options for /posts/raw create", {
       unsupported: usedUnsupported.map((k) => `--${k}`),
-      hint: "Use --text/--file, --platform, --title, --tags, --schedule, --publish-now",
+      hint: "Use --text/--file, --platform, --title, --tags, --schedule, --publish-now, --media-urls",
     });
   }
 
@@ -1040,6 +1072,10 @@ async function cmdDraftsCreate(args) {
     }
   }
 
+  if (platformEnums.includes("YOUTUBE") && !parsed["youtube-title"]) {
+    error("--youtube-title is required when posting to YOUTUBE");
+  }
+
   const publishNow = parsed["publish-now"] || parsed.schedule === "now";
   if (publishNow && parsed.schedule && parsed.schedule !== "now") {
     error("Cannot use both --publish-now and --schedule <time>");
@@ -1050,10 +1086,32 @@ async function cmdDraftsCreate(args) {
       ? coerceFlagValueToString(parsed.schedule, "--schedule")
       : null;
 
+  const content = { text };
+  if (parsed["youtube-title"])
+    content.youtube_title = coerceFlagValueToString(parsed["youtube-title"], "--youtube-title");
+  if (parsed["youtube-description"])
+    content.youtube_description = coerceFlagValueToString(parsed["youtube-description"], "--youtube-description");
+  if (parsed["youtube-privacy-status"])
+    content.youtube_privacy_status = coerceFlagValueToString(parsed["youtube-privacy-status"], "--youtube-privacy-status");
+  if (parsed["youtube-category-id"])
+    content.youtube_category_id = coerceFlagValueToString(parsed["youtube-category-id"], "--youtube-category-id");
+  if (parsed["youtube-made-for-kids"] !== undefined)
+    content.youtube_made_for_kids = !!parsed["youtube-made-for-kids"];
+  if (parsed["youtube-tags"])
+    content.youtube_tags = coerceFlagValueToString(parsed["youtube-tags"], "--youtube-tags");
+  if (parsed["youtube-notify-subscribers"] !== undefined)
+    content.youtube_notify_subscribers = !!parsed["youtube-notify-subscribers"];
+  if (parsed["youtube-license"])
+    content.youtube_license = coerceFlagValueToString(parsed["youtube-license"], "--youtube-license");
+  if (parsed["youtube-embeddable"] !== undefined)
+    content.youtube_embeddable = !!parsed["youtube-embeddable"];
+  if (parsed["media-urls"])
+    content.media_urls = coerceFlagValueToString(parsed["media-urls"], "--media-urls").split(",").map((s) => s.trim());
+
   const body = {
     account_id: accountId,
     platforms: platformEnums,
-    post_raw_content: text,
+    contents: [content],
     publish_now: !!publishNow,
     schedule_at: scheduleAt,
     draft_title: parsed.title
@@ -1126,6 +1184,16 @@ async function cmdCreateDraftAlias(args) {
   pushStringFlag(forwarded, parsed, "schedule", "--schedule");
   pushStringFlag(forwarded, parsed, "tags", "--tags", { allowEmpty: true });
   if (parsed["publish-now"]) forwarded.push("--publish-now");
+  pushStringFlag(forwarded, parsed, "youtube-title", "--youtube-title");
+  pushStringFlag(forwarded, parsed, "youtube-description", "--youtube-description");
+  pushStringFlag(forwarded, parsed, "youtube-privacy-status", "--youtube-privacy-status");
+  pushStringFlag(forwarded, parsed, "youtube-category-id", "--youtube-category-id");
+  if (parsed["youtube-made-for-kids"]) forwarded.push("--youtube-made-for-kids");
+  pushStringFlag(forwarded, parsed, "youtube-tags", "--youtube-tags");
+  if (parsed["youtube-notify-subscribers"]) forwarded.push("--youtube-notify-subscribers");
+  pushStringFlag(forwarded, parsed, "youtube-license", "--youtube-license");
+  if (parsed["youtube-embeddable"]) forwarded.push("--youtube-embeddable");
+  pushStringFlag(forwarded, parsed, "media-urls", "--media-urls");
 
   await cmdDraftsCreate(forwarded);
 }
@@ -1302,14 +1370,24 @@ COMMANDS:
   drafts:get <draft_id>                      Get a specific draft
 
   drafts:create [account_id] [options]       Create draft via /posts/raw
-    --platform <platforms>                   Comma-separated: X,LINKEDIN
+    --platform <platforms>                   Comma-separated: X,LINKEDIN,TIKTOK,INSTAGRAM,THREADS,BLUESKY,YOUTUBE
                                              (uses account default platform if omitted; falls back to X)
-    --text <text>                            Post raw content (use --- on its own line for threads)
+    --text <text>                            Post caption/content for non-YouTube platforms
     --file, -f <path>                        Read content from file instead of --text
     --title <title>                          Draft title (defaults to "Untitled Draft")
     --tags <ids>                             Comma-separated numeric tag IDs (e.g. 1,2,3)
     --schedule <time>                        ISO datetime, or "now" to publish immediately
     --publish-now                            Publish immediately
+    --media-urls <urls>                      Comma-separated media URLs to attach
+    --youtube-title <title>                  YouTube video title (required when platform includes YOUTUBE)
+    --youtube-description <text>             YouTube video description
+    --youtube-privacy-status <status>        YouTube privacy: public, private, unlisted
+    --youtube-category-id <id>               YouTube category ID
+    --youtube-made-for-kids                  Mark as made for kids
+    --youtube-tags <tags>                    YouTube tags string
+    --youtube-notify-subscribers             Notify subscribers on publish
+    --youtube-license <license>              YouTube license type
+    --youtube-embeddable                     Allow embedding
 
   drafts:update [social_set_id] <draft_id> [options]  Update a draft
     --platform <platforms>                   Comma-separated platforms
@@ -1342,6 +1420,10 @@ COMMANDS:
     --platform <platforms>                   Optional comma-separated platforms
                                              (defaults to enabled platforms on the draft)
     --natural-posting                        Enable natural posting
+
+  media:upload --platform <platform> --file <path>
+                                             Upload a media file (unlinked). Returns CDN URL
+                                             for use in drafts:create --media-urls
 
   tags:list [account_id]                     List all tags (uses default account if ID omitted)
   tags:create [account_id] --tag <tag> --color <color>
@@ -1441,6 +1523,30 @@ GET YOUR API KEY:
 `);
 }
 
+const MEDIA_PLATFORM_NAME = { X: "twitter", LINKEDIN: "linkedin", TIKTOK: "tiktok", INSTAGRAM: "instagram", FACEBOOK: "facebook", YOUTUBE: "youtube", BLUESKY: "bluesky", THREADS: "threads" };
+
+async function cmdMediaUpload(args) {
+  const parsed = parseArgs(args);
+  const platform = parseSocialPlatformEnum(parsed.platform, "--platform");
+  const filePath = parsed.file || parsed.f;
+  if (!filePath) error("--file is required");
+  if (!fs.existsSync(filePath)) error(`File not found: ${filePath}`);
+
+  validateMedia(filePath, platform, error);
+
+  const fileBuffer = fs.readFileSync(filePath);
+  const fileName = path.basename(filePath);
+  const mediaPlatform = MEDIA_PLATFORM_NAME[platform] || platform.toLowerCase();
+  const mimeType = MIME_TYPES[path.extname(fileName).toLowerCase()] || "application/octet-stream";
+
+  const formData = new FormData();
+  formData.append("file", new Blob([fileBuffer], { type: mimeType }), fileName);
+  formData.append("platform", mediaPlatform);
+
+  const data = await apiUploadFile("/media/unlinked", formData);
+  output(data);
+}
+
 // ============================================================================
 // Main Router
 // ============================================================================
@@ -1460,6 +1566,7 @@ const COMMANDS = {
   "tags:create": cmdTagsCreate,
   "tags:update": cmdTagsUpdate,
   "tags:delete": cmdTagsDelete,
+  "media:upload": cmdMediaUpload,
   "config:show": cmdConfigShow,
   "config:set-default": cmdConfigSetDefault,
   help: showHelp,

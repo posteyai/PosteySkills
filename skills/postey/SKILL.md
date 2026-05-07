@@ -3,9 +3,13 @@ name: postey
 description: >
   Create, schedule, and manage social media posts via Postey. ALWAYS use this
   skill when asked to draft, schedule, post, or check tweets, posts, threads, or
-  social media content for Twitter/X, LinkedIn.
-last-updated: 2026-02-15
-allowed-tools: Bash(./scripts/postey.js:*)
+  social media content for Twitter/X, LinkedIn, Instagram, TikTok, or YouTube.
+  Also handles video/reel workflows: transcribe any video URL and cross-post to
+  Instagram, TikTok, and YouTube.
+last-updated: 2026-05-07
+allowed-tools:
+  - Bash(./scripts/postey.js:*)
+  - Bash(node ./scripts/video2post.js:*)
 ---
 
 # Postey Skill
@@ -85,13 +89,17 @@ The API uses `account_id` for most operations and `post_id` for draft/post opera
 | "Draft a tweet about X" | `drafts:create --text "..."` |
 | "Post this to LinkedIn" | `drafts:create --platform LINKEDIN --text "..."` |
 | "Post to X and LinkedIn" (same content) | `drafts:create --platform X,LINKEDIN --text "..."` |
-| "X thread + LinkedIn post" (different content) | Create one draft, then `drafts:update` to add platform (see [Publishing to Multiple Platforms](#publishing-to-multiple-platforms)) |
+| "X thread + LinkedIn post" (different content) | Create separate drafts per platform |
 | "What's scheduled?" | `drafts:list --status scheduled` |
 | "Show my recent posts" | `drafts:list --status published` |
 | "Schedule this for tomorrow" | `drafts:create ... --schedule "2026-02-20T14:00:00Z"` |
 | "Post this now" | `drafts:create ... --schedule now` or `drafts:publish <draft_id>` |
 | "Read parsed content for X" | `drafts:content <post_id> --platform X` |
 | "Check available tags" | `tags:list` |
+| "Make captions from this reel: \<url\>" | `video2post.js <url>` → use prompts from `prompts.md` to generate platform captions |
+| "Post this video to Instagram/TikTok/YouTube" | `video2post.js <url>` → generate captions → `drafts:create` |
+| "Cross-post this reel to Instagram, TikTok, and YouTube" | `video2post.js <url>` → per-platform captions → `drafts:create` per platform |
+| "Get YouTube title and description from \<url\>" | `video2post.js <url>` → generate YouTube outputs only |
 
 ## Workflow
 
@@ -147,22 +155,7 @@ When the content is the same across platforms, create a single draft with multip
 ./scripts/postey.js drafts:create <account_id> --platform X,LINKEDIN --text "Big announcement!"
 ```
 
-**IMPORTANT**: When content should be tailored (e.g., X thread with a LinkedIn post version), **still use a single draft** — create with one platform first, then update to add the other:
-
-```bash
-# 1. Create draft with the primary platform first
-./scripts/postey.js drafts:create <account_id> --platform LINKEDIN --text "Excited to share our new feature..."
-# Returns: { "id": "draft-123", ... }
-
-# 2. Update the same draft to add another platform with different content
-./scripts/postey.js drafts:update <account_id> draft-123 --platform X --text "🧵 Thread time!
-
----
-
-Here's what we shipped and why it matters..."
-```
-
-So make sure to NEVER create multiple drafts unless the user explicitly wants separate drafts for each platform.
+**IMPORTANT**: When content should be tailored per platform (e.g., X thread vs. LinkedIn post), create separate drafts — one per platform.
 
 ## Commands Reference
 
@@ -176,23 +169,20 @@ So make sure to NEVER create multiple drafts unless the user explicitly wants se
 
 Most drafts commands support an optional `[account_id]` context.
 `drafts:get`, `drafts:delete`, `drafts:schedule`, and `drafts:publish` accept only `<draft_id>`.
-**Safety note**: `drafts:update` supports `[social_set_id] <draft_id>` and may require `--use-default` when using default account context with a single argument.
 
 | Command | Description |
 |---------|-------------|
 | `drafts:list [account_id]` | List drafts (add `--status scheduled` to filter, `--sort` to order) |
 | `drafts:get <draft_id>` | Get a specific draft with full content |
 | `drafts:create [account_id] --text "..."` | Create a new draft via `/posts/raw` |
-| `drafts:create [account_id] --platform X,LINKEDIN --text "..."` | Create for specific platform(s) |
+| `drafts:create [account_id] --platform X,LINKEDIN,TIKTOK,INSTAGRAM,THREADS,BLUESKY,YOUTUBE --text "..."` | Create for specific platform(s) |
 | `drafts:create [account_id] --file <path>` | Create draft from file content |
 | `drafts:create ... --schedule "2026-02-20T14:00:00Z"` | Create and schedule at specific time |
 | `drafts:create ... --publish-now` | Create and publish immediately |
 | `drafts:create ... --tags 1,2,3` | Attach numeric tag IDs |
-| `drafts:update [social_set_id] <draft_id> --text "..."` | Update an existing draft (single-arg requires `--use-default` if a default is configured) |
-| `drafts:update [social_set_id] <draft_id> --tags "1,2"` | Update tags on an existing draft (content unchanged) |
-| `drafts:update ... --share` | Generate a public share URL for the draft |
-| `drafts:update ... --scratchpad "..."` | Update internal notes/scratchpad |
-| `drafts:update [social_set_id] <draft_id> --append --text "..."` | Append to existing thread |
+| `drafts:create ... --media-urls <url1,url2>` | Attach media by URL |
+| `drafts:create ... --platform YOUTUBE --youtube-title "Title" --youtube-description "Desc"` | YouTube post (title required) |
+| `drafts:create ... --youtube-privacy-status public` | Set YouTube privacy |
 
 ### Scheduling & Publishing
 
@@ -202,6 +192,7 @@ Most drafts commands support an optional `[account_id]` context.
 |---------|-------------|
 | `drafts:delete <draft_id>` | Delete a draft |
 | `drafts:content <post_id> --platform X` | Get parsed content for a platform |
+| `media:upload --platform <platform> --file <path>` | Upload media file (unlinked), returns CDN URL — use with `--media-urls` on `drafts:create` |
 | `drafts:schedule <draft_id> --time "2026-02-20T14:00:00Z"` | Schedule draft via `/schedules` |
 | `drafts:schedule <draft_id> --time "..." --platform X,LINKEDIN` | Schedule selected platforms only |
 | `drafts:publish <draft_id>` | Publish immediately via `/publish` |
@@ -293,6 +284,121 @@ Most drafts commands support an optional `[account_id]` context.
 Use these exact names for the `--platform` option:
 - `X` - X (formerly Twitter)
 - `LINKEDIN` - LinkedIn
+- `INSTAGRAM` - Instagram (Reels, feed posts with caption)
+- `TIKTOK` - TikTok
+- `YOUTUBE` - YouTube (requires `--youtube-title` and `--youtube-description`)
+- `THREADS` - Threads
+- `BLUESKY` - Bluesky
+
+> **Note**: Each platform is only available if that account is connected in Postey. Always run `social-sets:list` first and confirm which platforms appear before attempting to post.
+
+## Video / Reel to Captions & Cross-Posting
+
+Download any video URL, transcribe it with Whisper, and optionally create Postey drafts automatically — all in one command.
+
+### Prerequisites
+
+Install these external tools once:
+
+```bash
+# macOS
+brew install yt-dlp ffmpeg
+pip install openai-whisper
+
+# Windows (PowerShell or Command Prompt)
+winget install yt-dlp.yt-dlp
+winget install Gyan.FFmpeg
+pip install openai-whisper
+
+# Linux
+pip install yt-dlp
+sudo apt install ffmpeg
+pip install openai-whisper
+```
+
+### Quick workflow — transcribe + create drafts in one command
+
+```bash
+# Create a YouTube draft from any video URL (e.g. an Instagram reel)
+node ./scripts/video2post.js <url> --platform YOUTUBE --account-id <account_id>
+
+# Cross-post to multiple platforms at once
+node ./scripts/video2post.js <url> --platform INSTAGRAM,TIKTOK,YOUTUBE --account-id <account_id>
+
+# Transcribe only (no draft created)
+node ./scripts/video2post.js <url>
+```
+
+When `--platform` is given, `video2post.js` automatically calls `postey.js` to create a draft per platform using the transcript as content. The video's original title is used as the YouTube title. Content is truncated to each platform's character limit.
+
+### video2post.js flags
+
+```
+node ./scripts/video2post.js <video-url> [options]
+
+  --platform <platforms>   Target Postey platform(s), comma-separated
+                           (X, LINKEDIN, TIKTOK, INSTAGRAM, THREADS, BLUESKY, YOUTUBE)
+  --account-id <id>        Postey account_id — required when --platform is set
+  --output-dir, -o <path>  Save downloaded files to this directory
+  --model <size>           Whisper model: tiny|base|small|medium|large (default: small)
+```
+
+### Output JSON
+
+```json
+{
+  "url": "https://...",
+  "video_title": "Original Video Title",
+  "transcript": "full plain text transcript",
+  "segments": [{"start": 0.0, "end": 4.2, "text": "..."}],
+  "duration_seconds": 90,
+  "video_file": "/tmp/reel_abc/Original_Video_Title.mp4",
+  "audio_file": "/tmp/reel_abc/audio.wav",
+  "tmp_dir": "/tmp/reel_abc",
+  "drafts": [
+    { "platform": "YOUTUBE", "result": [{"platform": "YOUTUBE", "post_id": 123, "published_now": false}] }
+  ]
+}
+```
+
+`drafts` is only present when `--platform` is set.
+
+### Manual workflow — customize captions first
+
+If you want to tailor the captions before creating drafts:
+
+**Step 1** — Transcribe only:
+```bash
+node ./scripts/video2post.js <url>
+```
+
+**Step 2** — Generate platform captions from the `transcript` field using the prompts in [`prompts.md`](./prompts.md):
+
+Use the **multi-platform batch prompt** in `prompts.md` to generate all captions at once, or use individual platform prompts for more control. Replace `{{transcript}}` with the `transcript` field from the video2post.js output.
+
+| Platform | Char Limit | Key Rules |
+|----------|-----------|-----------|
+| X | 280 | Hook in first line, punchy, 1–2 hashtags |
+| LinkedIn | 3,000 | Professional tone, story-led, no hashtag spam |
+| Instagram | 2,200 | Hook in first line, 5–8 hashtags, call-to-action |
+| TikTok | 150 hook + hashtags | Fast, energetic, 5–10 trending hashtags |
+| Threads | 500 | Conversational, one clear point, no hashtags |
+| Bluesky | 300 | Authentic, tech-savvy, 1 hashtag max |
+| YouTube title | 70 chars | Keyword-rich, curiosity gap, no clickbait |
+| YouTube desc | 5,000 | Hook above the fold, timestamps if >3 min, 3–5 hashtags at end |
+
+**Step 3** — Create drafts with your customized captions:
+```bash
+./scripts/postey.js drafts:create <account_id> --platform INSTAGRAM --text "<caption>"
+./scripts/postey.js drafts:create <account_id> --platform YOUTUBE --youtube-title "<title>" --youtube-description "<description>" --text "<description>"
+```
+
+**Step 4** — Review and publish / schedule:
+```bash
+./scripts/postey.js drafts:get <draft_id>
+./scripts/postey.js drafts:publish <draft_id>
+# or: ./scripts/postey.js drafts:schedule <draft_id> --time "2026-05-07T10:00:00Z"
+```
 
 ## Automation Guidelines
 

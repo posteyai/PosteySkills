@@ -6,6 +6,26 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 
+### Added
+
+- `video2post.js` script (cross-platform, macOS + Windows): download any video URL with yt-dlp, extract audio with ffmpeg, transcribe with Whisper — outputs transcript and file paths as JSON. Supports `--output-dir` and `--model` flags.
+- Video-to-cross-post workflow: generate tailored captions for Instagram, TikTok, and YouTube from a video transcript and publish as separate per-platform Postey drafts.
+- THREADS and BLUESKY platform support (`--platform THREADS` / `--platform BLUESKY`).
+- `media:upload <post_id> --platform <platform> --file <path>` command: upload a media file and attach it to an existing draft (`doc_id` computed automatically as `post_id * 256 + platform_type`).
+- `video2post.js` now automatically uploads the downloaded video to Postey after creating each draft.
+
+### Removed
+
+- Removed `drafts:update` and `media:upload` from documentation — these commands are not implemented in the CLI.
+
+### Changed
+
+- `drafts:create` now uses the new `/posts/raw` request model (`contents` list instead of `post_raw_content`).
+- Added YouTube support to `drafts:create`: `--youtube-title` (required for YOUTUBE platform), `--youtube-description`, `--youtube-privacy-status`, `--youtube-category-id`, `--youtube-made-for-kids`, `--youtube-tags`, `--youtube-notify-subscribers`, `--youtube-license`, `--youtube-embeddable`.
+- Added `--media-urls` flag to `drafts:create` for attaching media by URL.
+- `--platform` now accepts `TIKTOK`, `INSTAGRAM`, and `YOUTUBE` in addition to `X` and `LINKEDIN`.
+- Platform support for `INSTAGRAM`, `TIKTOK`, and `YOUTUBE` (availability depends on connected accounts).
+
 ### Changed
 
 - Renamed the skill and CLI to `postey` across command examples, file paths, and plugin metadata.
