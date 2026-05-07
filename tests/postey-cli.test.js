@@ -355,7 +355,7 @@ test('drafts:create posts to /posts/raw', async () => {
       assert.deepEqual(req.bodyJson, {
         account_id: 9,
         platforms: ['X'],
-        post_raw_content: 'Hello',
+        contents: [{ text: 'Hello' }],
         publish_now: false,
         schedule_at: null,
         draft_title: 'Untitled Draft',
@@ -389,7 +389,7 @@ test('create-draft alias forwards positional text and account id', async () => {
     assert: (req) => {
       authAssertFactory(apiKey)(req);
       assert.equal(req.bodyJson.account_id, 9);
-      assert.equal(req.bodyJson.post_raw_content, 'Hello alias');
+      assert.equal(req.bodyJson.contents[0].text, 'Hello alias');
       assert.deepEqual(req.bodyJson.platforms, ['X']);
     },
     json: { id: 202 },
@@ -618,7 +618,6 @@ test('legacy commands not implemented return unknown command', async () => {
     for (const args of [
       ['drafts:update', '1', '2'],
       ['update-draft', '2'],
-      ['media:upload', 'file.jpg'],
       ['media:status', '1'],
       ['social-sets:get', '1'],
     ]) {
