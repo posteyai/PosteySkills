@@ -10,6 +10,9 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const readline = require("readline");
+const http = require("http");
+const { createHash, randomBytes } = require("crypto");
+const { spawn, spawnSync } = require("child_process");
 const { validateMedia, MIME_TYPES } = require("./mediaValidator");
 
 // Allow overriding API base for tests / self-hosted mocks.
@@ -19,6 +22,29 @@ const GLOBAL_CONFIG_FILE = path.join(GLOBAL_CONFIG_DIR, "config.json");
 const LOCAL_CONFIG_DIR = ".postey";
 const LOCAL_CONFIG_FILE = path.join(LOCAL_CONFIG_DIR, "config.json");
 const API_KEY_URL = "https://app.postey.ai?settings=api";
+
+// ── OAuth 2.1 / PKCE constants ────────────────────────────────────────────────
+// auth:login uses Dynamic Client Registration (DCR) so no static client ID is
+// needed. The authorize redirect lands on app.postey.ai/auth/mcp-consent —
+// the same branded consent UI used by the MCP server.
+//
+// Endpoints discovered via https://srvr.postey.ai/.well-known/oauth-authorization-server
+const OAUTH_REGISTER_URL =
+  process.env.POSTEY_OAUTH_REGISTER_URL || "https://srvr.postey.ai/register";
+const OAUTH_AUTHORIZE_URL =
+  process.env.POSTEY_OAUTH_AUTHORIZE_URL || "https://srvr.postey.ai/authorize";
+const OAUTH_TOKEN_URL =
+  process.env.POSTEY_OAUTH_TOKEN_URL || "https://srvr.postey.ai/token";
+// Set POSTEY_CLI_CLIENT_ID to skip DCR and use a pre-registered client (e.g. CI).
+const OAUTH_CLIENT_ID_OVERRIDE = process.env.POSTEY_CLI_CLIENT_ID || null;
+const OAUTH_SCOPES =
+  "post:read post:edit post:delete " +
+  "publishing:read publishing:edit " +
+  "scheduling:read scheduling:edit scheduling:delete " +
+  "analytics:read " +
+  "comments:read comments:edit comments:delete";
+const OAUTH_CALLBACK_PORT = parseInt(process.env.POSTEY_CLI_CALLBACK_PORT || "9150", 10);
+const OAUTH_TIMEOUT_MS = 120_000; // 2 min for user to complete browser flow
 
 // Content-type mapping for tag colors and platform enums
 
@@ -139,6 +165,144 @@ function getDefaultSocialSetId() {
   return null;
 }
 
+// ── OAuth helpers ─────────────────────────────────────────────────────────────
+
+function generateCodeVerifier() {
+  // RFC 7636 — 43-128 char base64url string
+  return randomBytes(64).toString("base64url");
+}
+
+function generateCodeChallenge(verifier) {
+  return createHash("sha256").update(verifier).digest("base64url");
+}
+
+function decodeJwtPayload(token) {
+  const parts = (token || "").split(".");
+  if (parts.length !== 3) return null;
+  try {
+    return JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function getOAuthConfig() {
+  // Only look in global config — tokens are user-level, not project-level.
+  return readConfigFile(GLOBAL_CONFIG_FILE)?.oauth || null;
+}
+
+function saveOAuthConfig(tokens) {
+  const existing = readConfigFile(GLOBAL_CONFIG_FILE) || {};
+  writeConfig(GLOBAL_CONFIG_FILE, { ...existing, oauth: tokens });
+}
+
+function clearOAuthConfig() {
+  const existing = readConfigFile(GLOBAL_CONFIG_FILE) || {};
+  delete existing.oauth;
+  writeConfig(GLOBAL_CONFIG_FILE, existing);
+}
+
+async function refreshAccessToken(refreshToken, clientId) {
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    client_id: clientId || OAUTH_CLIENT_ID_OVERRIDE || "",
+    refresh_token: refreshToken,
+  });
+
+  const res = await fetch(OAUTH_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error_description || data.error || `Token refresh failed (${res.status})`);
+  }
+  return data;
+}
+
+// Registers a dynamic OAuth client via DCR and returns { client_id, client_secret? }.
+// Skips registration and returns the override client ID when POSTEY_CLI_CLIENT_ID is set.
+async function registerOAuthClient(redirectUri) {
+  if (OAUTH_CLIENT_ID_OVERRIDE) return { client_id: OAUTH_CLIENT_ID_OVERRIDE };
+  const res = await fetch(OAUTH_REGISTER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      redirect_uris: [redirectUri],
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+      token_endpoint_auth_method: "none",
+      client_name: "Postey CLI",
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error_description || data.error || `DCR failed (${res.status}): ${JSON.stringify(data)}`);
+  }
+  return data;
+}
+
+// Returns the Authorization header value for the current session.
+// Priority: env API key → OAuth token (auto-refresh) → config API key.
+async function getAuthHeader() {
+  // 1. Env override (API key) — skip OAuth entirely
+  if (process.env.POSTEY_API_KEY) {
+    return { header: "X-API-Key", value: process.env.POSTEY_API_KEY };
+  }
+
+  // 2. OAuth tokens in global config
+  const oauth = getOAuthConfig();
+  if (oauth?.access_token) {
+    const payload = decodeJwtPayload(oauth.access_token);
+    const expiresAt = payload?.exp ?? oauth.expires_at ?? 0;
+    const needsRefresh = Date.now() / 1000 > expiresAt - 60;
+
+    if (needsRefresh && oauth.refresh_token) {
+      try {
+        const fresh = await refreshAccessToken(oauth.refresh_token, oauth.client_id);
+        const newPayload = decodeJwtPayload(fresh.access_token);
+        const updated = {
+          ...oauth,
+          access_token: fresh.access_token,
+          ...(fresh.refresh_token ? { refresh_token: fresh.refresh_token } : {}),
+          ...(fresh.id_token    ? { id_token: fresh.id_token }             : {}),
+          expires_at: newPayload?.exp ?? Math.floor(Date.now() / 1000) + (fresh.expires_in || 3600),
+        };
+        saveOAuthConfig(updated);
+        return { header: "Authorization", value: `Bearer ${updated.access_token}` };
+      } catch (e) {
+        // Refresh failed — fall through to API key or error
+        process.stderr.write(`OAuth refresh failed: ${e.message}\n`);
+      }
+    } else if (!needsRefresh) {
+      return { header: "Authorization", value: `Bearer ${oauth.access_token}` };
+    }
+  }
+
+  // 3. API key in config files
+  const localConfigPath = path.join(process.cwd(), LOCAL_CONFIG_FILE);
+  const localConfig = readConfigFile(localConfigPath);
+  if (localConfig?.apiKey) return { header: "X-API-Key", value: localConfig.apiKey };
+
+  const globalConfig = readConfigFile(GLOBAL_CONFIG_FILE);
+  if (globalConfig?.apiKey) return { header: "X-API-Key", value: globalConfig.apiKey };
+
+  return null;
+}
+
+function openBrowser(url) {
+  const cmd = process.platform === "darwin" ? "open"
+            : process.platform === "win32"  ? "start"
+            : "xdg-open";
+  try {
+    spawn(cmd, [url], { detached: true, stdio: "ignore" }).unref();
+  } catch {
+    // non-fatal — user sees the URL in stderr
+  }
+}
+
 /**
  * Sort and format social sets for display.
  * Personal accounts (team: null) come first, then team accounts grouped by team name.
@@ -206,22 +370,31 @@ function requireApiKey() {
   if (!result) {
     error(
       `API key not found. Run 'postey.js setup' to configure your API key. Get your key at ${API_KEY_URL}`,
-      {
-        action: "Run: postey.js setup",
-      },
+      { action: "Run: postey.js setup" },
     );
   }
   return result.key;
 }
 
+async function requireAuth() {
+  const auth = await getAuthHeader();
+  if (!auth) {
+    error(
+      "Not authenticated. Run 'postey.js auth:login' (OAuth) or 'postey.js setup' (API key).",
+      { actions: ["postey.js auth:login", "postey.js setup"] },
+    );
+  }
+  return auth;
+}
+
 async function apiRequest(method, endpoint, body = null, opts = {}) {
   const { exitOnError = true } = opts;
-  const apiKey = requireApiKey();
+  const auth = await requireAuth();
 
   const options = {
     method,
     headers: {
-      "X-API-Key": apiKey,
+      [auth.header]: auth.value,
       "Content-Type": "application/json",
     },
   };
@@ -254,10 +427,10 @@ async function apiRequest(method, endpoint, body = null, opts = {}) {
 }
 
 async function apiUploadFile(endpoint, formData) {
-  const apiKey = requireApiKey();
+  const auth = await requireAuth();
   const response = await fetch(`${API_BASE}${endpoint}`, {
     method: "POST",
-    headers: { "X-API-Key": apiKey },
+    headers: { [auth.header]: auth.value },
     body: formData,
   });
   const text = await response.text();
@@ -271,6 +444,196 @@ async function apiUploadFile(endpoint, formData) {
     error(`HTTP ${response.status}`, { response: data });
   }
   return data;
+}
+
+// Threshold above which media:upload switches to the chunked path (50 MB).
+const CHUNKED_UPLOAD_THRESHOLD = 50 * 1024 * 1024;
+
+async function uploadFileChunked(filePath, platform, mimeType) {
+  const auth = await requireAuth();
+  const fileSize = fs.statSync(filePath).size;
+  const filename = path.basename(filePath);
+  const mediaPlatform = MEDIA_PLATFORM_NAME[platform] || platform.toLowerCase();
+
+  if (process.stderr.isTTY) {
+    process.stderr.write(`Chunked upload: ${filename} (${(fileSize / 1024 / 1024).toFixed(1)} MB)\n`);
+  }
+
+  // 1. Init session
+  const initRes = await fetch(`${API_BASE}/media/chunked/init`, {
+    method: "POST",
+    headers: { [auth.header]: auth.value, "Content-Type": "application/json" },
+    body: JSON.stringify({ filename, file_size: fileSize, platform: mediaPlatform }),
+  });
+  if (!initRes.ok) {
+    const errData = await initRes.json().catch(() => ({}));
+    error(`HTTP ${initRes.status}`, { response: errData });
+  }
+  const { upload_id, chunk_size, total_chunks } = await initRes.json();
+
+  if (process.stderr.isTTY) {
+    process.stderr.write(`Upload ID: ${upload_id} | ${total_chunks} chunks × ${(chunk_size / 1024).toFixed(0)} KB\n`);
+  }
+
+  // 2. Upload chunks in parallel (max 4 concurrent)
+  const CONCURRENCY = 8;
+  let completed = 0;
+
+  async function uploadChunk(i) {
+    const start = i * chunk_size;
+    const end = Math.min(start + chunk_size, fileSize) - 1;
+    const chunkLen = end - start + 1;
+    const buf = Buffer.alloc(chunkLen);
+    const fd = fs.openSync(filePath, "r");
+    try {
+      fs.readSync(fd, buf, 0, chunkLen, start);
+    } finally {
+      fs.closeSync(fd);
+    }
+
+    const form = new FormData();
+    form.append("file", new Blob([buf], { type: mimeType }), filename);
+
+    const patchRes = await fetch(`${API_BASE}/media/chunked/${upload_id}`, {
+      method: "PATCH",
+      headers: {
+        [auth.header]: auth.value,
+        "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+      },
+      body: form,
+    });
+    if (!patchRes.ok) {
+      const errData = await patchRes.json().catch(() => ({}));
+      error(`HTTP ${patchRes.status} on chunk ${i + 1}`, { response: errData });
+    }
+
+    completed++;
+    if (process.stderr.isTTY) {
+      const pct = ((completed / total_chunks) * 100).toFixed(0);
+      process.stderr.write(`\r  ${pct}% (${completed}/${total_chunks} chunks)`);
+    }
+  }
+
+  // Run with bounded concurrency
+  const indices = Array.from({ length: total_chunks }, (_, i) => i);
+  for (let i = 0; i < indices.length; i += CONCURRENCY) {
+    await Promise.all(indices.slice(i, i + CONCURRENCY).map(uploadChunk));
+  }
+
+  if (process.stderr.isTTY) process.stderr.write("\n");
+
+  // 3. Complete
+  const completeRes = await fetch(`${API_BASE}/media/chunked/${upload_id}/complete`, {
+    method: "POST",
+    headers: { [auth.header]: auth.value },
+  });
+  if (!completeRes.ok) {
+    const errData = await completeRes.json().catch(() => ({}));
+    error(`HTTP ${completeRes.status}`, { response: errData });
+  }
+  return await completeRes.json();
+}
+
+function buildFormData(filePath, mimeType, platform) {
+  const fd = new FormData();
+  fd.append("file", new Blob([fs.readFileSync(filePath)], { type: mimeType }), path.basename(filePath));
+  fd.append("platform", platform);
+  return fd;
+}
+
+async function cmdVideoPost(args) {
+  const parsed = parseArgs(args, { "publish-now": "boolean" });
+
+  const videoSrc = parsed.video;
+  const text = parsed.text;
+  const platformsCsv = parsed.platforms;
+  const accountId = requireIntId(
+    resolveAccountIdFromParsed(parsed, parsed._positional[0]),
+    "account_id",
+  );
+
+  if (!videoSrc) error("--video is required (local path or https:// URL)");
+  if (!text) error("--text is required");
+  if (!platformsCsv) error("--platforms is required (comma-separated, e.g. INSTAGRAM,LINKEDIN,X)");
+
+  const platforms = platformsCsv.toUpperCase().split(",").map((p) => p.trim()).filter(Boolean);
+  const hasInsta = platforms.includes("INSTAGRAM");
+  const isUrl = videoSrc.startsWith("https://");
+  const coverTimeSec = parseFloat(parsed["cover-time"] || "3");
+  const publishNow = !!parsed["publish-now"];
+  const scheduleAt = !publishNow && parsed.schedule
+    ? coerceFlagValueToString(parsed.schedule, "--schedule")
+    : null;
+  const title = parsed.title
+    ? coerceFlagValueToString(parsed.title, "--title")
+    : "Untitled Draft";
+
+  // 1. Upload video (Instagram only — other platforms are text-only)
+  let videoUrl = null;
+  if (hasInsta) {
+    if (isUrl) {
+      videoUrl = videoSrc; // already hosted on CDN
+    } else {
+      if (!fs.existsSync(videoSrc)) error(`File not found: ${videoSrc}`);
+      const ext = path.extname(videoSrc).toLowerCase();
+      const mimeType = MIME_TYPES[ext] || "video/mp4";
+      const fileSize = fs.statSync(videoSrc).size;
+      let result;
+      if (fileSize > CHUNKED_UPLOAD_THRESHOLD) {
+        result = await uploadFileChunked(videoSrc, "INSTAGRAM", mimeType);
+      } else {
+        result = await apiUploadFile("/media/unlinked", buildFormData(videoSrc, mimeType, "instagram"));
+      }
+      videoUrl = result.url;
+    }
+    if (process.stderr.isTTY) process.stderr.write(`Video URL: ${videoUrl}\n`);
+  }
+
+  // 2. Extract cover thumbnail with ffmpeg and upload (Instagram only)
+  let coverUrl = null;
+  if (hasInsta) {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "postey_vpost_"));
+    const thumbOut = path.join(tmpDir, "cover.jpg");
+    try {
+      const ffResult = spawnSync(
+        "ffmpeg",
+        ["-ss", String(coverTimeSec), "-i", videoSrc, "-vframes", "1", "-q:v", "2", thumbOut, "-y"],
+        { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+      );
+      if (ffResult.status === 0 && fs.existsSync(thumbOut)) {
+        const coverResult = await apiUploadFile(
+          "/media/unlinked",
+          buildFormData(thumbOut, "image/jpeg", "instagram"),
+        );
+        coverUrl = coverResult.url;
+        if (process.stderr.isTTY) process.stderr.write(`Cover URL: ${coverUrl}\n`);
+      } else {
+        process.stderr.write("Warning: ffmpeg cover extraction failed — posting without cover_url\n");
+        if (ffResult.stderr) process.stderr.write(ffResult.stderr.slice(0, 500) + "\n");
+      }
+    } finally {
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    }
+  }
+
+  // 3. Build content + POST to /posts/raw
+  const content = { text };
+  if (videoUrl) content.media_urls = [videoUrl];
+  if (coverUrl) content.cover_url = coverUrl;
+
+  const body = {
+    account_id: accountId,
+    platforms,
+    contents: [content],
+    publish_now: publishNow,
+    schedule_at: scheduleAt,
+    draft_title: title,
+    tags: parseTagIds(parsed.tags),
+    post_type: hasInsta ? "REEL" : null,
+  };
+
+  const data = await apiRequest("POST", "/posts/raw", body);
+  output(data);
 }
 
 function parseArgs(args, spec = {}) {
@@ -586,6 +949,185 @@ async function resolvePlatformsForPost(postId, parsed) {
 // Commands
 // ============================================================================
 
+async function cmdAuthLogin(args) {
+  const parsed = parseArgs(args, { global: "boolean", local: "boolean" });
+  const useLocal = parsed.local === true;
+
+  // 1. Start local callback server on the fixed port
+  const server = http.createServer();
+  const port = await new Promise((resolve, reject) => {
+    server.listen(OAUTH_CALLBACK_PORT, "127.0.0.1", () => resolve(server.address().port));
+    server.on("error", (e) => {
+      if (e.code === "EADDRINUSE") {
+        reject(new Error(
+          `Port ${OAUTH_CALLBACK_PORT} is already in use. ` +
+          `Stop the conflicting process or set POSTEY_CLI_CALLBACK_PORT to a free port.`
+        ));
+      } else {
+        reject(e);
+      }
+    });
+  });
+  const redirectUri = `http://localhost:${port}/callback`;
+
+  // 2. Register a dynamic client via DCR (skipped when POSTEY_CLI_CLIENT_ID is set)
+  let clientId;
+  try {
+    console.error(fmt.info("Registering OAuth client…"));
+    const reg = await registerOAuthClient(redirectUri);
+    clientId = reg.client_id;
+  } catch (e) {
+    server.close();
+    error(`OAuth client registration failed: ${e.message}`);
+  }
+
+  // 3. Generate PKCE + state
+  const codeVerifier  = generateCodeVerifier();
+  const codeChallenge = generateCodeChallenge(codeVerifier);
+  const state = randomBytes(16).toString("hex");
+
+  // 4. Build authorize URL (lands on app.postey.ai/auth/mcp-consent)
+  const authorizeUrl = new URL(OAUTH_AUTHORIZE_URL);
+  authorizeUrl.searchParams.set("response_type", "code");
+  authorizeUrl.searchParams.set("client_id",     clientId);
+  authorizeUrl.searchParams.set("redirect_uri",  redirectUri);
+  // MCP server has no scope requirements (enforced per-tool); omit scope param.
+  authorizeUrl.searchParams.set("state",         state);
+  authorizeUrl.searchParams.set("code_challenge",        codeChallenge);
+  authorizeUrl.searchParams.set("code_challenge_method", "S256");
+
+  // 5. Open browser (redirects to app.postey.ai/auth/mcp-consent)
+  console.error("");
+  console.error(fmt.title("Postey CLI — Login"));
+  console.error("");
+  console.error(fmt.info("Opening Postey consent page in your browser…"));
+  console.error(fmt.dim("If it doesn't open, visit this URL manually:"));
+  console.error(fmt.link(authorizeUrl.toString()));
+  console.error("");
+  openBrowser(authorizeUrl.toString());
+
+  // 6. Wait for the callback (timeout after OAUTH_TIMEOUT_MS)
+  let authCode;
+  try {
+    authCode = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        server.close();
+        reject(new Error("Timed out waiting for browser authentication (2 min). Try again."));
+      }, OAUTH_TIMEOUT_MS);
+
+      server.on("request", (req, res) => {
+        clearTimeout(timer);
+        const u = new URL(req.url, "http://localhost");
+
+        if (u.pathname !== "/callback") {
+          res.writeHead(404); res.end("Not found"); return;
+        }
+
+        const oauthErr = u.searchParams.get("error");
+        const code     = u.searchParams.get("code");
+        const gotState = u.searchParams.get("state");
+
+        const html = (title, body) =>
+          `<!DOCTYPE html><html><head><title>Postey CLI</title><style>
+            body{font-family:sans-serif;text-align:center;padding-top:80px;background:#fafafa}
+            h2{color:#111}p{color:#555}
+          </style></head><body><h2>${title}</h2><p>${body}</p></body></html>`;
+
+        if (oauthErr) {
+          const desc = u.searchParams.get("error_description") || oauthErr;
+          res.writeHead(400, { "Content-Type": "text/html" });
+          res.end(html("Authentication error", `${desc}<br>You can close this window.`));
+          server.close();
+          reject(new Error(`OAuth error: ${desc}`));
+          return;
+        }
+
+        if (gotState !== state) {
+          res.writeHead(400, { "Content-Type": "text/html" });
+          res.end(html("Invalid state", "Possible CSRF — please try again."));
+          server.close();
+          reject(new Error("OAuth state mismatch — possible CSRF"));
+          return;
+        }
+
+        res.writeHead(200, { "Content-Type": "text/html" });
+        res.end(html("✓ Authenticated", "You can close this window and return to the terminal."));
+        server.close();
+        resolve(code);
+      });
+    });
+  } catch (e) {
+    server.close();
+    error(e.message);
+  }
+
+  // 7. Exchange code for tokens
+  console.error(fmt.info("Exchanging code for tokens…"));
+  const tokenBody = new URLSearchParams({
+    grant_type:    "authorization_code",
+    client_id:     clientId,
+    code:          authCode,
+    redirect_uri:  redirectUri,
+    code_verifier: codeVerifier,
+  });
+
+  let tokenData;
+  try {
+    const tokenRes = await fetch(OAUTH_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: tokenBody.toString(),
+    });
+    tokenData = await tokenRes.json();
+    if (!tokenRes.ok) {
+      error(tokenData.error_description || tokenData.error || `Token exchange failed (${tokenRes.status})`);
+    }
+  } catch (e) {
+    error(`Token exchange request failed: ${e.message}`);
+  }
+
+  // 8. Decode expiry and store (persist client_id for token refresh)
+  const payload   = decodeJwtPayload(tokenData.access_token);
+  const expiresAt = payload?.exp ?? Math.floor(Date.now() / 1000) + (tokenData.expires_in || 3600);
+  const sub       = payload?.sub || payload?.username || "unknown";
+
+  const oauthEntry = {
+    access_token:  tokenData.access_token,
+    refresh_token: tokenData.refresh_token || null,
+    id_token:      tokenData.id_token      || null,
+    expires_at:    expiresAt,
+    client_id:     clientId,
+    scope:         tokenData.scope || OAUTH_SCOPES,
+  };
+
+  // Honor --local flag; otherwise always global for tokens
+  if (useLocal) {
+    const localPath = path.join(process.cwd(), LOCAL_CONFIG_FILE);
+    const existing  = readConfigFile(localPath) || {};
+    writeConfig(localPath, { ...existing, oauth: oauthEntry });
+    console.error(fmt.success(`Tokens saved to ${fmt.dim(localPath)}`));
+  } else {
+    saveOAuthConfig(oauthEntry);
+    console.error(fmt.success(`Tokens saved to ${fmt.dim(GLOBAL_CONFIG_FILE)}`));
+  }
+
+  console.error(fmt.success(`Logged in as ${fmt.bold(sub)}`));
+  console.error("");
+
+  output({ success: true, message: "Authenticated via OAuth", sub, expires_at: expiresAt });
+}
+
+async function cmdAuthLogout() {
+  const oauth = getOAuthConfig();
+  if (!oauth) {
+    output({ success: true, message: "No OAuth session found — nothing to clear." });
+    return;
+  }
+  clearOAuthConfig();
+  console.error(fmt.success("OAuth tokens cleared from config."));
+  output({ success: true, message: "Logged out" });
+}
+
 async function cmdSocialSetsList() {
   const data = await apiRequest("GET", "/accounts");
   output(data);
@@ -889,12 +1431,13 @@ async function cmdSetup(args) {
 }
 
 async function cmdConfigShow() {
-  const result = getApiKey();
+  const result  = getApiKey();
+  const oauth   = getOAuthConfig();
 
-  if (!result) {
+  if (!result && !oauth) {
     output({
       configured: false,
-      hint: "Run: postey.js setup",
+      hint: "Run: postey.js auth:login  (OAuth)  or  postey.js setup  (API key)",
       api_key_url: API_KEY_URL,
     });
     return;
@@ -908,21 +1451,42 @@ async function cmdConfigShow() {
   // Get default social set info
   const defaultSocialSet = getDefaultSocialSetId();
 
+  // Determine active auth method
+  let authMethod, authPreview;
+  if (process.env.POSTEY_API_KEY) {
+    authMethod  = "api_key (env)";
+    authPreview = process.env.POSTEY_API_KEY.slice(0, 8) + "...";
+  } else if (oauth?.access_token) {
+    const payload   = decodeJwtPayload(oauth.access_token);
+    const expiresAt = payload?.exp ?? oauth.expires_at ?? 0;
+    const expired   = Date.now() / 1000 > expiresAt;
+    authMethod  = expired ? "oauth (expired — run auth:login)" : "oauth";
+    authPreview = payload?.sub || payload?.username || "unknown";
+  } else if (result) {
+    authMethod  = `api_key (${result.source})`;
+    authPreview = result.key.slice(0, 8) + "...";
+  }
+
   output({
     configured: true,
-    active_source: result.source,
-    api_key_preview: result.key.slice(0, 8) + "...",
-    default_social_set: defaultSocialSet
+    auth_method:  authMethod,
+    auth_preview: authPreview,
+    oauth: oauth
       ? {
-          id: defaultSocialSet.id,
-          source: defaultSocialSet.source,
+          sub:        decodeJwtPayload(oauth.access_token)?.sub || null,
+          expires_at: oauth.expires_at,
+          has_refresh_token: !!oauth.refresh_token,
         }
+      : null,
+    default_social_set: defaultSocialSet
+      ? { id: defaultSocialSet.id, source: defaultSocialSet.source }
       : null,
     config_files: {
       local: localConfig
         ? {
             path: localConfigPath,
             has_key: !!localConfig.apiKey,
+            has_oauth: !!localConfig.oauth,
             has_default_social_set: !!localConfig.defaultSocialSetId,
           }
         : null,
@@ -930,6 +1494,7 @@ async function cmdConfigShow() {
         ? {
             path: GLOBAL_CONFIG_FILE,
             has_key: !!globalConfig.apiKey,
+            has_oauth: !!globalConfig.oauth,
             has_default_social_set: !!globalConfig.defaultSocialSetId,
           }
         : null,
@@ -1425,6 +1990,18 @@ COMMANDS:
                                              Upload a media file (unlinked). Returns CDN URL
                                              for use in drafts:create --media-urls
 
+  video:post [account_id] [options]          Upload a video and create a multi-platform draft
+    --video <path|url>                       Local file path or https:// CDN URL (required)
+    --text <caption>                         Caption for all platforms (required)
+    --platforms <CSV>                        Comma-separated platform list (required)
+                                             Instagram gets video + auto cover thumbnail;
+                                             other platforms receive text only
+    --cover-time <sec>                       Seconds into video to extract cover frame (default: 3)
+    --title <title>                          Internal draft title (default: "Untitled Draft")
+    --tags <ids>                             Comma-separated numeric tag IDs
+    --schedule <iso>                         Schedule at ISO-8601 UTC datetime
+    --publish-now                            Publish immediately after creation
+
   tags:list [account_id]                     List all tags (uses default account if ID omitted)
   tags:create [account_id] --tag <tag> --color <color>
                                              Create a new tag
@@ -1513,6 +2090,15 @@ EXAMPLES:
   # Append to existing thread
   ./postey.js drafts:update 123 456 --append --text "New tweet at the end"
 
+  # Upload local video → Instagram Reel (with auto cover) + text to LinkedIn and X
+  ./postey.js video:post 317 --video ./reel.mp4 --text "Caption here" --platforms INSTAGRAM,LINKEDIN,X
+
+  # Post from an already-uploaded CDN URL (skips upload, still extracts cover via ffmpeg)
+  ./postey.js video:post 317 --video https://cdn.postey.ai/.../video.mp4 --text "Watch this" --platforms INSTAGRAM
+
+  # Custom cover frame at 10 seconds, publish immediately
+  ./postey.js video:post 317 --video ./reel.mp4 --text "Caption" --platforms INSTAGRAM --cover-time 10 --publish-now
+
 CONFIG PRIORITY:
   1. POSTEY_API_KEY environment variable (highest)
   2. ./.postey/config.json (project-local)
@@ -1534,16 +2120,22 @@ async function cmdMediaUpload(args) {
 
   validateMedia(filePath, platform, error);
 
-  const fileBuffer = fs.readFileSync(filePath);
   const fileName = path.basename(filePath);
-  const mediaPlatform = MEDIA_PLATFORM_NAME[platform] || platform.toLowerCase();
   const mimeType = MIME_TYPES[path.extname(fileName).toLowerCase()] || "application/octet-stream";
+  const fileSize = fs.statSync(filePath).size;
 
-  const formData = new FormData();
-  formData.append("file", new Blob([fileBuffer], { type: mimeType }), fileName);
-  formData.append("platform", mediaPlatform);
+  let data;
+  if (fileSize > CHUNKED_UPLOAD_THRESHOLD) {
+    data = await uploadFileChunked(filePath, platform, mimeType);
+  } else {
+    const mediaPlatform = MEDIA_PLATFORM_NAME[platform] || platform.toLowerCase();
+    const fileBuffer = fs.readFileSync(filePath);
+    const formData = new FormData();
+    formData.append("file", new Blob([fileBuffer], { type: mimeType }), fileName);
+    formData.append("platform", mediaPlatform);
+    data = await apiUploadFile("/media/unlinked", formData);
+  }
 
-  const data = await apiUploadFile("/media/unlinked", formData);
   output(data);
 }
 
@@ -1552,6 +2144,8 @@ async function cmdMediaUpload(args) {
 // ============================================================================
 
 const COMMANDS = {
+  "auth:login":  cmdAuthLogin,
+  "auth:logout": cmdAuthLogout,
   setup: cmdSetup,
   "social-sets:list": cmdSocialSetsList,
   "drafts:list": cmdDraftsList,
@@ -1567,6 +2161,7 @@ const COMMANDS = {
   "tags:update": cmdTagsUpdate,
   "tags:delete": cmdTagsDelete,
   "media:upload": cmdMediaUpload,
+  "video:post": cmdVideoPost,
   "config:show": cmdConfigShow,
   "config:set-default": cmdConfigSetDefault,
   help: showHelp,

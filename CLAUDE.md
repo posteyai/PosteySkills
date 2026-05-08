@@ -4,76 +4,56 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This repository contains AI agent skills for Postey - markdown files that give AI agents specialized workflows for drafting, scheduling, and managing social media posts across X and LinkedIn.
+This repository packages AI-agent skills for Postey — markdown skill definitions plus a zero-dependency Node.js CLI that agents invoke to draft, schedule, and manage social media posts (currently X and LinkedIn).
 
-## Repository Structure
+Note: `AGENTS.md` is a symlink to this file; edits propagate.
 
-- `skills/postey/SKILL.md` - The main skill definition file with frontmatter metadata and usage instructions
-- `skills/postey/CHANGELOG.md` - User-facing changelog for the Postey skill/CLI
-- `skills/postey/scripts/postey.js` - JavaScript CLI for the Postey API v2 (zero dependencies, Node.js 18+)
-- `.claude-plugin/marketplace.json` - Claude Code plugin marketplace configuration
+## Repository Layout
 
-## The Skill System
+- `skills/postey/SKILL.md` — authoritative spec for the skill: frontmatter (`name`, `description`, `allowed-tools`, `last-updated`), agent workflow, and the full command reference. **Treat this as the source of truth for CLI surface area** — the list here in CLAUDE.md intentionally does not duplicate it.
+- `skills/postey/scripts/postey.js` — the CLI agents shell out to (via `allowed-tools: Bash(./scripts/postey.js:*)`).
+- `skills/postey/CHANGELOG.md` — user-facing changelog for the skill and CLI.
+- `tests/postey-cli.test.js` — node:test suite that spawns the CLI against a sandboxed HOME/cwd and a mock HTTP server.
+- `.claude-plugin/marketplace.json` — Claude Code plugin marketplace entry.
+- `.github/workflows/test.yml` — CI: runs `node --test` on Node 18.x / 20.x / 22.x.
 
-Skills are markdown files with YAML frontmatter that define:
+## CLI Architecture (`skills/postey/scripts/postey.js`)
 
-- `name` - Skill identifier
-- `description` - What the skill does
-- `allowed-tools` - Tools the skill can use (e.g., `Bash(./scripts/postey.js:*)`)
-
-The SKILL.md file documents the workflow and commands that AI agents should follow when using the skill.
-
-## CLI Script
-
-The `postey.js` script is a self-contained JavaScript CLI that wraps the Postey API:
-
-- **Requirements**: Node.js 18+ (for built-in fetch API)
-- **Dependencies**: None (uses only Node.js built-in modules)
-- **Authentication**: Priority order:
-  1. `POSTEY_API_KEY` environment variable
+- **Single file, zero runtime deps**, CommonJS, Node.js 18+ (uses built-in `fetch`). `package.json` is private — `npm install` is not required.
+- **API base**: `https://srvr.postey.ai/v1`, overridable via `POSTEY_API_BASE` (the test suite uses this to point at a local mock server).
+- **All commands output JSON to stdout**; human-readable chrome (colors, prompts) goes to stderr and is gated on `process.stderr.isTTY`. Don't add stdout logging — tests parse stdout as JSON.
+- **Auth resolution priority** (highest to lowest):
+  1. `POSTEY_API_KEY` env var
   2. `./.postey/config.json` (project-local)
   3. `~/.config/postey/config.json` (user-global)
-- **API Base**: `https://api.postey.com/v2`
+- **Platform enum** is defined in one place (`SOCIAL_PLATFORMS`) — currently `X` and `LINKEDIN`. Note that `.claude-plugin/marketplace.json` advertises a broader set (Threads, Bluesky, Mastodon); keep these in sync when adding/removing a platform, and also update `SKILL.md`'s "Platform Names" section.
 
-Key commands: `setup`, `me:get`, `social-sets:list`, `social-sets:get`, `drafts:list`, `drafts:get`, `drafts:create`, `drafts:update`, `drafts:delete`, `drafts:schedule`, `drafts:publish`, `tags:list`, `tags:create`, `media:upload`, `media:status`, `config:show`
-
-All commands output JSON.
-
-## Testing the CLI
+## Common Commands
 
 ```bash
-# Interactive setup (recommended)
+# Run the full test suite
+npm test                                    # or: node --test
+
+# Run a single test file
+node --test tests/postey-cli.test.js
+
+# Filter to a single test by name (node:test)
+node --test --test-name-pattern="<substring>" tests/postey-cli.test.js
+
+# Interactive manual smoke test (requires a real API key)
 ./skills/postey/scripts/postey.js setup
-
-# Or use environment variable
-export POSTEY_API_KEY=your_key
-
-# Test commands
 ./skills/postey/scripts/postey.js social-sets:list
-./skills/postey/scripts/postey.js drafts:create <social_set_id> --text "Test post"
 ```
 
-## Installation Methods
+There is no build step, no lint config, and no formatter config in this repo.
 
-Skills can be installed via:
+## When Editing the Skill or CLI
 
-1. CLI: `npx skills add postey/agent-skills`
-2. Claude Code plugin: `/plugin marketplace add postey/agent-skills`
-3. Cursor: Add as remote GitHub rule
-4. Manual: Copy `skills/postey/` to `.cursor/skills/` or `.claude/skills/`
+1. **Update `last-updated`** in `skills/postey/SKILL.md` frontmatter to today's date. The skill uses this for a 30-day freshness warning to users.
+2. **Update `skills/postey/CHANGELOG.md`** if the change is user-facing (new commands/flags, behavior changes, bug fixes, error messages, defaults). Skip internal refactors, test/CI changes, and formatting-only edits.
+3. **Keep SKILL.md and the CLI in sync**: if you add/rename a command or flag, update the command reference and examples in SKILL.md. The CLI's command list is the contract agents read.
+4. **Preserve JSON-only stdout** in the CLI — any new output path must either go to stderr or be part of the JSON payload.
 
-## Updating the Skill
+## Commit & PR Guidelines
 
-When making changes to the CLI (`postey.js`) or the skill definition (`SKILL.md`), always update the `last-updated` date in the SKILL.md frontmatter to the current date. This date is used for freshness checks to warn users if the skill may be outdated.
-
-### Changelog Updates (Required)
-
-When you change anything that affects how a user runs the CLI or uses the skill (new commands/flags, behavior changes, bug fixes, error messages, defaults), update the changelog in the relevant skill folder:
-
-- `skills/postey/CHANGELOG.md`
-
-Changelog entries must be **user-facing only**. Do not include internal implementation details like refactors, test/CI changes, formatting-only edits, or code organization.
-
-## Commit & Pull Request Guidelines
-
-- NEVER add "Co-authored with Claude" or that kind of AI-assistant plugin to commit messages or PR descriptions.
+- Do not add "Co-authored with Claude" or similar AI-assistant attributions to commit messages or PR descriptions.

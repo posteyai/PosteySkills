@@ -8,6 +8,7 @@ The format is based on Keep a Changelog.
 
 ### Added
 
+- `video:post` command: single-command video upload and multi-platform draft creation. Handles chunked upload for files >50 MB, extracts a cover frame with ffmpeg at a configurable timestamp, and sets `cover_url` for Instagram Reels automatically. Accepts local file paths or `https://` CDN URLs (ffmpeg reads CDN URLs directly). All non-Instagram platforms receive text-only content. Flags: `--video`, `--text`, `--platforms`, `--cover-time` (default: 3 s), `--title`, `--tags`, `--schedule`, `--publish-now`.
 - `video2post.js` script (cross-platform, macOS + Windows): download any video URL with yt-dlp, extract audio with ffmpeg, transcribe with Whisper — outputs transcript and file paths as JSON. Supports `--output-dir` and `--model` flags.
 - Video-to-cross-post workflow: generate tailored captions for Instagram, TikTok, and YouTube from a video transcript and publish as separate per-platform Postey drafts.
 - THREADS and BLUESKY platform support (`--platform THREADS` / `--platform BLUESKY`).

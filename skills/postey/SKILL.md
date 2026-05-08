@@ -5,8 +5,9 @@ description: >
   skill when asked to draft, schedule, post, or check tweets, posts, threads, or
   social media content for Twitter/X, LinkedIn, Instagram, TikTok, or YouTube.
   Also handles video/reel workflows: transcribe any video URL and cross-post to
-  Instagram, TikTok, and YouTube.
-last-updated: 2026-05-07
+  Instagram, TikTok, and YouTube. Use `video:post` for single-command video upload
+  with auto cover thumbnail — no transcription required.
+last-updated: 2026-05-08
 allowed-tools:
   - Bash(./scripts/postey.js:*)
   - Bash(node ./scripts/video2post.js:*)
@@ -193,6 +194,7 @@ Most drafts commands support an optional `[account_id]` context.
 | `drafts:delete <draft_id>` | Delete a draft |
 | `drafts:content <post_id> --platform X` | Get parsed content for a platform |
 | `media:upload --platform <platform> --file <path>` | Upload media file (unlinked), returns CDN URL — use with `--media-urls` on `drafts:create` |
+| `video:post [account_id] --video <path\|url> --text "..." --platforms <CSV>` | Upload video + extract cover thumbnail + create multi-platform draft in one step |
 | `drafts:schedule <draft_id> --time "2026-02-20T14:00:00Z"` | Schedule draft via `/schedules` |
 | `drafts:schedule <draft_id> --time "..." --platform X,LINKEDIN` | Schedule selected platforms only |
 | `drafts:publish <draft_id>` | Publish immediately via `/publish` |
@@ -291,6 +293,80 @@ Use these exact names for the `--platform` option:
 - `BLUESKY` - Bluesky
 
 > **Note**: Each platform is only available if that account is connected in Postey. Always run `social-sets:list` first and confirm which platforms appear before attempting to post.
+
+## Direct Video Posting (no transcription)
+
+Use `video:post` when you have a caption ready and want to upload a video and create a
+multi-platform draft in a single command — no Whisper transcription needed.
+
+**Prerequisites:** `ffmpeg` on PATH (for Instagram cover thumbnail extraction).
+
+### Behavior by platform
+
+| Platform | Video attached | Cover thumbnail (`cover_url`) |
+|----------|---------------|-------------------------------|
+| `INSTAGRAM` | Yes — uploaded as Reel media | Yes — frame extracted by ffmpeg, auto-uploaded |
+| All others (`X`, `LINKEDIN`, etc.) | No | No |
+
+If ffmpeg is unavailable or extraction fails, the draft is still created without `cover_url`
+and a warning is printed to stderr.
+
+### Command
+
+```bash
+./scripts/postey.js video:post <account_id> \
+  --video <local_path_or_https_url> \
+  --text "<caption>" \
+  --platforms INSTAGRAM,LINKEDIN,X \
+  [--cover-time <seconds>]   # default: 3
+  [--title "Draft title"]
+  [--publish-now]
+  [--schedule <iso_datetime>]
+```
+
+### Input auto-detection
+
+| Input | Detection | Behaviour |
+|-------|-----------|-----------|
+| Local file path | Does not start with `https://` | Validates, uploads via chunked (>50MB) or single-request |
+| CDN URL | Starts with `https://` | Skips upload; ffmpeg reads URL directly for cover extraction |
+
+### Examples
+
+```bash
+# Local file → Instagram Reel (with auto cover) + text-only to LinkedIn and X
+./scripts/postey.js video:post 317 \
+  --video ~/Downloads/reel.mp4 \
+  --text "5 secret Claude codes nobody talks about 👇 ..." \
+  --platforms INSTAGRAM,LINKEDIN,X
+
+# CDN URL (video already uploaded) → Instagram only, custom cover frame at 10 s
+./scripts/postey.js video:post 317 \
+  --video https://cdn.postey.ai/user-generated/.../video.mp4 \
+  --text "Caption here" \
+  --platforms INSTAGRAM \
+  --cover-time 10
+
+# Publish immediately
+./scripts/postey.js video:post 317 \
+  --video ./reel.mp4 \
+  --text "Watch this!" \
+  --platforms INSTAGRAM,X \
+  --publish-now
+```
+
+### Output
+
+```json
+{
+  "post_id": 6982,
+  "doc_link": "https://app.postey.ai/?d=...",
+  "platforms": ["INSTAGRAM", "LINKEDIN", "X"],
+  "status": "draft"
+}
+```
+
+---
 
 ## Video / Reel to Captions & Cross-Posting
 

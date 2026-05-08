@@ -51,7 +51,7 @@ const PLATFORM_MEDIA_CONSTRAINTS = {
       maxWidth: 1920, maxHeight: 1920,
       minWidth: 320,  minHeight: 320,
       maxFrameRate: 60,
-      minAspectRatio: 4 / 5,
+      minAspectRatio: 9 / 16,
       maxAspectRatio: 16 / 9,
     },
     image: {
