@@ -97,7 +97,7 @@ MCP_SERVER_URL=https://srvr.postey.ai POSTEY_API_KEY=mk_... node scripts/check-m
 
 # Smoke test (requires a real API key)
 ./skills/postey/scripts/postey.js setup
-./skills/postey/scripts/postey.js social-sets:list
+./skills/postey/scripts/postey.js config:show
 ```
 
 There is no build step, no lint config, and no formatter config in this repo.

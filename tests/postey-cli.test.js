@@ -187,14 +187,14 @@ test('config:show returns configured=false when no API key configured', async ()
   }
 });
 
-test('config:show reads local config and reports default social set source', async () => {
+test('config:show reads local config and reports default account source', async () => {
   const sandbox = await makeSandbox();
   try {
     const cfgDir = path.join(sandbox.cwd, '.postey');
     await fs.mkdir(cfgDir, { recursive: true });
     await fs.writeFile(
       path.join(cfgDir, 'config.json'),
-      JSON.stringify({ apiKey: 'typ_local_key', defaultSocialSetId: '123' }, null, 2)
+      JSON.stringify({ apiKey: 'typ_local_key', defaultAccountId: '123' }, null, 2)
     );
 
     const result = await runCli(['config:show'], {
@@ -207,17 +207,17 @@ test('config:show reads local config and reports default social set source', asy
     assert.equal(out.configured, true);
     assert.ok(out.config_files.local.path.endsWith(path.join('.postey', 'config.json')));
     assert.equal(out.auth_preview, 'typ_loca...');
-    assert.equal(out.default_social_set.id, '123');
+    assert.equal(out.default_account.id, '123');
   } finally {
     await sandbox.cleanup();
   }
 });
 
-test('setup --no-default writes local config and .gitignore entry', async () => {
+test('setup writes local config and .gitignore entry', async () => {
   const sandbox = await makeSandbox();
   try {
     const result = await runCli(
-      ['setup', '--key', 'typ_setup_key', '--location', 'local', '--no-default'],
+      ['setup', '--key', 'typ_setup_key', '--location', 'local'],
       { cwd: sandbox.cwd, env: { HOME: sandbox.home } }
     );
 
@@ -230,32 +230,6 @@ test('setup --no-default writes local config and .gitignore entry', async () => 
     assert.equal(cfg.apiKey, 'typ_setup_key');
     assert.ok((await fs.readFile(path.join(sandbox.cwd, '.gitignore'), 'utf8')).includes('.postey/'));
   } finally {
-    await sandbox.cleanup();
-  }
-});
-
-test('setup with --default-social-set validates social set via API', async () => {
-  const sandbox = await makeSandbox();
-  const server = createMockServer();
-  const { baseUrl } = await server.listen();
-
-  server.expect('GET', '/social-sets/123', {
-    assert: authAssertFactory('typ_setup_key'),
-    json: { id: '123' },
-  });
-
-  try {
-    const result = await runCli(
-      ['setup', '--key', 'typ_setup_key', '--location', 'local', '--default-social-set', '123'],
-      { cwd: sandbox.cwd, env: { HOME: sandbox.home, POSTEY_API_BASE: baseUrl } }
-    );
-
-    assert.equal(result.code, 0);
-    const cfg = JSON.parse(await fs.readFile(path.join(sandbox.cwd, '.postey', 'config.json'), 'utf8'));
-    assert.equal(cfg.defaultSocialSetId, '123');
-    server.assertNoPendingExpectations();
-  } finally {
-    await server.close();
     await sandbox.cleanup();
   }
 });

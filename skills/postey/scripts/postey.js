@@ -123,8 +123,8 @@ function getApiKey() {
   return r ? { source: r.source, key: r.value } : null;
 }
 
-function getDefaultSocialSetId() {
-  const r = _getConfigValue("defaultSocialSetId");
+function getDefaultAccountId() {
+  const r = _getConfigValue("defaultAccountId");
   return r ? { source: r.source, id: r.value } : null;
 }
 
@@ -267,29 +267,19 @@ function openBrowser(url) {
 }
 
 /**
- * Sort and format social sets for display.
- * Personal accounts (team: null) come first, then team accounts grouped by team name.
- * Returns array of { set, displayLine } objects maintaining selection index mapping.
+ * Format accounts for display in interactive selection.
+ * Returns array of { account, displayLine } objects maintaining selection index mapping.
  */
-function formatSocialSetsForDisplay(socialSets) {
-  // Separate personal and team accounts
-  const personal = socialSets.filter((s) => !s.team);
-  const team = socialSets.filter((s) => s.team);
-
-  // Sort team accounts by team name
-  team.sort((a, b) => (a.team.name || "").localeCompare(b.team.name || ""));
-
-  // Combine: personal first, then team
-  const sorted = [...personal, ...team];
-
-  // Format each for display with colors
-  return sorted.map((set, index) => {
+function formatAccountsForDisplay(accounts) {
+  return accounts.map((account, index) => {
     const num = fmt.num(`${index + 1}.`.padStart(3));
-    const name = fmt.bold(set.name || "Unnamed");
-    const username = set.username ? fmt.dim(` @${set.username}`) : "";
-    const teamLabel = set.team ? fmt.label(` [${set.team.name}]`) : "";
-    const displayLine = `  ${num} ${name}${username}${teamLabel}`;
-    return { set, displayLine, index: index + 1 };
+    const name = fmt.bold(account.account_name || "Unnamed");
+    const platforms = ["twitter", "linkedin", "instagram", "threads", "tiktok", "bluesky", "youtube"]
+      .filter((p) => account[p] != null)
+      .join(",");
+    const platformLabel = platforms ? fmt.dim(` [${platforms}]`) : "";
+    const displayLine = `  ${num} ${name}${platformLabel}`;
+    return { account, displayLine, index: index + 1 };
   });
 }
 
@@ -299,7 +289,7 @@ function requireAccountId(providedId) {
     return providedId;
   }
 
-  const defaultResult = getDefaultSocialSetId();
+  const defaultResult = getDefaultAccountId();
   if (defaultResult) {
     return defaultResult.id;
   }
@@ -310,8 +300,8 @@ function requireAccountId(providedId) {
 }
 
 /**
- * Resolve draft target for commands that accept [social_set_id] <draft_id>.
- * When a default social set is configured, a single argument is ambiguous,
+ * Resolve draft target for commands that accept [account_id] <draft_id>.
+ * When a default account is configured, a single argument is ambiguous,
  * so require --use-default to confirm intent.
  */
 function requireApiKey() {
@@ -1386,93 +1376,9 @@ async function _setupGitignore(isLocal, isNonInteractive) {
   }
 }
 
-async function _setupDefaultSocialSet({ apiKey, configPath, defaultSocialSetArg, noDefault, isNonInteractive }) {
-  if (defaultSocialSetArg) {
-    const origKey = process.env.POSTEY_API_KEY;
-    process.env.POSTEY_API_KEY = apiKey;
-    try {
-      await apiRequest("GET", `/social-sets/${defaultSocialSetArg}`, null, { exitOnError: false });
-    } catch {
-      if (origKey) process.env.POSTEY_API_KEY = origKey; else delete process.env.POSTEY_API_KEY;
-      error(`Social set ${defaultSocialSetArg} not found or not accessible`);
-    }
-    if (origKey) process.env.POSTEY_API_KEY = origKey; else delete process.env.POSTEY_API_KEY;
-    const updatedConfig = readConfigFile(configPath) || {};
-    updatedConfig.defaultSocialSetId = defaultSocialSetArg;
-    writeConfig(configPath, updatedConfig);
-    console.error(fmt.success(`Default social set saved: ${defaultSocialSetArg}`));
-    return defaultSocialSetArg;
-  }
-
-  if (noDefault) {
-    console.error(fmt.dim("Skipping default social set configuration."));
-    return null;
-  }
-
-  let socialSets = null;
-  try {
-    const origKey = process.env.POSTEY_API_KEY;
-    process.env.POSTEY_API_KEY = apiKey;
-    socialSets = await apiRequest("GET", "/social-sets?limit=50", null, { exitOnError: false });
-    if (origKey) process.env.POSTEY_API_KEY = origKey; else delete process.env.POSTEY_API_KEY;
-  } catch (err) {
-    console.error(fmt.warn(`Could not fetch social sets: ${err.message}`));
-    console.error(fmt.dim("You can set a default later with: postey.js config:set-default"));
-  }
-
-  if (!socialSets) return null;
-
-  if (!socialSets.results || socialSets.results.length === 0) {
-    console.error("");
-    console.error(fmt.warn("No social sets found."));
-    console.error(fmt.dim("To get started, connect a social account at postey.ai:"));
-    console.error(fmt.info(`${fmt.link("https://app.postey.ai")}`));
-    console.error("");
-    console.error(fmt.dim("After connecting, run: postey.js config:set-default"));
-    return null;
-  }
-
-  if (socialSets.results.length === 1) {
-    const { id, name, username } = socialSets.results[0];
-    const updatedConfig = readConfigFile(configPath) || {};
-    updatedConfig.defaultSocialSetId = id;
-    writeConfig(configPath, updatedConfig);
-    console.error(fmt.success(`Default social set: ${fmt.bold(name || "Unnamed")} ${fmt.dim(username ? `@${username}` : "")}`));
-    return id;
-  }
-
-  if (isNonInteractive) {
-    console.error(fmt.info(`Found ${socialSets.results.length} social sets. Use --default-social-set <id> to set one as default.`));
-    return null;
-  }
-
-  const formatted = formatSocialSetsForDisplay(socialSets.results);
-  console.error("");
-  console.error(fmt.bold("Choose a default social set"));
-  console.error(fmt.dim("This will be used when you don't specify one. You can always override it."));
-  console.error("");
-  formatted.forEach(({ displayLine }) => console.error(displayLine));
-  console.error("");
-
-  const choice = await prompt(`${colors.bold}Enter number${colors.reset} ${fmt.dim("(or Enter to skip)")}: `);
-  if (choice) {
-    const choiceNum = parseInt(choice, 10);
-    if (!isNaN(choiceNum) && choiceNum >= 1 && choiceNum <= formatted.length) {
-      const selectedId = formatted[choiceNum - 1].set.id;
-      const updatedConfig = readConfigFile(configPath) || {};
-      updatedConfig.defaultSocialSetId = selectedId;
-      writeConfig(configPath, updatedConfig);
-      console.error(fmt.success("Default social set saved"));
-      return selectedId;
-    }
-  }
-  return null;
-}
 
 async function cmdSetup(args) {
-  const parsed = parseArgs(args, { "no-default": "boolean" });
-  const noDefault = parsed["no-default"] === true || parsed["no-default"] === "true";
-  const defaultSocialSetArg = parsed["default-social-set"];
+  const parsed = parseArgs(args, {});
   const isNonInteractive = !!(parsed._positional[0] || parsed.key);
 
   const apiKey = await _promptApiKey(parsed, isNonInteractive);
@@ -1487,15 +1393,14 @@ async function cmdSetup(args) {
 
   console.error("");
   console.error(fmt.success(`API key saved to ${fmt.dim(configPath)}`));
-
-  const defaultSocialSetId = await _setupDefaultSocialSet({ apiKey, configPath, defaultSocialSetArg, noDefault, isNonInteractive });
+  console.error("");
+  console.error(fmt.info("In Claude Code: read postey://accounts to see your connected accounts."));
 
   output({
     success: true,
     message: "Setup complete",
     config_path: configPath,
     scope: isLocal ? "local" : "global",
-    default_social_set_id: defaultSocialSetId,
   });
 }
 
@@ -1517,8 +1422,8 @@ async function cmdConfigShow() {
   const localConfig = readConfigFile(localConfigPath);
   const globalConfig = readConfigFile(GLOBAL_CONFIG_FILE);
 
-  // Get default social set info
-  const defaultSocialSet = getDefaultSocialSetId();
+  // Get default account info
+  const defaultSocialSet = getDefaultAccountId();
 
   // Determine active auth method
   let authMethod, authPreview;
@@ -1547,7 +1452,7 @@ async function cmdConfigShow() {
           has_refresh_token: !!oauth.refresh_token,
         }
       : null,
-    default_social_set: defaultSocialSet
+    default_account: defaultSocialSet
       ? { id: defaultSocialSet.id, source: defaultSocialSet.source }
       : null,
     config_files: {
@@ -1556,7 +1461,7 @@ async function cmdConfigShow() {
             path: localConfigPath,
             has_key: !!localConfig.apiKey,
             has_oauth: !!localConfig.oauth,
-            has_default_social_set: !!localConfig.defaultSocialSetId,
+            has_default_account: !!localConfig.defaultAccountId,
           }
         : null,
       global: globalConfig
@@ -1564,7 +1469,7 @@ async function cmdConfigShow() {
             path: GLOBAL_CONFIG_FILE,
             has_key: !!globalConfig.apiKey,
             has_oauth: !!globalConfig.oauth,
-            has_default_social_set: !!globalConfig.defaultSocialSetId,
+            has_default_account: !!globalConfig.defaultAccountId,
           }
         : null,
     },
@@ -1588,19 +1493,17 @@ USAGE:
   postey.js <command> [arguments]
 
 NOTE:
-  Commands that take a social_set_id as a positional argument also accept:
+  Commands that take an account_id as a positional argument also accept:
     --social-set-id <id>   (or --social_set_id <id>)
 
 SETUP:
-  setup                                      Interactive setup - saves API key and optional default social set
+  setup                                      Save API key to config
     --key <api_key>                          Provide key non-interactively (enables non-interactive mode)
     --location <global|local>                Choose config location (default: global in non-interactive mode)
                                              global: ~/.config/postey/config.json
                                              local: ./.postey/config.json (project-specific)
-    --default-social-set <id>                Set default social set non-interactively
-    --no-default                             Skip setting default social set in non-interactive mode
 
-  config:show                                Show current config, API key source, and default social set
+  config:show                                Show current config and API key source
 
 COMMANDS:
   drafts:get <draft_id>                      Get a specific draft
@@ -1654,9 +1557,6 @@ EXAMPLES:
 
   # Non-interactive setup (for scripts/CI)
   ./postey.js setup --key typ_xxx --location global
-
-  # Non-interactive setup with explicit default social set
-  ./postey.js setup --key typ_xxx --location global --default-social-set 123
 
   # Check current configuration
   ./postey.js config:show

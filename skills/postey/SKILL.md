@@ -128,6 +128,9 @@ Two execution paths exist: the CLI (`postey.js`) and MCP tools/resources. Pick o
 - **Never** call `mcp__claude_ai_Postey__upload_media_for_post` for a local file — it accepts URLs only.
 - **Never** skip `validate_post_content` / `review_post_content_and_add_comments_for_virality` in Claude Code sessions.
 - **Never** use CLI `drafts:create` / `drafts:publish` / `drafts:schedule` — these commands are removed; use MCP tools.
+- **Never** call REST endpoints directly (e.g. `GET /accounts`) — always use MCP resources or tools.
+- **Never** guess or invent an `account_id` — always read `postey://accounts` and confirm with the user.
+- **Never** run `postey.js accounts:list` — that command does not exist; use the `postey://accounts` MCP resource.
 
 ---
 
@@ -149,6 +152,43 @@ Two execution paths exist: the CLI (`postey.js`) and MCP tools/resources. Pick o
 ### When "API key not found" appears
 
 Tell the user to run the setup command interactively — you cannot run it on their behalf. **Stop and wait** for them to confirm setup before proceeding. Do not attempt to find credentials in keychains, `.env` files, or config directories.
+
+## Account Selection
+
+Before any write operation, Claude **must** know which account to target. Follow this sequence every time:
+
+1. **Read `postey://accounts`** — never call the `get_accounts` tool.
+2. **One account** → use it silently without prompting the user.
+3. **Multiple accounts** → display them and ask the user which one to use.
+4. **Pass `account_id`** to `create_post`, `schedule_post`, `publish_draft`, etc.
+
+**Account fields returned by `postey://accounts`:**
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `account_id` | int | Required by all write tools |
+| `account_name` | str \| null | Human-readable label |
+| `twitter` | object \| null | Non-null = X is connected |
+| `linkedin` | object \| null | Non-null = LinkedIn is connected |
+| `instagram` | object \| null | Non-null = Instagram is connected |
+| `threads` | object \| null | Non-null = Threads is connected |
+| `tiktok` | object \| null | Non-null = TikTok is connected |
+| `bluesky` | object \| null | Non-null = Bluesky is connected |
+| `youtube` | object \| null | Non-null = YouTube is connected |
+| `teams` | list[int] \| null | Team IDs this account belongs to |
+
+**Deriving a display handle** (for showing to the user):
+- X: `account.twitter.username`
+- Instagram / Threads: `account.instagram.username` / `account.threads.username`
+- TikTok: `account.tiktok.username`
+- LinkedIn: `account.linkedin.vanity_name`
+- Bluesky: `account.bluesky.handle`
+
+**Hard rules:**
+- ✗ Never call `mcp__claude_ai_Postey__get_accounts` — read `postey://accounts` resource instead.
+- ✗ Never invent or assume an `account_id` — always read the resource and confirm.
+- ✗ Never call `GET /accounts` or any REST endpoint directly — use MCP only.
+- ✗ Never run `postey.js accounts:list` — that CLI command does not exist.
 
 ## Accounts & Defaults
 

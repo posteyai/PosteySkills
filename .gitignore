@@ -22,3 +22,4 @@ coverage/
 
 # Postey config (contains API key)
 .postey/
+node_modules/
