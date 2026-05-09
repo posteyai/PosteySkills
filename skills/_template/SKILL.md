@@ -22,12 +22,32 @@ description: >
 # allowed-tools:
 #   - Bash(${CLAUDE_SKILL_DIR}/scripts/cli.js:*)
 
-# Optional: MCP tools this skill owns (non-standard — agent guidance only).
+# Optional: MCP tools and resources this skill owns (non-standard — agent guidance only).
+# List ALL tools from the MCP server module for this skill; CI (check-mcp-tool-sync.js)
+# verifies this list matches the server registry when MCP_TOOLS_DIR is set.
 # mcp-tools:
 #   resources:
-#     - postey://some-resource
+#     - postey://some-resource          # read-only state (prefer over equivalent tools)
+#     - postey://skill-manifest          # always include for drift detection
 #   tools:
-#     - mcp__claude_ai_SomeService__some_tool
+#     # Write operations (prefer CLI in Claude Code; MCP tools for MCP-only clients)
+#     - mcp__claude_ai_SomeService__create_item
+#     - mcp__claude_ai_SomeService__update_item
+#     # Read fallbacks (use resources instead when available)
+#     - mcp__claude_ai_SomeService__get_items
+#     # AI-enhanced (no CLI equivalent — always use MCP tool)
+#     - mcp__claude_ai_SomeService__validate_item
+
+# Machine-readable routing rules — mirrors any prose routing-guide.md.
+# Values: mcp-resource | mcp-tool | cli
+# mcp-server-module: ""   # e.g. "app.core.mcp" — path used by check-mcp-tool-sync.js
+# routing:
+#   read-only-state:   mcp-resource
+#   validation:        mcp-tool
+#   write:             cli
+#   local-file:        cli
+#   ci-environment:    cli
+#   fallback:          cli
 
 # Optional: run in an isolated subagent (good for long-running or read-heavy tasks).
 # context: fork

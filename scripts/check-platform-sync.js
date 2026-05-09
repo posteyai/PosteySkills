@@ -53,4 +53,43 @@ for (const p of mdSet) {
 }
 
 if (errors > 0) process.exit(1);
-console.log(`✓ Platforms in sync: ${[...jsSet].join(', ')}`);
+console.log(`✓ JS ↔ SKILL.md platforms in sync: ${[...jsSet].join(', ')}`);
+
+// Phase 2: SKILL.md platforms vs platform_knowledge.py (MCP server)
+const pyPath = process.env.MCP_PLATFORM_KNOWLEDGE_PATH
+  ?? path.join(ROOT, '..', 'MarqetiveBackendV2', 'app', 'core', 'mcp', 'platform_knowledge.py');
+
+if (!fs.existsSync(pyPath)) {
+  console.log(`⚠ platform_knowledge.py not found at ${pyPath} — skipping MCP platform check`);
+  console.log('  Set MCP_PLATFORM_KNOWLEDGE_PATH to enable this check.');
+} else {
+  const pySource = fs.readFileSync(pyPath, 'utf8');
+  // Extract top-level keys from PLATFORM_KNOWLEDGE dict.
+  // Keys appear as exactly 4-space indented quoted uppercase strings followed by ": {".
+  // We extract only lines that come after the PLATFORM_KNOWLEDGE declaration.
+  const pkStart = pySource.indexOf('PLATFORM_KNOWLEDGE');
+  let pyPlatforms = [];
+  if (pkStart !== -1) {
+    const afterDecl = pySource.slice(pkStart);
+    pyPlatforms = [...afterDecl.matchAll(/^    ["']([A-Z][A-Z0-9_]*)["']\s*:/gm)]
+      .map(m => m[1]);
+  }
+
+  if (pyPlatforms.length === 0) {
+    console.log('⚠ PLATFORM_KNOWLEDGE not found or empty in platform_knowledge.py — skipping');
+  } else {
+    const pySet = new Set(pyPlatforms);
+    let pyErrors = 0;
+    for (const p of mdSet) {
+      if (!pySet.has(p)) { fail(`Platform '${p}' in SKILL.md but missing from PLATFORM_KNOWLEDGE in platform_knowledge.py`); pyErrors++; }
+    }
+    for (const p of pySet) {
+      if (!mdSet.has(p)) { fail(`Platform '${p}' in PLATFORM_KNOWLEDGE but missing from SKILL.md platforms:`); pyErrors++; }
+    }
+    if (pyErrors === 0) {
+      console.log(`✓ SKILL.md ↔ platform_knowledge.py platforms in sync: ${[...pySet].join(', ')}`);
+    }
+  }
+}
+
+if (errors > 0) process.exit(1);

@@ -17,10 +17,11 @@ PosteySkills/
 ├── .claude/
 │   └── settings.json          — extraKnownMarketplaces for team auto-install
 ├── .github/workflows/
-│   └── test.yml               — CI: node --test + check-versions + check-platform-sync
+│   └── test.yml               — CI: node --test + check-versions + check-platform-sync + check-mcp-tool-sync
 ├── scripts/
 │   ├── check-versions.js      — CI: verify SKILL.md version == plugin.json == marketplace
-│   └── check-platform-sync.js — CI: verify SOCIAL_PLATFORMS in JS == platforms in SKILL.md
+│   ├── check-platform-sync.js — CI: verify SOCIAL_PLATFORMS in JS == SKILL.md == platform_knowledge.py
+│   └── check-mcp-tool-sync.js — CI: verify SKILL.md mcp-tools.tools: == MCP server registry
 ├── tests/
 │   └── postey-cli.test.js     — node:test suite for postey CLI
 └── skills/
@@ -59,7 +60,8 @@ PosteySkills/
   1. `POSTEY_API_KEY` env var
   2. `./.postey/config.json` (project-local)
   3. `~/.config/postey/config.json` (user-global)
-- **Platform enum** is defined in one place (`SOCIAL_PLATFORMS`). When adding or removing a platform, also update: `SKILL.md` frontmatter `platforms:` list, `skills/postey/SKILL.md` Platform Names table, `.claude-plugin/marketplace.json` plugin description. The CI `check-platform-sync.js` script verifies JS ↔ SKILL.md consistency.
+- **Platform enum** is defined in one place (`SOCIAL_PLATFORMS`). When adding or removing a platform, also update: `SKILL.md` frontmatter `platforms:` list, `skills/postey/SKILL.md` Platform Names table, `.claude-plugin/marketplace.json` plugin description. The CI `check-platform-sync.js` script verifies JS ↔ SKILL.md ↔ `platform_knowledge.py` (MCP server) consistency.
+- **MCP tool list** in `SKILL.md mcp-tools.tools:` must match the `@mcp.tool(name="...")` declarations in `MarqetiveBackendV2/app/core/mcp/tools/*.py`. The CI `check-mcp-tool-sync.js` script enforces this. See "MCP Integration" section below.
 
 ## Installation Flow
 
@@ -87,6 +89,12 @@ node --test --test-name-pattern="<substring>" tests/postey-cli.test.js
 node scripts/check-versions.js
 node scripts/check-platform-sync.js
 
+# Check MCP tool sync (source-parse mode — no live server needed)
+MCP_TOOLS_DIR=../MarqetiveBackendV2/app/core/mcp/tools node scripts/check-mcp-tool-sync.js
+
+# Check MCP tool sync (runtime mode — requires live server + API key)
+MCP_SERVER_URL=https://srvr.postey.ai POSTEY_API_KEY=mk_... node scripts/check-mcp-tool-sync.js
+
 # Smoke test (requires a real API key)
 ./skills/postey/scripts/postey.js setup
 ./skills/postey/scripts/postey.js social-sets:list
@@ -102,6 +110,45 @@ There is no build step, no lint config, and no formatter config in this repo.
 4. **SKILL.md body must stay under 500 lines** — move heavy content to supporting files (`command-reference.md`, `video-workflow.md`, `routing-guide.md`).
 5. **Preserve JSON-only stdout** in the CLI — any new output path must go to stderr or be part of the JSON payload.
 6. **Do not remove `last-updated` from SKILL.md** — the field was removed; do not re-add it. Freshness tracking is via CHANGELOG and git history.
+7. **When adding an MCP tool** to `MarqetiveBackendV2/app/core/mcp/tools/*.py`: also add the tool to `SKILL.md mcp-tools.tools:` with the `mcp__claude_ai_Postey__` prefix. Run `check-mcp-tool-sync.js` to verify.
+8. **When adding a platform** to `platform_knowledge.py`: also update `SOCIAL_PLATFORMS` in `postey.js` and `platforms:` in `SKILL.md`. Run `check-platform-sync.js` to verify all three agree.
+
+## MCP Integration
+
+The skill integrates with the Postey MCP server (`MarqetiveBackendV2/app/core/mcp/`) through three contracts:
+
+### 1. Tool Registry Sync
+`SKILL.md mcp-tools.tools:` must list every tool declared with `@mcp.tool(name="...")` in `tools/*.py`.
+CI enforces this via `check-mcp-tool-sync.js`.
+
+- **Source-parse mode** (default, offline): reads `@mcp.tool(name=...)` from Python files.
+  ```bash
+  MCP_TOOLS_DIR=../MarqetiveBackendV2/app/core/mcp/tools node scripts/check-mcp-tool-sync.js
+  ```
+- **Runtime mode** (live server): fetches `postey://skill-manifest` resource.
+  ```bash
+  MCP_SERVER_URL=https://srvr.postey.ai POSTEY_API_KEY=mk_... node scripts/check-mcp-tool-sync.js
+  ```
+  Set `MCP_STAGING_URL` as a GitHub Actions secret to enable runtime verification in CI.
+
+### 2. Platform Knowledge Single Source
+`platform_knowledge.py` in the MCP server is the authoritative source for platform specs.
+`prompts.md` is a static snapshot for offline use — prefer the `postey://platform-limits`
+MCP resource in Claude Code sessions. `check-platform-sync.js` verifies JS ↔ SKILL.md ↔ `platform_knowledge.py`.
+
+### 3. Routing Contract
+`SKILL.md` frontmatter `routing:` block is the machine-readable version of `routing-guide.md`.
+Agents parse it to decide CLI vs MCP-resource vs MCP-tool without reading prose.
+Keep both in sync when adding new operation types.
+
+### New Skill MCP Integration Checklist
+When creating a skill that has an MCP server counterpart:
+1. Set `mcp-server-module:` in `SKILL.md` frontmatter (e.g. `app.core.mcp`)
+2. List all MCP tools in `mcp-tools.tools:` with the appropriate `mcp__<service>__` prefix
+3. List all MCP resources in `mcp-tools.resources:`
+4. Add `routing:` block with machine-readable routing rules
+5. Set `MCP_TOOLS_DIR` in CI workflow env to enable drift detection
+6. Copy `_template/SKILL.md` for the scaffold (it includes the commented sections)
 
 ## Commit & PR Guidelines
 

@@ -29,3 +29,10 @@ jobs:
       - name: Check platform sync
         run: node scripts/check-platform-sync.js
 
+      - name: Check MCP tool sync
+        run: |
+          MCP_TOOLS_DIR=../MarqetiveBackendV2/app/core/mcp/tools \
+          node scripts/check-mcp-tool-sync.js
+        env:
+          MCP_SERVER_URL: ${{ secrets.MCP_STAGING_URL }}
+

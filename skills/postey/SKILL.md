@@ -27,11 +27,49 @@ mcp-tools:
     - postey://accounts
     - postey://teams
     - postey://posts/{post_id}/content/{platform}
+    - postey://platform-limits
+    - postey://platforms/{platform}/rules
+    - postey://posts/{post_id}/analytics
+    - postey://accounts/{account_id}
+    - postey://teams/{team_id}/members
+    - postey://skill-manifest
   tools:
+    # Write operations (prefer CLI in Claude Code; MCP tools available for MCP-only clients)
+    - mcp__claude_ai_Postey__create_post
+    - mcp__claude_ai_Postey__update_post
+    - mcp__claude_ai_Postey__delete_draft
+    - mcp__claude_ai_Postey__publish_draft
+    - mcp__claude_ai_Postey__schedule_post
+    - mcp__claude_ai_Postey__add_tag
+    - mcp__claude_ai_Postey__upload_media
+    # Read operations (fallback tools when resources unavailable)
+    - mcp__claude_ai_Postey__get_accounts
+    - mcp__claude_ai_Postey__get_teams
+    - mcp__claude_ai_Postey__get_team_info
+    - mcp__claude_ai_Postey__get_posts
+    - mcp__claude_ai_Postey__get_specific_post_content
+    - mcp__claude_ai_Postey__get_post_by_share_link
+    # AI-enhanced operations (no CLI equivalent — always use MCP)
     - mcp__claude_ai_Postey__validate_post_content
     - mcp__claude_ai_Postey__review_post_content_and_add_comments_for_virality
-    - mcp__claude_ai_Postey__upload_media_from_url
-    - mcp__claude_ai_Postey__update_post
+    - mcp__claude_ai_Postey__get_comment_for_specific_post
+    - mcp__claude_ai_Postey__convert_post_content
+    - mcp__claude_ai_Postey__transcribe_video
+# Machine-readable routing rules (mirrors routing-guide.md; used by CI and agents).
+# Values: mcp-resource | mcp-tool | cli
+routing:
+  read-only-state:     mcp-resource  # accounts, teams, post-content → postey://... resources
+  platform-limits:     mcp-resource  # postey://platform-limits / postey://platforms/{p}/rules
+  analytics:           mcp-resource  # postey://posts/{id}/analytics
+  validation:          mcp-tool      # validate_post_content (no CLI equivalent)
+  virality-review:     mcp-tool      # review_post_content_and_add_comments_for_virality
+  comment-read:        mcp-tool      # get_comment_for_specific_post
+  convert-content:     mcp-tool      # convert_post_content
+  write-post:          cli           # create/update/publish/schedule/delete → postey.js
+  local-file:          cli           # any local path → unconditional CLI
+  video-transcription: cli           # video2post.js (yt-dlp + Whisper)
+  ci-environment:      cli           # no MCP server available in CI/CD
+  fallback:            cli           # unknown operations → CLI
 ---
 
 # Postey Skill

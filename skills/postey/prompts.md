@@ -3,6 +3,12 @@
 Platform-specific prompts for generating titles and captions from video transcripts.
 Use these after running `video2post.js` to generate high-quality, platform-native content.
 
+> **Static snapshot:** The character limits, media specs, and writing rules below are a
+> cached reference for offline use. In Claude Code sessions, read the live MCP resource
+> `postey://platform-limits` (or `postey://platforms/{platform}/rules` per-platform) for
+> authoritative, always-current platform specifications. The MCP resource is the single
+> source of truth; this file is updated manually and may lag behind.
+
 ---
 
 ## YouTube
