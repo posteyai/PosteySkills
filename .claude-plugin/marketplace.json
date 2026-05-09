@@ -13,13 +13,13 @@
       "name": "postey",
       "source": "./skills/postey",
       "description": "Draft, schedule, and manage social media posts across X, LinkedIn, Instagram, TikTok, YouTube, Threads, and Bluesky",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "author": {
         "name": "Postey",
         "url": "https://postey.ai"
       },
       "homepage": "https://postey.ai",
-      "repository": "https://github.com/posteyai/PosteySkills",
+      "repository": "https://github.com/posteyai/skills",
       "license": "MIT",
       "keywords": ["social-media", "twitter", "linkedin", "instagram", "tiktok", "youtube", "scheduling"],
       "category": "productivity"

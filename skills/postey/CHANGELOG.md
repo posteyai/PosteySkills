@@ -4,6 +4,21 @@ All notable user-facing changes to the Postey skill and its CLI are documented h
 
 The format is based on Keep a Changelog.
 
+## [1.3.0]
+
+### Removed
+
+- `social-sets:list` CLI command — use `postey://accounts` MCP resource or `get_accounts` tool
+- `drafts:list` CLI command — use `get_posts` MCP tool
+- `drafts:create` CLI command — use `create_post` MCP tool
+- `create-draft` alias — use `create_post` MCP tool
+- `drafts:publish` CLI command — use `publish_draft` MCP tool
+- `drafts:delete` CLI command — use `delete_draft` MCP tool
+- `drafts:schedule` CLI command — use `schedule_post` MCP tool
+- `drafts:content` CLI command — use `postey://posts/{id}/content/{platform}` resource or `get_specific_post_content` tool
+- `tags:list` CLI command — no MCP equivalent; removed by request
+- `tags:create` CLI command — no MCP equivalent; removed by request
+
 ## [Unreleased]
 
 ### Added

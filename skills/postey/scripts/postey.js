@@ -46,29 +46,10 @@ const OAUTH_SCOPES =
 const OAUTH_CALLBACK_PORT = parseInt(process.env.POSTEY_CLI_CALLBACK_PORT || "9150", 10);
 const OAUTH_TIMEOUT_MS = 120_000; // 2 min for user to complete browser flow
 
-// Content-type mapping for tag colors and platform enums
-
-const TAG_COLORS = new Set([
-  "RED",
-  "ORANGE",
-  "YELLOW",
-  "GREEN",
-  "TURQUOISE",
-  "BLUE",
-  "SKY_BLUE",
-  "LAVENDER",
-  "PINK_PURPLE",
-  "PINK",
-]);
 const SOCIAL_PLATFORMS = new Set(["X", "LINKEDIN","TIKTOK","INSTAGRAM","YOUTUBE","THREADS","BLUESKY"]);
 
 const POST_TYPE_MAP = { X: 0, LINKEDIN: 2, THREADS: 9, FACEBOOK: 4, INSTAGRAM: 5, YOUTUBE: 10, TIKTOK: 7, BLUESKY: 8 };
 
-function postToDocId(postId, platform) {
-  const typeId = POST_TYPE_MAP[platform];
-  if (typeId === undefined) error(`Unknown platform for doc_id: ${platform}`);
-  return postId * 256 + typeId;
-}
 
 // ============================================================================
 // ANSI Color Helpers (no dependencies)
@@ -330,20 +311,6 @@ function formatSocialSetsForDisplay(socialSets) {
   });
 }
 
-function requireSocialSetId(providedId) {
-  if (providedId) {
-    return providedId;
-  }
-
-  const defaultResult = getDefaultSocialSetId();
-  if (defaultResult) {
-    return defaultResult.id;
-  }
-
-  error("social_set_id is required", {
-    hint: "Run: postey.js config:set-default to set a default, or provide it as an argument",
-  });
-}
 
 function requireAccountId(providedId) {
   if (providedId) {
@@ -356,7 +323,7 @@ function requireAccountId(providedId) {
   }
 
   error("account_id is required", {
-    hint: "Provide account_id (or --account-id), or set a default with: postey.js config:set-default",
+    hint: "Provide account_id (or --account-id) as a positional argument.",
   });
 }
 
@@ -735,16 +702,6 @@ function getSocialSetIdFromParsed(parsed) {
   return value;
 }
 
-function resolveSocialSetIdFromParsed(parsed, positionalId) {
-  const flagId = getSocialSetIdFromParsed(parsed);
-  if (flagId && positionalId && flagId !== positionalId) {
-    error("Conflicting social_set_id values", {
-      positional: positionalId,
-      flag: flagId,
-    });
-  }
-  return requireSocialSetId(flagId || positionalId);
-}
 
 function getAccountIdFromParsed(parsed) {
   const accountFlag = parsed["account-id"] ?? parsed.account_id;
@@ -794,43 +751,6 @@ function requireIntId(value, name) {
     error(`${name} must be an integer`, { value: str });
   }
   return Number(str);
-}
-
-function parseTagColor(value) {
-  if (value == null || value === true) {
-    error("--color is required");
-  }
-  if (typeof value !== "string") {
-    error("--color must be a string");
-  }
-  const normalized = value.trim().toUpperCase().replace(/-/g, "_");
-  if (!TAG_COLORS.has(normalized)) {
-    error("Invalid tag color", {
-      provided: value,
-      allowed: Array.from(TAG_COLORS),
-    });
-  }
-  return normalized;
-}
-
-function parseDefaultPlatform(value) {
-  if (value == null || value === true) {
-    error("default_platform is required", {
-      hint: "Pass platform as positional arg or --platform (X, LINKEDIN)",
-    });
-  }
-  if (typeof value !== "string") {
-    error("default_platform must be a string");
-  }
-  const normalized = value.trim().toUpperCase().replace(/-/g, "_");
-  const mapped = normalized === "TWITTER" ? "X" : normalized;
-  if (!SOCIAL_PLATFORMS.has(mapped)) {
-    error("Invalid default platform", {
-      provided: value,
-      allowed: Array.from(SOCIAL_PLATFORMS),
-    });
-  }
-  return mapped;
 }
 
 function parseSocialPlatformEnum(value, argName = "platform") {
@@ -920,30 +840,6 @@ function resolveDraftIdOnlyFromParsed(parsed, commandName) {
   return positional[0];
 }
 
-function parsePlatformList(platformValue) {
-  return parsePlatformCsvToEnums(platformValue, "--platform");
-}
-
-async function resolvePlatformsForPost(postId, parsed) {
-  const fromArg = parsePlatformList(parsed.platform);
-  if (fromArg && fromArg.length > 0) {
-    return fromArg;
-  }
-
-  // No explicit platform provided: infer from enabled platforms on the post.
-  const post = await apiRequest("GET", `/posts/${postId}`);
-  const inferred = Object.entries(post.platforms || {})
-    .filter(([, cfg]) => cfg && cfg.enabled)
-    .map(([platform]) => parseSocialPlatformEnum(platform, "platform"));
-
-  if (inferred.length === 0) {
-    error(
-      "No enabled platforms found on this draft. Pass --platform x,linkedin,...",
-    );
-  }
-
-  return inferred;
-}
 
 // ============================================================================
 // Commands
@@ -1128,10 +1024,6 @@ async function cmdAuthLogout() {
   output({ success: true, message: "Logged out" });
 }
 
-async function cmdSocialSetsList() {
-  const data = await apiRequest("GET", "/accounts");
-  output(data);
-}
 
 function prompt(question) {
   const rl = readline.createInterface({
@@ -1502,73 +1394,6 @@ async function cmdConfigShow() {
   });
 }
 
-async function cmdConfigSetDefault(args) {
-  const parsed = parseArgs(args);
-  if (parsed._positional.length > 2) {
-    error(
-      "config:set-default usage: config:set-default [account_id] <platform>",
-    );
-  }
-
-  requireApiKey();
-
-  const positional = parsed._positional;
-  const first = positional[0];
-  const second = positional[1];
-
-  const firstLooksAccount = typeof first === "string" && /^\d+$/.test(first);
-  const accountPositional = firstLooksAccount ? first : null;
-  const platformPositional = firstLooksAccount ? second : first;
-  const accountId = requireIntId(
-    resolveAccountIdFromParsed(parsed, accountPositional),
-    "account_id",
-  );
-  const platformRaw =
-    parsed.platform ?? parsed.default_platform ?? platformPositional;
-  const defaultPlatform = parseDefaultPlatform(platformRaw);
-
-  // Determine if preferences already exist for this account
-  const existing = await apiRequest(
-    "GET",
-    `/accounts/preferences/${accountId}`,
-  );
-
-  const params = new URLSearchParams({ default_platform: defaultPlatform });
-  const hasExisting = existing && existing.preference_id != null;
-  const method = hasExisting ? "PATCH" : "POST";
-
-  await apiRequest(
-    method,
-    `/accounts/preferences/${accountId}?${params.toString()}`,
-  );
-
-  output({
-    success: true,
-    message: "Default platform configured",
-    account_id: accountId,
-    default_platform: defaultPlatform,
-    operation: hasExisting ? "updated" : "created",
-  });
-}
-
-async function cmdDraftsList(args) {
-  const parsed = parseArgs(args);
-  const socialSetId = resolveSocialSetIdFromParsed(
-    parsed,
-    parsed._positional[0],
-  );
-
-  const params = new URLSearchParams();
-  params.set("limit", parsed.limit || "10");
-  params.set("account", socialSetId);
-  if (parsed.status) params.set("status", parsed.status);
-  if (parsed.tag) params.set("tag", parsed.tag);
-  if (parsed.sort) params.set("order_by", parsed.sort);
-
-  const data = await apiRequest("GET", `/posts?${params}`);
-  output(data);
-}
-
 async function cmdDraftsGet(args) {
   const parsed = parseArgs(args, { "use-default": "boolean" });
   const draftId = resolveDraftIdOnlyFromParsed(parsed, "drafts:get");
@@ -1577,325 +1402,7 @@ async function cmdDraftsGet(args) {
   output(data);
 }
 
-async function cmdDraftsCreate(args) {
-  const parsed = parseArgs(args, {
-    share: "boolean",
-    all: "boolean",
-    "publish-now": "boolean",
-    "youtube-made-for-kids": "boolean",
-    "youtube-notify-subscribers": "boolean",
-    "youtube-embeddable": "boolean",
-  });
-  const accountId = requireIntId(
-    resolveAccountIdFromParsed(parsed, parsed._positional[0]),
-    "account_id",
-  );
 
-  const unsupportedFlags = ["reply-to", "community", "share", "notes"];
-  const usedUnsupported = unsupportedFlags.filter((k) =>
-    Object.prototype.hasOwnProperty.call(parsed, k),
-  );
-  if (usedUnsupported.length > 0) {
-    error("Unsupported options for /posts/raw create", {
-      unsupported: usedUnsupported.map((k) => `--${k}`),
-      hint: "Use --text/--file, --platform, --title, --tags, --schedule, --publish-now, --media-urls",
-    });
-  }
-
-  // Get text content
-  let text = parsed.text;
-  if (parsed.file) {
-    if (!fs.existsSync(parsed.file)) {
-      error(`File not found: ${parsed.file}`);
-    }
-    text = fs.readFileSync(parsed.file, "utf-8");
-  }
-
-  if (!text) {
-    error("--text or --file is required");
-  }
-
-  if (parsed.all && parsed.platform) {
-    error("Cannot use both --all and --platform flags");
-  }
-
-  // Determine platforms
-  let platformEnums = parsePlatformCsvToEnums(parsed.platform, "--platform");
-  if (parsed.all) {
-    error(
-      "--all is not supported for /posts/raw. Pass explicit --platform list.",
-    );
-  }
-  if (!platformEnums || platformEnums.length === 0) {
-    const pref = await apiRequest("GET", `/accounts/preferences/${accountId}`);
-    if (pref && pref.default_platform) {
-      platformEnums = [
-        parseSocialPlatformEnum(pref.default_platform, "platform"),
-      ];
-    } else {
-      platformEnums = ["X"];
-    }
-  }
-
-  if (platformEnums.includes("YOUTUBE") && !parsed["youtube-title"]) {
-    error("--youtube-title is required when posting to YOUTUBE");
-  }
-
-  const publishNow = parsed["publish-now"] || parsed.schedule === "now";
-  if (publishNow && parsed.schedule && parsed.schedule !== "now") {
-    error("Cannot use both --publish-now and --schedule <time>");
-  }
-
-  const scheduleAt =
-    !publishNow && parsed.schedule
-      ? coerceFlagValueToString(parsed.schedule, "--schedule")
-      : null;
-
-  const content = { text };
-  if (parsed["youtube-title"])
-    content.youtube_title = coerceFlagValueToString(parsed["youtube-title"], "--youtube-title");
-  if (parsed["youtube-description"])
-    content.youtube_description = coerceFlagValueToString(parsed["youtube-description"], "--youtube-description");
-  if (parsed["youtube-privacy-status"])
-    content.youtube_privacy_status = coerceFlagValueToString(parsed["youtube-privacy-status"], "--youtube-privacy-status");
-  if (parsed["youtube-category-id"])
-    content.youtube_category_id = coerceFlagValueToString(parsed["youtube-category-id"], "--youtube-category-id");
-  if (parsed["youtube-made-for-kids"] !== undefined)
-    content.youtube_made_for_kids = !!parsed["youtube-made-for-kids"];
-  if (parsed["youtube-tags"])
-    content.youtube_tags = coerceFlagValueToString(parsed["youtube-tags"], "--youtube-tags");
-  if (parsed["youtube-notify-subscribers"] !== undefined)
-    content.youtube_notify_subscribers = !!parsed["youtube-notify-subscribers"];
-  if (parsed["youtube-license"])
-    content.youtube_license = coerceFlagValueToString(parsed["youtube-license"], "--youtube-license");
-  if (parsed["youtube-embeddable"] !== undefined)
-    content.youtube_embeddable = !!parsed["youtube-embeddable"];
-  if (parsed["media-urls"])
-    content.media_urls = coerceFlagValueToString(parsed["media-urls"], "--media-urls").split(",").map((s) => s.trim());
-
-  const body = {
-    account_id: accountId,
-    platforms: platformEnums,
-    contents: [content],
-    publish_now: !!publishNow,
-    schedule_at: scheduleAt,
-    draft_title: parsed.title
-      ? coerceFlagValueToString(parsed.title, "--title")
-      : "Untitled Draft",
-    tags: parseTagIds(parsed.tags),
-  };
-
-  const data = await apiRequest("POST", "/posts/raw", body);
-  output(data);
-}
-
-async function cmdDraftsContent(args) {
-  const parsed = parseArgs(args);
-  const positional = parsed._positional;
-  if (positional.length === 0) {
-    error("post_id is required");
-  }
-  if (positional.length > 2) {
-    error("drafts:content usage: drafts:content <post_id> [platform]");
-  }
-  const postId = requireIntId(positional[0], "post_id");
-  const platformRaw = parsed.platform ?? positional[1];
-  const platform = parseSocialPlatformEnum(platformRaw, "platform");
-
-  const params = new URLSearchParams({
-    platform,
-    post_id: String(postId),
-  });
-
-  const data = await apiRequest("GET", `/posts/parsed/content?${params}`);
-  output(data);
-}
-
-// ---------------------------------------------------------------------------
-// Aliases (human/agent-friendly)
-// ---------------------------------------------------------------------------
-
-async function cmdCreateDraftAlias(args) {
-  const parsed = parseArgs(args, {
-    share: "boolean",
-    all: "boolean",
-    "publish-now": "boolean",
-  });
-  const socialSetId = requireSocialSetId(getSocialSetIdFromParsed(parsed));
-
-  const forwarded = [String(socialSetId)];
-
-  // Prefer explicit --file / --text, otherwise treat positional args as the draft content.
-  if (Object.prototype.hasOwnProperty.call(parsed, "file")) {
-    forwarded.push("--file", coerceFlagValueToString(parsed.file, "--file"));
-  } else {
-    let text;
-    if (Object.prototype.hasOwnProperty.call(parsed, "text")) {
-      text = coerceFlagValueToString(parsed.text, "--text");
-    } else {
-      if (parsed._positional.length === 0) {
-        error(
-          "Draft text is required (provide it as the first argument, or use --text/--file)",
-        );
-      }
-      text = parsed._positional.join(" ");
-    }
-    forwarded.push("--text", text);
-  }
-
-  pushStringFlag(forwarded, parsed, "platform", "--platform");
-  if (parsed.all) forwarded.push("--all");
-  pushStringFlag(forwarded, parsed, "title", "--title");
-  pushStringFlag(forwarded, parsed, "schedule", "--schedule");
-  pushStringFlag(forwarded, parsed, "tags", "--tags", { allowEmpty: true });
-  if (parsed["publish-now"]) forwarded.push("--publish-now");
-  pushStringFlag(forwarded, parsed, "youtube-title", "--youtube-title");
-  pushStringFlag(forwarded, parsed, "youtube-description", "--youtube-description");
-  pushStringFlag(forwarded, parsed, "youtube-privacy-status", "--youtube-privacy-status");
-  pushStringFlag(forwarded, parsed, "youtube-category-id", "--youtube-category-id");
-  if (parsed["youtube-made-for-kids"]) forwarded.push("--youtube-made-for-kids");
-  pushStringFlag(forwarded, parsed, "youtube-tags", "--youtube-tags");
-  if (parsed["youtube-notify-subscribers"]) forwarded.push("--youtube-notify-subscribers");
-  pushStringFlag(forwarded, parsed, "youtube-license", "--youtube-license");
-  if (parsed["youtube-embeddable"]) forwarded.push("--youtube-embeddable");
-  pushStringFlag(forwarded, parsed, "media-urls", "--media-urls");
-
-  await cmdDraftsCreate(forwarded);
-}
-
-async function cmdDraftsDelete(args) {
-  const parsed = parseArgs(args);
-  const draftId = resolveDraftIdOnlyFromParsed(parsed, "drafts:delete");
-
-  await apiRequest("DELETE", `/posts`, [draftId]);
-  output({ success: true, message: "Draft deleted" });
-}
-
-async function cmdDraftsSchedule(args) {
-  const parsed = parseArgs(args, {
-    "natural-posting": "boolean",
-    natural_posting: "boolean",
-  });
-  const draftId = resolveDraftIdOnlyFromParsed(parsed, "drafts:schedule");
-  const postId = requireIntId(draftId, "draft_id");
-
-  if (!parsed.time) {
-    error("--time is required (ISO datetime)");
-  }
-  const scheduledAt = coerceFlagValueToString(parsed.time, "--time");
-  const platforms = await resolvePlatformsForPost(postId, parsed);
-
-  const data = await apiRequest("PATCH", "/schedules", {
-    post_id: postId,
-    platforms: platforms.map((platform) => ({ platform, config: {} })),
-    scheduled_at: scheduledAt,
-    natural_posting: !!(parsed["natural-posting"] || parsed.natural_posting),
-  });
-  output(data);
-}
-
-async function cmdDraftsPublish(args) {
-  const parsed = parseArgs(args, {
-    "natural-posting": "boolean",
-    natural_posting: "boolean",
-  });
-  const draftId = resolveDraftIdOnlyFromParsed(parsed, "drafts:publish");
-  const postId = requireIntId(draftId, "draft_id");
-  const platforms = await resolvePlatformsForPost(postId, parsed);
-
-  const data = await apiRequest("POST", "/publish", {
-    post_id: postId,
-    platforms: platforms.map((platform) => ({ platform, config: {} })),
-    natural_posting: !!(parsed["natural-posting"] || parsed.natural_posting),
-  });
-  output(data);
-}
-
-async function cmdTagsList(args) {
-  const parsed = parseArgs(args);
-  if (parsed._positional.length > 1) {
-    error("tags:list accepts at most one positional <account_id>");
-  }
-  const accountId = requireIntId(
-    resolveAccountIdFromParsed(parsed, parsed._positional[0]),
-    "account_id",
-  );
-
-  const data = await apiRequest("GET", `/tags?account=${accountId}`);
-  output(data);
-}
-
-async function cmdTagsCreate(args) {
-  const parsed = parseArgs(args);
-  if (parsed._positional.length > 1) {
-    error("tags:create accepts at most one positional <account_id>");
-  }
-  const accountId = requireIntId(
-    resolveAccountIdFromParsed(parsed, parsed._positional[0]),
-    "account_id",
-  );
-  const tag = parsed.tag ?? parsed.name;
-  if (!tag || tag === true) {
-    error("--tag is required");
-  }
-  const color = parseTagColor(parsed.color);
-
-  const data = await apiRequest("POST", `/tags`, {
-    account_id: accountId,
-    tag: String(tag),
-    color,
-  });
-  output(data);
-}
-
-async function cmdTagsUpdate(args) {
-  const parsed = parseArgs(args);
-  const positional = parsed._positional;
-  if (positional.length === 0) {
-    error("tag_id is required");
-  }
-  if (positional.length > 2) {
-    error(
-      "tags:update usage: tags:update <tag_id> [account_id] --tag <tag> --color <color>",
-    );
-  }
-  const tagId = requireIntId(positional[0], "tag_id");
-  const accountId = requireIntId(
-    resolveAccountIdFromParsed(parsed, positional[1]),
-    "account_id",
-  );
-  const tag = parsed.tag ?? parsed.name;
-  if (!tag || tag === true) {
-    error("--tag is required");
-  }
-  const color = parseTagColor(parsed.color);
-
-  const data = await apiRequest("PATCH", `/tags/${tagId}`, {
-    account_id: accountId,
-    tag: String(tag),
-    color,
-  });
-  output(data);
-}
-
-async function cmdTagsDelete(args) {
-  const parsed = parseArgs(args);
-  const positional = parsed._positional;
-  if (positional.length === 0) {
-    error("tag_id is required");
-  }
-  if (positional.length > 2) {
-    error("tags:delete usage: tags:delete <tag_id> [account_id]");
-  }
-  const tagId = requireIntId(positional[0], "tag_id");
-  const accountId = requireIntId(
-    resolveAccountIdFromParsed(parsed, positional[1]),
-    "account_id",
-  );
-
-  await apiRequest("DELETE", `/tags/${tagId}?account=${accountId}`);
-  output({ success: true, message: "Tag deleted" });
-}
 
 function showHelp() {
   console.log(`Postey CLI - Manage social media posts via the Postey API
@@ -1917,78 +1424,12 @@ SETUP:
     --no-default                             Skip setting default social set in non-interactive mode
 
   config:show                                Show current config, API key source, and default social set
-  config:set-default [account_id] <platform> Set account default platform via API
-    --platform <platform>                    Alternative to positional platform
-    --account-id <id>                        Alternative to positional account_id
-                                             Allowed: X, LINKEDIN
 
 COMMANDS:
-  social-sets:list                           List all social sets
-
-  drafts:list [social_set_id] [options]      List drafts (uses default if ID omitted)
-    --status <status>                        Filter by: draft, scheduled, published, error, publishing
-    --tag <tag_slug>                         Filter by tag slug
-    --sort <order>                           Sort by: created_at, -created_at, updated_at, -updated_at,
-                                             scheduled_date, -scheduled_date, published_at, -published_at
-    --limit <n>                              Max results (default: 10, max: 50)
-
   drafts:get <draft_id>                      Get a specific draft
-
-  drafts:create [account_id] [options]       Create draft via /posts/raw
-    --platform <platforms>                   Comma-separated: X,LINKEDIN,TIKTOK,INSTAGRAM,THREADS,BLUESKY,YOUTUBE
-                                             (uses account default platform if omitted; falls back to X)
-    --text <text>                            Post caption/content for non-YouTube platforms
-    --file, -f <path>                        Read content from file instead of --text
-    --title <title>                          Draft title (defaults to "Untitled Draft")
-    --tags <ids>                             Comma-separated numeric tag IDs (e.g. 1,2,3)
-    --schedule <time>                        ISO datetime, or "now" to publish immediately
-    --publish-now                            Publish immediately
-    --media-urls <urls>                      Comma-separated media URLs to attach
-    --youtube-title <title>                  YouTube video title (required when platform includes YOUTUBE)
-    --youtube-description <text>             YouTube video description
-    --youtube-privacy-status <status>        YouTube privacy: public, private, unlisted
-    --youtube-category-id <id>               YouTube category ID
-    --youtube-made-for-kids                  Mark as made for kids
-    --youtube-tags <tags>                    YouTube tags string
-    --youtube-notify-subscribers             Notify subscribers on publish
-    --youtube-license <license>              YouTube license type
-    --youtube-embeddable                     Allow embedding
-
-  drafts:update [social_set_id] <draft_id> [options]  Update a draft
-    --platform <platforms>                   Comma-separated platforms
-                                             (preserves draft's existing platforms if omitted)
-    --text <text>                            New post content
-    --file, -f <path>                        Read content from file instead of --text
-    --media <media_ids>                      Comma-separated media IDs to attach
-    --append, -a                             Append to existing thread instead of replacing
-    --title <title>                          New draft title
-    --schedule <time>                        "now", "next-free-slot", or ISO datetime
-    --tags <tag_slugs>                       Comma-separated tag slugs
-    --share                                  Generate a public share URL for the draft
-    --notes, --scratchpad <text>             Internal notes/scratchpad for the draft
-    --use-default                            Required when using default social set with single arg
-
-  create-draft <text> [options]             Alias for drafts:create (positional text + --account-id)
-  update-draft <draft_id> [text] [options]  Alias for drafts:update (positional text optional + --social-set-id)
-
-  drafts:delete <draft_id>                   Delete a draft
-  drafts:content <post_id> --platform <platform>
-                                             Get parsed content via /posts/parsed/content
-
-  drafts:schedule <draft_id> [options]       Schedule a draft
-    --time <time>                            ISO datetime (required)
-    --platform <platforms>                   Optional comma-separated platforms
-                                             (defaults to enabled platforms on the draft)
-    --natural-posting                        Enable natural posting
-
-  drafts:publish <draft_id> [options]        Publish a draft immediately
-    --platform <platforms>                   Optional comma-separated platforms
-                                             (defaults to enabled platforms on the draft)
-    --natural-posting                        Enable natural posting
 
   media:upload --platform <platform> --file <path>
                                              Upload a media file (unlinked). Returns CDN URL
-                                             for use in drafts:create --media-urls
 
   video:post [account_id] [options]          Upload a video and create a multi-platform draft
     --video <path|url>                       Local file path or https:// CDN URL (required)
@@ -2002,99 +1443,24 @@ COMMANDS:
     --schedule <iso>                         Schedule at ISO-8601 UTC datetime
     --publish-now                            Publish immediately after creation
 
-  tags:list [account_id]                     List all tags (uses default account if ID omitted)
-  tags:create [account_id] --tag <tag> --color <color>
-                                             Create a new tag
-                                             Colors: RED, ORANGE, YELLOW, GREEN, TURQUOISE, BLUE,
-                                                     SKY_BLUE, LAVENDER, PINK_PURPLE, PINK
-  tags:update <tag_id> [account_id] --tag <tag> --color <color>
-                                             Update a tag
-  tags:delete <tag_id> [account_id]          Delete a tag
-
 EXAMPLES:
   # First time setup (interactive)
   ./postey.js setup
 
-  # Non-interactive setup (for scripts/CI) - auto-selects default if only one social set
+  # Non-interactive setup (for scripts/CI)
   ./postey.js setup --key typ_xxx --location global
 
   # Non-interactive setup with explicit default social set
   ./postey.js setup --key typ_xxx --location global --default-social-set 123
 
-  # Non-interactive setup, skip default social set selection
-  ./postey.js setup --key typ_xxx --no-default
-
-  # Check current configuration (shows API key source and default social set)
+  # Check current configuration
   ./postey.js config:show
 
-  # Set account default platform (uses configured default account)
-  ./postey.js config:set-default x
-
-  # Set account default platform for a specific account
-  ./postey.js config:set-default 123 linkedin
-
-  # List all social sets
-  ./postey.js social-sets:list
-
-  # Create a draft (uses default account if configured)
-  ./postey.js drafts:create --text "Hello world!"
-
-  # Create a draft with explicit account ID
-  ./postey.js drafts:create 123 --text "Hello world!"
-
-  # Create a cross-platform post (specific platforms)
-  ./postey.js drafts:create --platform X,LINKEDIN --text "Big announcement!"
-
-  # Create a thread (use --- on its own line to separate posts)
-  ./postey.js drafts:create 123 --platform X --text $'First post\\n---\\nSecond post\\n---\\nThird post'
-
-  # Create from file
-  ./postey.js drafts:create 123 --platform X --file ./thread.txt
-
-  # Schedule for specific time
-  ./postey.js drafts:create 123 --platform X --text "Timed post" --schedule "2026-02-20T14:00:00Z"
-
-  # Create and publish immediately
-  ./postey.js drafts:create 123 --platform X --text "Ship it" --publish-now
-
-  # List scheduled drafts sorted by date
-  ./postey.js drafts:list 123 --status scheduled --sort scheduled_date
-
-  # Publish a draft immediately
-  ./postey.js drafts:publish 456
-
-  # Publish only selected platforms
-  ./postey.js drafts:publish 456 --platform x,linkedin
-
-  # Delete a draft
-  ./postey.js drafts:delete 456
-
-  # Schedule a draft
-  ./postey.js drafts:schedule 456 --time "2026-02-20T14:00:00Z"
-
-  # Get parsed content for a post + platform
-  ./postey.js drafts:content 456 --platform X
-
-  # List tags (uses default account if configured)
-  ./postey.js tags:list
-
-  # Create a tag
-  ./postey.js tags:create --tag "Launch" --color BLUE
-
-  # Update a tag
-  ./postey.js tags:update 22 --tag "Launch Q1" --color SKY_BLUE
-
-  # Delete a tag
-  ./postey.js tags:delete 22
-
-  # Append to existing thread
-  ./postey.js drafts:update 123 456 --append --text "New tweet at the end"
+  # Get a specific draft
+  ./postey.js drafts:get 456
 
   # Upload local video → Instagram Reel (with auto cover) + text to LinkedIn and X
   ./postey.js video:post 317 --video ./reel.mp4 --text "Caption here" --platforms INSTAGRAM,LINKEDIN,X
-
-  # Post from an already-uploaded CDN URL (skips upload, still extracts cover via ffmpeg)
-  ./postey.js video:post 317 --video https://cdn.postey.ai/.../video.mp4 --text "Watch this" --platforms INSTAGRAM
 
   # Custom cover frame at 10 seconds, publish immediately
   ./postey.js video:post 317 --video ./reel.mp4 --text "Caption" --platforms INSTAGRAM --cover-time 10 --publish-now
@@ -2147,23 +1513,10 @@ const COMMANDS = {
   "auth:login":  cmdAuthLogin,
   "auth:logout": cmdAuthLogout,
   setup: cmdSetup,
-  "social-sets:list": cmdSocialSetsList,
-  "drafts:list": cmdDraftsList,
   "drafts:get": cmdDraftsGet,
-  "drafts:content": cmdDraftsContent,
-  "drafts:create": cmdDraftsCreate,
-  "create-draft": cmdCreateDraftAlias,
-  "drafts:delete": cmdDraftsDelete,
-  "drafts:schedule": cmdDraftsSchedule,
-  "drafts:publish": cmdDraftsPublish,
-  "tags:list": cmdTagsList,
-  "tags:create": cmdTagsCreate,
-  "tags:update": cmdTagsUpdate,
-  "tags:delete": cmdTagsDelete,
   "media:upload": cmdMediaUpload,
   "video:post": cmdVideoPost,
   "config:show": cmdConfigShow,
-  "config:set-default": cmdConfigSetDefault,
   help: showHelp,
   "--help": showHelp,
   "-h": showHelp,

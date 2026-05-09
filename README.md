@@ -12,7 +12,7 @@ AI agent skills for drafting, scheduling, and managing social media posts across
 
 **Step 1 — Register the marketplace** (one-time per user):
 ```
-/plugin marketplace add posteyai/PosteySkills
+/plugin marketplace add posteyai/skills
 ```
 
 **Step 2 — Install the skill**:
@@ -25,7 +25,7 @@ AI agent skills for drafting, scheduling, and managing social media posts across
 {
   "extraKnownMarketplaces": {
     "postey-skills": {
-      "source": { "source": "github", "repo": "posteyai/PosteySkills" }
+      "source": { "source": "github", "repo": "posteyai/skills" }
     }
   }
 }
@@ -37,7 +37,7 @@ AI agent skills for drafting, scheduling, and managing social media posts across
 **Cursor / Windsurf / generic agents (npx):**
 
 ```bash
-npx skills add posteyai/PosteySkills
+npx skills add posteyai/skills
 ```
 
 **Manual:**

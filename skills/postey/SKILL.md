@@ -1,6 +1,6 @@
 ---
 name: postey
-version: 1.2.0
+version: 1.3.0
 platforms:
   - X
   - LINKEDIN
@@ -73,8 +73,8 @@ routing:
   virality-review:     mcp-tool      # review_post_content_and_add_comments_for_virality
   comment-read:        mcp-tool      # get_comment_for_specific_post
   convert-content:     mcp-tool      # convert_post_content
-  write-post:          cli           # create/update/publish/schedule/delete → postey.js
-  local-file:          cli           # any local path → unconditional CLI
+  write-post:          mcp-tool      # create/update/publish/schedule/delete → MCP tools
+  local-file:          cli           # any local path → unconditional CLI (video:post)
   video-transcription: cli           # video2post.js (yt-dlp + Whisper)
   ci-environment:      cli           # no MCP server available in CI/CD
   fallback:            cli           # unknown operations → CLI
@@ -113,12 +113,13 @@ Two execution paths exist: the CLI (`postey.js`) and MCP tools/resources. Pick o
 
 | Trigger | Tool | Reason |
 |---------|------|--------|
-| `--file <local-path>` or `--video <local-path>` | CLI only | MCP has no filesystem access |
+| `--file <local-path>` or `--video <local-path>` | CLI only (`video:post`) | MCP has no filesystem access |
 | Video transcription workflow | CLI only | Requires local yt-dlp, ffmpeg, Whisper |
 | Read accounts / teams / post content | MCP resource | Cached, no subprocess overhead |
 | Validate content before posting | MCP tool | No CLI equivalent |
 | Virality review | MCP tool | No CLI equivalent |
-| Create / update / publish / schedule / delete | CLI | JSON stdout, works everywhere |
+| Create / update / publish / schedule / delete | MCP tool | `create_post`, `update_post`, `publish_draft`, `schedule_post`, `delete_draft` |
+| Get single draft metadata | CLI (`drafts:get`) | No MCP single-post resource |
 | Cursor, SDK agent, CI/CD environment | CLI only | No MCP server in these contexts |
 
 ### Anti-Patterns
@@ -126,7 +127,7 @@ Two execution paths exist: the CLI (`postey.js`) and MCP tools/resources. Pick o
 - **Never** call `mcp__claude_ai_Postey__get_accounts` — read `postey://accounts` instead.
 - **Never** call `mcp__claude_ai_Postey__upload_media_for_post` for a local file — it accepts URLs only.
 - **Never** skip `validate_post_content` / `review_post_content_and_add_comments_for_virality` in Claude Code sessions.
-- **Never** mix CLI and MCP create tools in a single post workflow.
+- **Never** use CLI `drafts:create` / `drafts:publish` / `drafts:schedule` — these commands are removed; use MCP tools.
 
 ---
 
@@ -152,61 +153,49 @@ Tell the user to run the setup command interactively — you cannot run it on th
 ## Accounts & Defaults
 
 - Most commands take a positional `account_id` (e.g. `drafts:list 123`, `drafts:create 123 ...`)
-- Configure default platform per account:
-  ```bash
-  ${CLAUDE_SKILL_DIR}/scripts/postey.js config:set-default <account_id> <platform>
-  ```
 
 ## Common Actions
 
 | User says… | Action |
 |------------|--------|
-| "Draft a tweet about X" | `drafts:create --text "..."` |
-| "Post this to LinkedIn" | `drafts:create --platform LINKEDIN --text "..."` |
-| "Post to X and LinkedIn" (same content) | `drafts:create --platform X,LINKEDIN --text "..."` |
-| "X thread + LinkedIn post" (different content) | `drafts:create --platform X ...` → get `post_id` → MCP `update_post` per platform |
-| "What's scheduled?" | `drafts:list --status scheduled` |
-| "Show my recent posts" | `drafts:list --status published` |
-| "Schedule this for tomorrow" | `drafts:create ... --schedule "2026-02-20T14:00:00Z"` |
-| "Post this now" | `drafts:create ... --publish-now` or `drafts:publish <draft_id>` |
-| "Make captions from this reel: \<url\>" | `video2post.js <url>` → apply Caption Generation Guide → `drafts:create` |
-| "Upload video to Instagram/TikTok/YouTube" | `video:post` command or `video2post.js` workflow |
+| "Draft a tweet about X" | MCP `create_post` |
+| "Post this to LinkedIn" | MCP `create_post` with `platform=LINKEDIN` |
+| "Post to X and LinkedIn" (same content) | MCP `create_post` with multiple platforms |
+| "X thread + LinkedIn post" (different content) | MCP `create_post` → MCP `update_post` per additional platform |
+| "What's scheduled?" | MCP `get_posts` with `status=SCHEDULED` |
+| "Show my recent posts" | MCP `get_posts` with `status=PUBLISHED` |
+| "Schedule this for tomorrow" | MCP `create_post` then MCP `schedule_post` |
+| "Post this now" | MCP `create_post` then MCP `publish_draft` |
+| "Make captions from this reel: \<url\>" | `video2post.js <url>` → apply Caption Generation Guide → MCP `create_post` |
+| "Upload video to Instagram/TikTok/YouTube" | `video:post` command (local file) or `video2post.js` workflow |
 
 ## Workflow
 
 1. **Check config**: `${CLAUDE_SKILL_DIR}/scripts/postey.js config:show`
-2. **Find account**: `${CLAUDE_SKILL_DIR}/scripts/postey.js social-sets:list`
-3. **Create draft**: `${CLAUDE_SKILL_DIR}/scripts/postey.js drafts:create <account_id> --text "..."`
-   - Omit `--platform` to use account default (fallback: `X`)
-   - For multi-platform: see [Publishing to Multiple Platforms](#publishing-to-multiple-platforms)
-4. **Schedule or publish** as needed
+2. **Find account**: MCP resource `postey://accounts`
+3. **Create draft**: MCP `create_post`
+4. **Schedule or publish**: MCP `schedule_post` or `publish_draft`
 
 ## Working with Tags
 
-Always check existing tags before creating new ones — tags are scoped to each social set.
-
-```bash
-${CLAUDE_SKILL_DIR}/scripts/postey.js tags:list           # check first
-${CLAUDE_SKILL_DIR}/scripts/postey.js drafts:create <id> --text "..." --tags 1,2   # use existing
-${CLAUDE_SKILL_DIR}/scripts/postey.js tags:create --tag "New Tag" --color BLUE     # only if needed
-```
+Pass tag IDs via the `tags` field on MCP `create_post`. Use MCP `add_tag` to attach tags to an already-created post.
 
 ## Publishing to Multiple Platforms
 
 **One `post_id` per topic** — never create separate drafts for different platforms on the same content.
 
 ### Same content across platforms
-```bash
-${CLAUDE_SKILL_DIR}/scripts/postey.js drafts:create <account_id> --platform X,LINKEDIN --text "..."
+```
+mcp create_post account_id=<id> platform=X additional_platforms=[LINKEDIN] contents=[{text: "..."}]
 ```
 
 ### Different content per platform
-```bash
+```
 # Step 1 — Create initial draft
-${CLAUDE_SKILL_DIR}/scripts/postey.js drafts:create <account_id> --platform INSTAGRAM --text "<instagram_caption>"
+mcp create_post account_id=<id> platform=INSTAGRAM contents=[{text: "<instagram_caption>"}]
 # Returns post_id, e.g. 1234
 
-# Steps 2–N — Attach each additional platform via MCP (same post_id)
+# Steps 2–N — Attach each additional platform (same post_id)
 mcp update_post post_id=1234 platform=LINKEDIN contents=[{text: "<linkedin_caption>"}]
 mcp update_post post_id=1234 platform=X contents=[{text: "<twitter_caption>"}]
 ```

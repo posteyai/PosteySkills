@@ -67,7 +67,7 @@ PosteySkills/
 
 Users install via:
 ```
-/plugin marketplace add posteyai/PosteySkills
+/plugin marketplace add posteyai/skills
 /plugin install postey@postey-skills
 ```
 

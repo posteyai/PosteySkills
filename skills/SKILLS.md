@@ -16,7 +16,7 @@ Create, schedule, and publish social media content across multiple platforms usi
 
 ## Keeping This Skill Updated
 
-**Source**: [github.com/postey/agent-skills](https://github.com/postey/agent-skills)
+**Source**: [github.com/posteyai/skills](https://github.com/posteyai/skills)
 
 Update methods by installation type:
 

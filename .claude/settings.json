@@ -3,7 +3,7 @@
     "postey-skills": {
       "source": {
         "source": "github",
-        "repo": "posteyai/PosteySkills"
+        "repo": "posteyai/skills"
       }
     }
   }
