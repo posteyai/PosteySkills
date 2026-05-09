@@ -308,6 +308,7 @@ test('legacy commands not implemented return unknown command', async () => {
       ['tags:update', '22', '--tag', 'x', '--color', 'BLUE'],
       ['tags:delete', '22'],
       ['config:set-default', '123', 'X'],
+      ['video:post', '317', '--video', 'x.mp4', '--text', 'x', '--platforms', 'X'],
     ]) {
       const result = await runCli(args, {
         cwd: sandbox.cwd,
@@ -316,6 +317,132 @@ test('legacy commands not implemented return unknown command', async () => {
       assert.equal(result.code, 1);
       assert.ok(parseJsonOrNull(result.stdout)?.error?.startsWith('Unknown command:'));
     }
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
+test('posts:create posts to /posts/raw and returns post_id', async () => {
+  const sandbox = await makeSandbox();
+  const server = createMockServer();
+  const { baseUrl } = await server.listen();
+  const apiKey = 'typ_test_key';
+
+  server.expect('POST', '/posts/raw', {
+    assert(req) {
+      assert.equal(req.headers['x-api-key'], apiKey);
+      assert.equal(req.bodyJson.account_id, 317);
+      assert.deepEqual(req.bodyJson.platforms, ['INSTAGRAM']);
+      assert.equal(req.bodyJson.contents[0].text, 'Hello world');
+    },
+    json: { id: 99, status: 'draft' },
+  });
+
+  try {
+    const result = await runCli(
+      ['posts:create', '--account-id', '317', '--platforms', 'INSTAGRAM', '--text', 'Hello world'],
+      { cwd: sandbox.cwd, env: { HOME: sandbox.home, POSTEY_API_BASE: baseUrl, POSTEY_API_KEY: apiKey } }
+    );
+    assert.equal(result.code, 0);
+    const out = parseJsonOrNull(result.stdout);
+    assert.equal(out.id, 99);
+    server.assertNoPendingExpectations();
+  } finally {
+    await server.close();
+    await sandbox.cleanup();
+  }
+});
+
+test('posts:create exits 1 with JSON error when --platforms is missing', async () => {
+  const sandbox = await makeSandbox();
+  try {
+    const result = await runCli(
+      ['posts:create', '--account-id', '317', '--text', 'Hello'],
+      { cwd: sandbox.cwd, env: { HOME: sandbox.home, POSTEY_API_KEY: 'typ_test_key' } }
+    );
+    assert.equal(result.code, 1);
+    assert.ok(parseJsonOrNull(result.stdout)?.error);
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
+test('posts:create exits 1 with JSON error for invalid platform', async () => {
+  const sandbox = await makeSandbox();
+  try {
+    const result = await runCli(
+      ['posts:create', '--account-id', '317', '--platforms', 'BADPLATFORM', '--text', 'Hi'],
+      { cwd: sandbox.cwd, env: { HOME: sandbox.home, POSTEY_API_KEY: 'typ_test_key' } }
+    );
+    assert.equal(result.code, 1);
+    const out = parseJsonOrNull(result.stdout);
+    assert.ok(out?.error);
+    assert.ok(Array.isArray(out?.allowed));
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
+test('video subcommand: no subcommand exits 1 with JSON error', async () => {
+  const sandbox = await makeSandbox();
+  try {
+    const result = await runCli(['video'], {
+      cwd: sandbox.cwd,
+      env: { HOME: sandbox.home, POSTEY_API_KEY: 'typ_test_key' },
+    });
+    assert.equal(result.code, 1);
+    assert.ok(parseJsonOrNull(result.stdout)?.error);
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
+test('video post --dry-run outputs dry_run:true without network calls', async () => {
+  const sandbox = await makeSandbox();
+  // Write a minimal valid MP4-like file (just needs to exist; ffmpeg not called in dry-run)
+  const videoPath = path.join(sandbox.cwd, 'test.mp4');
+  await fs.writeFile(videoPath, Buffer.alloc(16));
+  try {
+    const result = await runCli(
+      ['video', 'post', '--video', videoPath, '--text', 'Caption', '--platforms', 'X', '--account-id', '317', '--dry-run'],
+      { cwd: sandbox.cwd, env: { HOME: sandbox.home, POSTEY_API_KEY: 'typ_test_key' } }
+    );
+    assert.equal(result.code, 0);
+    const out = parseJsonOrNull(result.stdout);
+    assert.equal(out?.dry_run, true);
+    assert.ok(out?.would_call === 'posts:create' || out?.payload !== undefined);
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
+test('video trim --end and --duration are mutually exclusive', async () => {
+  const sandbox = await makeSandbox();
+  const videoPath = path.join(sandbox.cwd, 'clip.mp4');
+  await fs.writeFile(videoPath, Buffer.alloc(16));
+  try {
+    const result = await runCli(
+      ['video', 'trim', '--file', videoPath, '--start', '0', '--end', '10', '--duration', '10'],
+      { cwd: sandbox.cwd, env: { HOME: sandbox.home, POSTEY_API_KEY: '' } }
+    );
+    assert.equal(result.code, 1);
+    assert.ok(parseJsonOrNull(result.stdout)?.error);
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
+test('video trim requires --end or --duration', async () => {
+  const sandbox = await makeSandbox();
+  const videoPath = path.join(sandbox.cwd, 'clip.mp4');
+  await fs.writeFile(videoPath, Buffer.alloc(16));
+  try {
+    const result = await runCli(
+      ['video', 'trim', '--file', videoPath, '--start', '0'],
+      { cwd: sandbox.cwd, env: { HOME: sandbox.home, POSTEY_API_KEY: '' } }
+    );
+    assert.equal(result.code, 1);
+    assert.ok(parseJsonOrNull(result.stdout)?.error);
   } finally {
     await sandbox.cleanup();
   }

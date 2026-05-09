@@ -1,6 +1,6 @@
-# Video → Transcription → Cross-Post Workflow
+# Video Workflow
 
-Use `video2post.js` when you need to transcribe a video URL and generate platform-optimized captions before posting. This is separate from `video:post` (which uploads a local file without transcription).
+All video operations run through `postey.js`. Use `video post` for upload workflows, `video transcribe` for transcription-first workflows, and `video info` / `video trim` for pre-flight inspection and editing.
 
 ## Prerequisites
 
@@ -9,90 +9,131 @@ Install once per machine:
 ```bash
 # macOS
 brew install yt-dlp ffmpeg
-pip install openai-whisper
-
-# Windows (PowerShell or Command Prompt)
-winget install yt-dlp.yt-dlp
-winget install Gyan.FFmpeg
-pip install openai-whisper
 
 # Linux
 pip install yt-dlp
 sudo apt install ffmpeg
-pip install openai-whisper
 ```
 
-## Quick Workflow — Transcribe + Draft in One Command
+For transcription (`video transcribe`), also install Whisper:
+```bash
+pip install openai-whisper
+# or for Apple Silicon:
+pip install mlx-whisper
+```
+
+---
+
+## Workflow A — Upload Video + Create Draft
+
+Use when you have the caption ready and just need to upload and post.
 
 ```bash
-# Create a YouTube draft from any video URL
-node ${CLAUDE_SKILL_DIR}/scripts/video2post.js <url> --platform YOUTUBE --account-id <account_id>
+# Inspect the video first (optional but recommended)
+${CLAUDE_SKILL_DIR}/scripts/postey.js video info --file ./reel.mp4
 
-# Cross-post to multiple platforms at once
-node ${CLAUDE_SKILL_DIR}/scripts/video2post.js <url> --platform INSTAGRAM,TIKTOK,YOUTUBE --account-id <account_id>
+# Trim if needed
+${CLAUDE_SKILL_DIR}/scripts/postey.js video trim --file ./reel.mp4 --start 0 --duration 60 --output ./reel_60s.mp4
 
-# Transcribe only (no draft created)
-node ${CLAUDE_SKILL_DIR}/scripts/video2post.js <url>
+# Upload video → Instagram Reel (auto cover thumbnail) + text to LinkedIn and X
+${CLAUDE_SKILL_DIR}/scripts/postey.js video post \
+  --video ./reel.mp4 \
+  --text "Caption here" \
+  --platforms INSTAGRAM,LINKEDIN,X \
+  --account-id 317
+
+# Dry-run to validate payload without making any API calls
+${CLAUDE_SKILL_DIR}/scripts/postey.js video post \
+  --video ./reel.mp4 --text "Caption" --platforms INSTAGRAM --account-id 317 --dry-run
 ```
 
-When `--platform` is given, `video2post.js` automatically calls `postey.js` to create one draft per platform using the raw transcript. For better quality captions, use the manual workflow below to generate platform-optimized content first.
-
-## Flags
+`video post` flags:
 
 ```
-node ${CLAUDE_SKILL_DIR}/scripts/video2post.js <video-url> [options]
-
-  --platform <platforms>   Target platform(s), comma-separated
-                           (X, LINKEDIN, TIKTOK, INSTAGRAM, THREADS, BLUESKY, YOUTUBE)
-  --account-id <id>        Postey account_id — required when --platform is set
-  --output-dir, -o <path>  Save downloaded files to this directory
-  --model <size>           Whisper model: tiny|base|small|medium|large (default: small)
+--video <path|url>       Local file path or https:// URL (required)
+--text <caption>         Caption for all platforms (required)
+--platforms <CSV>        Comma-separated platform list (required)
+--account-id <id>        Postey account ID (required)
+--cover-time <sec>       Cover frame extraction offset in seconds (default: 3)
+--cover-url <url>        Skip auto cover extraction, use this CDN URL instead
+--youtube-title <str>    YouTube video title
+--title <str>            Internal draft title
+--tags <CSV>             Comma-separated numeric tag IDs
+--schedule <iso>         Schedule at ISO-8601 UTC datetime
+--publish-now            Publish immediately after creation
+--dry-run                Validate + print payload without calling API
 ```
 
-## Output JSON
+---
 
-```json
-{
-  "url": "https://...",
-  "video_title": "Original Video Title",
-  "transcript": "full plain text transcript",
-  "segments": [{"start": 0.0, "end": 4.2, "text": "..."}],
-  "duration_seconds": 90,
-  "video_file": "/tmp/reel_abc/Original_Video_Title.mp4",
-  "audio_file": "/tmp/reel_abc/audio.wav",
-  "tmp_dir": "/tmp/reel_abc",
-  "drafts": [
-    { "platform": "YOUTUBE", "result": [{"platform": "YOUTUBE", "post_id": 123, "published_now": false}] }
-  ]
-}
-```
+## Workflow B — Transcribe → Generate Captions → Post
 
-`drafts` is only present when `--platform` is set.
-
-## Manual Workflow — Generate Captions First, Then Post
+Use when you want Whisper-generated captions refined before posting.
 
 **Step 1** — Transcribe only:
 ```bash
-node ${CLAUDE_SKILL_DIR}/scripts/video2post.js <url>
+${CLAUDE_SKILL_DIR}/scripts/postey.js video transcribe --input https://youtu.be/abc123
 ```
 
-**Step 2** — Generate platform captions from the `transcript` field using the rules in [prompts.md](prompts.md). Apply the rules yourself — never paste the raw transcript as a caption.
+Output includes `transcript` and `suggested_captions` per platform (truncated to each platform's character limit).
 
-**Step 3** — Create one draft for the first platform, attach the rest to the same `post_id`:
+**Step 2** — Generate polished captions from the `transcript` field using the rules in [prompts.md](prompts.md). Apply the rules yourself — never paste the raw transcript as a caption.
+
+**Step 3** — Create draft with the polished captions:
 ```bash
-${CLAUDE_SKILL_DIR}/scripts/postey.js drafts:create <account_id> --platform INSTAGRAM --text "<instagram_caption>"
-# Note the returned post_id
-```
-Then for each additional platform, use `update_post` MCP tool on the same `post_id`:
-```
-mcp update_post post_id=<post_id> platform=LINKEDIN contents=[{text: "<linkedin_caption>"}]
-mcp update_post post_id=<post_id> platform=YOUTUBE contents=[{youtube_title: "<title>", youtube_description: "<desc>"}]
+${CLAUDE_SKILL_DIR}/scripts/postey.js posts:create \
+  --account-id 317 \
+  --platforms INSTAGRAM \
+  --text "<instagram_caption>"
+# Returns post_id
+
+# Attach additional platforms via MCP update_post:
+# mcp update_post post_id=<post_id> platform=LINKEDIN contents=[{text: "<linkedin_caption>"}]
 ```
 
-**Step 4** — Review and publish / schedule:
+**Step 4** — Publish or schedule via MCP:
+```
+mcp publish_draft post_id=<post_id>
+# or
+mcp schedule_post post_id=<post_id> scheduled_at="2026-05-07T10:00:00Z"
+```
+
+**One-step transcribe + draft** (uses raw transcript, skips caption refinement):
 ```bash
-${CLAUDE_SKILL_DIR}/scripts/postey.js drafts:get <draft_id>
-${CLAUDE_SKILL_DIR}/scripts/postey.js drafts:publish <draft_id>
-# or schedule:
-${CLAUDE_SKILL_DIR}/scripts/postey.js drafts:schedule <draft_id> --time "2026-05-07T10:00:00Z"
+${CLAUDE_SKILL_DIR}/scripts/postey.js video transcribe \
+  --input https://youtu.be/abc123 \
+  --platform INSTAGRAM,X \
+  --account-id 317
+```
+
+`video transcribe` flags:
+
+```
+--input <url|path>       Video URL or local file path (required)
+--platform <CSV>         If set, also creates a draft (requires --account-id)
+--account-id <id>        Account to post to when --platform is given
+--model <size>           Whisper model: tiny|base|small|medium|large (default: small)
+--translate              Translate audio to English
+--keep-files             Keep downloaded temp files after transcription
+--output-dir <path>      Directory for temp files (default: system temp)
+--dry-run                Show what would be posted without API calls
+```
+
+---
+
+## Utility Commands
+
+**Inspect a video** (requires ffprobe):
+```bash
+${CLAUDE_SKILL_DIR}/scripts/postey.js video info --file ./clip.mp4
+```
+Returns duration, codec, dimensions, aspect ratio, and platform fit hints.
+
+**Trim a clip** (requires ffmpeg, stream copy — no re-encode):
+```bash
+${CLAUDE_SKILL_DIR}/scripts/postey.js video trim \
+  --file ./clip.mp4 --start 5 --end 35 --output ./trimmed.mp4
+# or use --duration instead of --end:
+${CLAUDE_SKILL_DIR}/scripts/postey.js video trim \
+  --file ./clip.mp4 --start 0 --duration 60
 ```

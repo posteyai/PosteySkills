@@ -13,7 +13,21 @@ All commands run via `${CLAUDE_SKILL_DIR}/scripts/postey.js <command> [args]`.
 | Command | Description |
 |---------|-------------|
 | `media:upload --platform <platform> --file <path>` | Upload media file (unlinked), returns CDN URL |
-| `video:post [account_id] --video <path\|url> --text "..." --platforms <CSV>` | Upload video + extract cover thumbnail + create multi-platform draft |
+
+## Posts
+
+| Command | Description |
+|---------|-------------|
+| `posts:create --account-id <id> --platforms <CSV> --text <caption>` | Create a multi-platform draft via `/posts/raw`. Optional: `--media-urls`, `--cover-url`, `--youtube-title`, `--title`, `--tags`, `--schedule`, `--publish-now` |
+
+## Video Subcommands
+
+| Command | Description |
+|---------|-------------|
+| `video post --video <path\|url> --text "..." --platforms <CSV> --account-id <id>` | Upload video + create multi-platform draft. INSTAGRAM/TIKTOK/YOUTUBE get video attached; others get text only. Supports `--dry-run`. |
+| `video trim --file <path> --start <sec> (--end <sec>\|--duration <sec>)` | Trim video clip (stream copy, no re-encode). `--end` and `--duration` are mutually exclusive. |
+| `video info --file <path>` | Inspect video: duration, codec, dimensions, aspect ratio, platform hints via ffprobe. |
+| `video transcribe --input <url\|path> [--platform <CSV> --account-id <id>]` | Transcribe audio via yt-dlp + Whisper. Returns `transcript` + `suggested_captions` per platform. Optionally creates draft when `--platform` + `--account-id` given. Supports `--dry-run`. |
 
 ## Setup & Configuration
 
@@ -37,6 +51,21 @@ ${CLAUDE_SKILL_DIR}/scripts/postey.js drafts:get 456
 # Non-interactive setup (scripts/CI)
 ${CLAUDE_SKILL_DIR}/scripts/postey.js setup --key typ_xxx --location global --default-social-set 123
 
+# Inspect a video before uploading
+${CLAUDE_SKILL_DIR}/scripts/postey.js video info --file ./reel.mp4
+
+# Trim a clip to 30 seconds
+${CLAUDE_SKILL_DIR}/scripts/postey.js video trim --file ./reel.mp4 --start 0 --duration 30
+
 # Upload video → Instagram Reel + text to LinkedIn and X
-${CLAUDE_SKILL_DIR}/scripts/postey.js video:post 317 --video ./reel.mp4 --text "Caption" --platforms INSTAGRAM,LINKEDIN,X
+${CLAUDE_SKILL_DIR}/scripts/postey.js video post --video ./reel.mp4 --text "Caption" --platforms INSTAGRAM,LINKEDIN,X --account-id 317
+
+# Dry-run to validate without making API calls
+${CLAUDE_SKILL_DIR}/scripts/postey.js video post --video ./reel.mp4 --text "Caption" --platforms INSTAGRAM --account-id 317 --dry-run
+
+# Transcribe a YouTube video and get suggested captions
+${CLAUDE_SKILL_DIR}/scripts/postey.js video transcribe --input https://youtu.be/abc123
+
+# Transcribe + create draft on Instagram and X
+${CLAUDE_SKILL_DIR}/scripts/postey.js video transcribe --input https://youtu.be/abc123 --platform INSTAGRAM,X --account-id 317
 ```

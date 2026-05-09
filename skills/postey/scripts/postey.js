@@ -14,6 +14,7 @@ const http = require("http");
 const { createHash, randomBytes } = require("crypto");
 const { spawn, spawnSync } = require("child_process");
 const { validateMedia, MIME_TYPES } = require("./mediaValidator");
+const { _VIDEO_CAPABLE_PLATFORMS, _VIDEO_CHAR_LIMITS, _which, _detectWhisper, _gcd, _vTruncate, _sanitizeFname, _findVideoFile, _vRun, _buildThumbnail } = require("./videoUtils");
 
 // Allow overriding API base for tests / self-hosted mocks.
 const API_BASE = process.env.POSTEY_API_BASE || "https://srvr.postey.ai/v1";
@@ -107,43 +108,24 @@ function readConfigFile(configPath) {
   return null;
 }
 
-function getApiKey() {
-  // Priority 1: Environment variable
-  if (process.env.POSTEY_API_KEY) {
-    return { source: "environment variable", key: process.env.POSTEY_API_KEY };
-  }
-
-  // Priority 2: Project-local config (./.postey/config.json)
+function _getConfigValue(fieldName, envVar) {
+  if (envVar && process.env[envVar]) return { source: "environment variable", value: process.env[envVar] };
   const localConfigPath = path.join(process.cwd(), LOCAL_CONFIG_FILE);
-  const localConfig = readConfigFile(localConfigPath);
-  if (localConfig?.apiKey) {
-    return { source: localConfigPath, key: localConfig.apiKey };
-  }
-
-  // Priority 3: User-global config (~/.config/postey/config.json)
-  const globalConfig = readConfigFile(GLOBAL_CONFIG_FILE);
-  if (globalConfig?.apiKey) {
-    return { source: GLOBAL_CONFIG_FILE, key: globalConfig.apiKey };
-  }
-
+  const local = readConfigFile(localConfigPath);
+  if (local?.[fieldName]) return { source: localConfigPath, value: local[fieldName] };
+  const global = readConfigFile(GLOBAL_CONFIG_FILE);
+  if (global?.[fieldName]) return { source: GLOBAL_CONFIG_FILE, value: global[fieldName] };
   return null;
 }
 
+function getApiKey() {
+  const r = _getConfigValue("apiKey", "POSTEY_API_KEY");
+  return r ? { source: r.source, key: r.value } : null;
+}
+
 function getDefaultSocialSetId() {
-  // Priority 1: Project-local config (./.postey/config.json)
-  const localConfigPath = path.join(process.cwd(), LOCAL_CONFIG_FILE);
-  const localConfig = readConfigFile(localConfigPath);
-  if (localConfig?.defaultSocialSetId) {
-    return { source: localConfigPath, id: localConfig.defaultSocialSetId };
-  }
-
-  // Priority 2: User-global config (~/.config/postey/config.json)
-  const globalConfig = readConfigFile(GLOBAL_CONFIG_FILE);
-  if (globalConfig?.defaultSocialSetId) {
-    return { source: GLOBAL_CONFIG_FILE, id: globalConfig.defaultSocialSetId };
-  }
-
-  return null;
+  const r = _getConfigValue("defaultSocialSetId");
+  return r ? { source: r.source, id: r.value } : null;
 }
 
 // ── OAuth helpers ─────────────────────────────────────────────────────────────
@@ -354,6 +336,11 @@ async function requireAuth() {
   return auth;
 }
 
+async function _parseApiResponseJson(response) {
+  const text = await response.text();
+  try { return text ? JSON.parse(text) : {}; } catch { return { raw: text }; }
+}
+
 async function apiRequest(method, endpoint, body = null, opts = {}) {
   const { exitOnError = true } = opts;
   const auth = await requireAuth();
@@ -371,14 +358,7 @@ async function apiRequest(method, endpoint, body = null, opts = {}) {
   }
 
   const response = await fetch(`${API_BASE}${endpoint}`, options);
-
-  let data;
-  const text = await response.text();
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch {
-    data = { raw: text };
-  }
+  const data = await _parseApiResponseJson(response);
 
   if (!response.ok) {
     if (exitOnError) {
@@ -400,13 +380,7 @@ async function apiUploadFile(endpoint, formData) {
     headers: { [auth.header]: auth.value },
     body: formData,
   });
-  const text = await response.text();
-  let data;
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch {
-    data = { raw: text };
-  }
+  const data = await _parseApiResponseJson(response);
   if (!response.ok) {
     error(`HTTP ${response.status}`, { response: data });
   }
@@ -508,99 +482,359 @@ function buildFormData(filePath, mimeType, platform) {
   return fd;
 }
 
-async function cmdVideoPost(args) {
+// ============================================================================
+// posts:create — create a post from pre-uploaded media URLs
+// ============================================================================
+
+async function cmdPostsCreate(args) {
   const parsed = parseArgs(args, { "publish-now": "boolean" });
 
-  const videoSrc = parsed.video;
-  const text = parsed.text;
+  const accountIdRaw = parsed["account-id"] ?? parsed.account_id ?? parsed._positional[0];
+  const accountId = requireIntId(accountIdRaw, "account_id");
+
   const platformsCsv = parsed.platforms;
-  const accountId = requireIntId(
-    resolveAccountIdFromParsed(parsed, parsed._positional[0]),
-    "account_id",
-  );
+  if (!platformsCsv || platformsCsv === true) {
+    error("--platforms is required", { hint: "e.g. --platforms INSTAGRAM,TIKTOK" });
+  }
+  const platforms = parsePlatformCsvToEnums(platformsCsv, "--platforms");
 
-  if (!videoSrc) error("--video is required (local path or https:// URL)");
-  if (!text) error("--text is required");
-  if (!platformsCsv) error("--platforms is required (comma-separated, e.g. INSTAGRAM,LINKEDIN,X)");
+  const textVal = parsed.text;
+  if (!textVal || textVal === true) error("--text is required");
 
-  const platforms = platformsCsv.toUpperCase().split(",").map((p) => p.trim()).filter(Boolean);
-  const hasInsta = platforms.includes("INSTAGRAM");
-  const isUrl = videoSrc.startsWith("https://");
-  const coverTimeSec = parseFloat(parsed["cover-time"] || "3");
-  const publishNow = !!parsed["publish-now"];
-  const scheduleAt = !publishNow && parsed.schedule
-    ? coerceFlagValueToString(parsed.schedule, "--schedule")
-    : null;
-  const title = parsed.title
-    ? coerceFlagValueToString(parsed.title, "--title")
-    : "Untitled Draft";
+  const mediaUrlsCsv = parsed["media-urls"];
+  const mediaUrls = mediaUrlsCsv
+    ? String(mediaUrlsCsv).split(",").map((u) => u.trim()).filter(Boolean)
+    : [];
+  const coverUrl     = parsed["cover-url"]     != null ? coerceFlagValueToString(parsed["cover-url"],     "--cover-url")     : null;
+  const youtubeTitle = parsed["youtube-title"] != null ? coerceFlagValueToString(parsed["youtube-title"], "--youtube-title") : null;
+  const title        = parsed.title            != null ? coerceFlagValueToString(parsed.title,            "--title")         : "Untitled Draft";
+  const publishNow   = !!parsed["publish-now"];
+  const scheduleAt   = !publishNow && parsed.schedule ? coerceFlagValueToString(parsed.schedule, "--schedule") : null;
 
-  // 1. Upload video (Instagram only — other platforms are text-only)
-  let videoUrl = null;
-  if (hasInsta) {
-    if (isUrl) {
-      videoUrl = videoSrc; // already hosted on CDN
-    } else {
-      if (!fs.existsSync(videoSrc)) error(`File not found: ${videoSrc}`);
-      const ext = path.extname(videoSrc).toLowerCase();
-      const mimeType = MIME_TYPES[ext] || "video/mp4";
-      const fileSize = fs.statSync(videoSrc).size;
-      let result;
-      if (fileSize > CHUNKED_UPLOAD_THRESHOLD) {
-        result = await uploadFileChunked(videoSrc, "INSTAGRAM", mimeType);
-      } else {
-        result = await apiUploadFile("/media/unlinked", buildFormData(videoSrc, mimeType, "instagram"));
-      }
-      videoUrl = result.url;
-    }
-    if (process.stderr.isTTY) process.stderr.write(`Video URL: ${videoUrl}\n`);
+  const content = { text: String(textVal) };
+  if (mediaUrls.length > 0) content.media_urls = mediaUrls;
+  if (coverUrl)             content.cover_url   = coverUrl;
+  if (youtubeTitle)         content.youtube_title = youtubeTitle;
+
+  const body = {
+    account_id:  accountId,
+    platforms,
+    contents:    [content],
+    publish_now: publishNow,
+    schedule_at: scheduleAt,
+    draft_title: title,
+    tags:        parseTagIds(parsed.tags),
+  };
+
+  const data = await apiRequest("POST", "/posts/raw", body);
+  output(data);
+}
+
+// ============================================================================
+// video subcommand group  (yargs — lazy-loaded only when "video" is called)
+// ============================================================================
+
+// Invoke another postey.js command in-process and return parsed JSON from its stdout
+function _callSelf(...args) {
+  const r = spawnSync(process.execPath, [__filename, ...args.map(String)], { encoding: "utf8", env: process.env });
+  if (r.error) return { error: r.error.message };
+  try { return JSON.parse(r.stdout); } catch { return { error: r.stderr || r.stdout || "Unknown error" }; }
+}
+
+// ── yargs builders ────────────────────────────────────────────────────────────
+
+function _builderPost(y) {
+  return y
+    .option("video",         { type: "string",  demandOption: true,  describe: "Local file path or https:// URL" })
+    .option("text",          { type: "string",  demandOption: true,  describe: "Caption for all platforms" })
+    .option("platforms",     { type: "string",  demandOption: true,  describe: "CSV: INSTAGRAM,TIKTOK,YOUTUBE,X,..." })
+    .option("account-id",    { type: "number",  demandOption: true,  describe: "Postey account ID" })
+    .option("cover-time",    { type: "number",  default: 3,          describe: "Seconds into video for cover frame (Instagram)" })
+    .option("cover-url",     { type: "string",                       describe: "Pre-existing cover CDN URL (skips ffmpeg)" })
+    .option("youtube-title", { type: "string",                       describe: "YouTube video title" })
+    .option("title",         { type: "string",  default: "Untitled Draft", describe: "Internal draft title" })
+    .option("tags",          { type: "string",                       describe: "Comma-separated numeric tag IDs" })
+    .option("schedule",      { type: "string",                       describe: "ISO-8601 datetime" })
+    .option("publish-now",   { type: "boolean", default: false,      describe: "Publish immediately after creation" })
+    .option("dry-run",       { type: "boolean", default: false,      describe: "Print payload without making API calls" });
+}
+
+function _builderTrim(y) {
+  return y
+    .option("file",     { type: "string", demandOption: true, describe: "Input video file path" })
+    .option("start",    { type: "number", default: 0,         describe: "Start time in seconds" })
+    .option("end",      { type: "number",                     describe: "End time in seconds" })
+    .option("duration", { type: "number",                     describe: "Clip length in seconds" })
+    .option("output",   { type: "string",                     describe: "Output path (default: <file>_trimmed.<ext>)" })
+    .conflicts("end", "duration")
+    .check((argv) => { if (argv.end == null && argv.duration == null) throw new Error("Provide --end <sec> or --duration <sec>"); return true; });
+}
+
+function _builderInfo(y) {
+  return y.option("file", { type: "string", demandOption: true, describe: "Video file path" });
+}
+
+function _builderTranscribe(y) {
+  return y
+    .option("input",      { type: "string",  demandOption: true,                                      describe: "Video URL or local file path" })
+    .option("platform",   { type: "string",                                                            describe: "CSV platforms — triggers draft creation" })
+    .option("account-id", { type: "number",                                                            describe: "Required when --platform is set" })
+    .option("model",      { type: "string",  default: "small", choices: ["tiny","base","small","medium","large"], describe: "Whisper model size" })
+    .option("translate",  { type: "boolean", default: false,                                           describe: "Translate audio to English" })
+    .option("keep-files", { type: "boolean", default: false,                                           describe: "Keep downloaded/temp files after completion" })
+    .option("output-dir", { type: "string",                                                            describe: "Save files to this directory" })
+    .option("thumbnail",  { type: "boolean", default: false,                                           describe: "Build 9:16 cover thumbnail (ffmpeg + optional ImageMagick)" })
+    .option("thumb-text", { type: "string",                                                            describe: "Text overlay on thumbnail" })
+    .option("thumb-time", { type: "number",                                                            describe: "Frame timestamp for thumbnail (default: scene-detect)" })
+    .option("dry-run",    { type: "boolean", default: false,                                           describe: "Validate without making API calls" })
+    .check((argv) => { if (argv.platform && argv.accountId == null) throw new Error("--account-id is required when --platform is set"); return true; });
+}
+
+// ── handlers ──────────────────────────────────────────────────────────────────
+
+async function _handlePost(argv) {
+  const platforms = argv.platforms.toUpperCase().split(",").map((p) => p.trim()).filter(Boolean);
+  const invalid = platforms.filter((p) => !SOCIAL_PLATFORMS.has(p));
+  if (invalid.length) {
+    error(`Invalid platform(s): ${invalid.join(", ")}`, { valid_platforms: Array.from(SOCIAL_PLATFORMS) });
   }
 
-  // 2. Extract cover thumbnail with ffmpeg and upload (Instagram only)
-  let coverUrl = null;
-  if (hasInsta) {
+  const hasInsta = platforms.includes("INSTAGRAM");
+  const hasVideo = platforms.some((p) => _VIDEO_CAPABLE_PLATFORMS.has(p));
+  const isUrl    = String(argv.video).startsWith("https://");
+
+  if (argv.dryRun) {
+    output({ dry_run: true, would_call: "posts:create", payload: { account_id: argv.accountId, platforms, text: argv.text, would_upload_video: hasVideo && !isUrl, would_extract_cover: hasInsta && !argv.coverUrl } });
+    return;
+  }
+
+  // Upload video for video-capable platforms
+  let videoUrl = null;
+  if (hasVideo) {
+    if (isUrl) {
+      videoUrl = argv.video;
+    } else {
+      if (!fs.existsSync(argv.video)) { error(`File not found: ${argv.video}`); }
+      const uploadPlatform = hasInsta ? "INSTAGRAM" : platforms.find((p) => _VIDEO_CAPABLE_PLATFORMS.has(p));
+      if (process.stderr.isTTY) process.stderr.write(`Uploading video for ${uploadPlatform}...\n`);
+      const mediaResult = _callSelf("media:upload", "--platform", uploadPlatform, "--file", argv.video);
+      if (mediaResult.error) { error("Video upload failed", { detail: mediaResult.error }); }
+      videoUrl = mediaResult.url;
+      if (process.stderr.isTTY) process.stderr.write(`Video URL: ${videoUrl}\n`);
+    }
+  }
+
+  // Cover thumbnail for Instagram
+  let coverUrl = argv.coverUrl || null;
+  if (hasInsta && !coverUrl) {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "postey_vpost_"));
     const thumbOut = path.join(tmpDir, "cover.jpg");
     try {
-      const ffResult = spawnSync(
-        "ffmpeg",
-        ["-ss", String(coverTimeSec), "-i", videoSrc, "-vframes", "1", "-q:v", "2", thumbOut, "-y"],
-        { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
-      );
-      if (ffResult.status === 0 && fs.existsSync(thumbOut)) {
-        const coverResult = await apiUploadFile(
-          "/media/unlinked",
-          buildFormData(thumbOut, "image/jpeg", "instagram"),
-        );
-        coverUrl = coverResult.url;
-        if (process.stderr.isTTY) process.stderr.write(`Cover URL: ${coverUrl}\n`);
+      const ff = spawnSync("ffmpeg", ["-ss", String(argv.coverTime), "-i", argv.video, "-vframes", "1", "-q:v", "2", thumbOut, "-y"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+      if (ff.status === 0 && fs.existsSync(thumbOut)) {
+        if (process.stderr.isTTY) process.stderr.write("Uploading cover thumbnail...\n");
+        const coverResult = _callSelf("media:upload", "--platform", "INSTAGRAM", "--file", thumbOut);
+        if (!coverResult.error) {
+          coverUrl = coverResult.url;
+          if (process.stderr.isTTY) process.stderr.write(`Cover URL: ${coverUrl}\n`);
+        }
       } else {
         process.stderr.write("Warning: ffmpeg cover extraction failed — posting without cover_url\n");
-        if (ffResult.stderr) process.stderr.write(ffResult.stderr.slice(0, 500) + "\n");
+        if (ff.stderr) process.stderr.write(ff.stderr.slice(0, 500) + "\n");
       }
     } finally {
       try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
     }
   }
 
-  // 3. Build content + POST to /posts/raw
-  const content = { text };
-  if (videoUrl) content.media_urls = [videoUrl];
-  if (coverUrl) content.cover_url = coverUrl;
+  const createArgs = ["posts:create",
+    "--account-id", String(argv.accountId),
+    "--platforms",  platforms.join(","),
+    "--text",       argv.text,
+    "--title",      argv.title,
+  ];
+  if (videoUrl)          createArgs.push("--media-urls",    videoUrl);
+  if (coverUrl)          createArgs.push("--cover-url",     coverUrl);
+  if (argv.youtubeTitle) createArgs.push("--youtube-title", argv.youtubeTitle);
+  if (argv.tags)         createArgs.push("--tags",          argv.tags);
+  if (argv.schedule)     createArgs.push("--schedule",      argv.schedule);
+  if (argv.publishNow)   createArgs.push("--publish-now");
 
-  const body = {
-    account_id: accountId,
-    platforms,
-    contents: [content],
-    publish_now: publishNow,
-    schedule_at: scheduleAt,
-    draft_title: title,
-    tags: parseTagIds(parsed.tags),
-    post_type: hasInsta ? "REEL" : null,
-  };
+  output(_callSelf(...createArgs));
+}
 
-  const data = await apiRequest("POST", "/posts/raw", body);
-  output(data);
+function _handleTrim(argv) {
+  if (!fs.existsSync(argv.file)) { error(`File not found: ${argv.file}`, { hint: "Check the file path" }); }
+  const ext  = path.extname(argv.file);
+  const outPath = argv.output || path.join(path.dirname(argv.file), `${path.basename(argv.file, ext)}_trimmed${ext}`);
+  const startSec = argv.start ?? 0;
+
+  const ffArgs = ["-ss", String(startSec), "-i", argv.file];
+  if (argv.end != null) ffArgs.push("-to", String(argv.end));
+  else                  ffArgs.push("-t",  String(argv.duration));
+  ffArgs.push("-c", "copy", outPath, "-y");
+
+  if (process.stderr.isTTY) process.stderr.write(`Trimming: ${argv.file} → ${outPath}\n`);
+  const r = spawnSync("ffmpeg", ffArgs, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  if (r.status !== 0) { error("ffmpeg trim failed", { stderr: r.stderr?.slice(0, 500), hint: "Is ffmpeg installed? brew install ffmpeg" }); }
+  if (!fs.existsSync(outPath)) { error("Output file was not created"); }
+
+  const endSec = argv.end != null ? argv.end : startSec + argv.duration;
+  output({ input: path.resolve(argv.file), output: path.resolve(outPath), start_seconds: startSec, end_seconds: endSec, file_size_bytes: fs.statSync(outPath).size });
+}
+
+function _handleInfo(argv) {
+  if (!fs.existsSync(argv.file)) { error(`File not found: ${argv.file}`, { hint: "Check the file path" }); }
+
+  const probe = spawnSync("ffprobe", ["-v", "quiet", "-print_format", "json", "-show_streams", "-show_format", argv.file], { encoding: "utf8" });
+  if (probe.status !== 0 || !probe.stdout) {
+    error("ffprobe failed — is ffmpeg installed?", { hint: "brew install ffmpeg  or  sudo apt install ffmpeg", stderr: probe.stderr?.slice(0, 300) });
+  }
+  let data;
+  try { data = JSON.parse(probe.stdout); } catch { error("Could not parse ffprobe output"); }
+
+  const vs  = (data.streams || []).find((s) => s.codec_type === "video");
+  const as  = (data.streams || []).find((s) => s.codec_type === "audio");
+  const fmt = data.format || {};
+  const dur = Math.round(parseFloat(fmt.duration || vs?.duration || 0) * 10) / 10;
+  const sizeBytes = parseInt(fmt.size || 0, 10);
+  const w = vs?.width || null, h = vs?.height || null;
+  let aspectRatio = null;
+  if (w && h) { const g = _gcd(w, h); aspectRatio = `${w / g}:${h / g}`; }
+
+  const hints = [];
+  if (w && h) {
+    const r = w / h;
+    if (Math.abs(r - 9 / 16) < 0.05)   hints.push("9:16 portrait — ideal for Instagram Reels / TikTok");
+    else if (Math.abs(r - 16 / 9) < 0.05) hints.push("16:9 landscape — ideal for YouTube / LinkedIn");
+    else if (Math.abs(r - 1) < 0.05)   hints.push("1:1 square");
+  }
+  if (dur > 90)  hints.push(`Duration ${dur}s exceeds Instagram Reels 90s limit`);
+  if (dur > 180) hints.push(`Duration ${dur}s exceeds TikTok 3-min standard limit`);
+  if (sizeBytes > CHUNKED_UPLOAD_THRESHOLD) hints.push("Over 50 MB — chunked upload will be used");
+
+  output({ file: path.resolve(argv.file), duration_seconds: dur, file_size_bytes: sizeBytes, file_size_mb: Math.round(sizeBytes / 1024 / 1024 * 10) / 10, width: w, height: h, aspect_ratio: aspectRatio, video_codec: vs?.codec_name || null, audio_codec: as?.codec_name || null, fps: vs?.r_frame_rate || null, container: fmt.format_name || null, platform_hints: hints });
+}
+
+async function _handleTranscribe(argv) {
+  const input = argv.input;
+  const isLocal = !input.startsWith("http://") && !input.startsWith("https://");
+
+  const missing = [];
+  if (!_which("ffmpeg"))           missing.push("ffmpeg");
+  if (!isLocal && !_which("yt-dlp")) missing.push("yt-dlp");
+  if (!_detectWhisper())           missing.push("whisper / mlx_whisper");
+  if (missing.length) { error("Missing required tools", { missing, hint: "brew install ffmpeg yt-dlp && pip install mlx-whisper" }); }
+
+  const autoTmp = !argv.outputDir;
+  const tmpDir  = argv.outputDir || path.join(os.tmpdir(), `v2p_${require("crypto").randomBytes(4).toString("hex")}`);
+  fs.mkdirSync(tmpDir, { recursive: true });
+
+  let videoFile, videoTitle;
+  if (isLocal) {
+    videoFile = input.startsWith("~/") ? path.join(os.homedir(), input.slice(2)) : path.resolve(input);
+    if (!fs.existsSync(videoFile)) { error(`Local file not found: ${videoFile}`); }
+    videoTitle = path.basename(videoFile, path.extname(videoFile));
+    if (process.stderr.isTTY) process.stderr.write(`Using local file: ${videoFile}\n`);
+  } else {
+    if (process.stderr.isTTY) process.stderr.write(`Fetching metadata: ${input}\n`);
+    const tr = spawnSync("yt-dlp", ["--print", "%(title)s", "--no-download", input], { encoding: "utf8" });
+    videoTitle = (tr.status === 0 && tr.stdout) ? tr.stdout.trim().split("\n")[0] : "";
+    if (process.stderr.isTTY) process.stderr.write(`Downloading: ${input}\n`);
+    _vRun("yt-dlp", ["-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best", "--merge-output-format", "mp4", "-o", path.join(tmpDir, _sanitizeFname(videoTitle) + ".%(ext)s"), input]);
+    videoFile = _findVideoFile(tmpDir);
+  }
+
+  // Optional thumbnail
+  let thumbnailFile = null;
+  if (argv.thumbnail) {
+    if (process.stderr.isTTY) process.stderr.write("Building thumbnail...\n");
+    thumbnailFile = _buildThumbnail(videoFile, { thumbText: argv.thumbText || videoTitle, thumbTime: argv.thumbTime, outDir: tmpDir });
+    if (thumbnailFile && process.stderr.isTTY) process.stderr.write(`Thumbnail: ${thumbnailFile}\n`);
+  }
+
+  // Extract audio + transcribe
+  const audioFile = path.join(tmpDir, "audio.wav");
+  if (process.stderr.isTTY) process.stderr.write("Extracting audio...\n");
+  _vRun("ffmpeg", ["-i", videoFile, "-ar", "16000", "-ac", "1", audioFile, "-y"]);
+
+  const whisperBin  = _detectWhisper();
+  const whisperTask = argv.translate ? "translate" : "transcribe";
+  if (process.stderr.isTTY) process.stderr.write(`Transcribing with ${whisperBin} (model: ${argv.model})...\n`);
+  if (whisperBin === "mlx_whisper") {
+    _vRun("mlx_whisper", [audioFile, "--model", `mlx-community/whisper-${argv.model}-mlx`, "--output-format", "json", "--output-dir", tmpDir]);
+  } else {
+    _vRun("whisper", [audioFile, "--model", argv.model, "--task", whisperTask, "--output_format", "json", "--output_dir", tmpDir]);
+  }
+
+  const whisperJsonPath = path.join(tmpDir, "audio.json");
+  if (!fs.existsSync(whisperJsonPath)) { error(`Whisper output not found at ${whisperJsonPath}`); }
+  const wd = JSON.parse(fs.readFileSync(whisperJsonPath, "utf8"));
+  const transcript = (wd.text || "").trim();
+  const segments   = (wd.segments || []).map((s) => ({ start: s.start, end: s.end, text: s.text.trim() }));
+  const durationSec = segments.length > 0 ? Math.round(segments[segments.length - 1].end) : 0;
+
+  // Per-platform suggested captions
+  const platforms = argv.platform ? argv.platform.toUpperCase().split(",").map((p) => p.trim()).filter(Boolean) : [];
+  const suggestedCaptions = {};
+  for (const p of platforms) suggestedCaptions[p] = _vTruncate(transcript, _VIDEO_CHAR_LIMITS[p] ?? 2200);
+
+  // Create post if --platform provided
+  let postResult = null;
+  if (platforms.length > 0 && argv.accountId != null) {
+    if (argv.dryRun) {
+      postResult = { dry_run: true, would_post: { platforms, text_preview: _vTruncate(transcript, 100), account_id: argv.accountId } };
+    } else {
+      const hasInsta      = platforms.includes("INSTAGRAM");
+      const uploadPlat    = hasInsta ? "INSTAGRAM" : (platforms.find((p) => _VIDEO_CAPABLE_PLATFORMS.has(p)) || platforms[0]);
+      if (process.stderr.isTTY) process.stderr.write("Uploading video...\n");
+      const mediaRes = _callSelf("media:upload", "--platform", uploadPlat, "--file", videoFile);
+      let coverCdnUrl = null;
+      if (hasInsta && thumbnailFile) {
+        if (process.stderr.isTTY) process.stderr.write("Uploading thumbnail...\n");
+        const thumbRes = _callSelf("media:upload", "--platform", "INSTAGRAM", "--file", thumbnailFile);
+        if (!thumbRes.error) coverCdnUrl = thumbRes.url;
+      }
+      const minLimit    = Math.min(...platforms.map((p) => _VIDEO_CHAR_LIMITS[p] ?? 2200));
+      const createArgs  = ["posts:create", "--account-id", String(argv.accountId), "--platforms", platforms.join(","), "--text", _vTruncate(transcript, minLimit)];
+      if (mediaRes?.url) createArgs.push("--media-urls", mediaRes.url);
+      if (coverCdnUrl)   createArgs.push("--cover-url", coverCdnUrl);
+      if (platforms.includes("YOUTUBE") && videoTitle) createArgs.push("--youtube-title", videoTitle);
+      postResult = _callSelf(...createArgs);
+    }
+  }
+
+  output({
+    input,
+    video_title: videoTitle || null,
+    transcript,
+    segments,
+    duration_seconds: durationSec,
+    ...(Object.keys(suggestedCaptions).length > 0 ? { suggested_captions: suggestedCaptions } : {}),
+    ...(postResult ? { post: postResult } : {}),
+  });
+
+  if (autoTmp && !argv.keepFiles) { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {} }
+}
+
+// ── main video command dispatcher ─────────────────────────────────────────────
+
+async function cmdVideoGroup(args) {
+  return require("yargs")(args)
+    .scriptName("postey.js video")
+    .usage("Usage: postey.js video <command> [options]")
+    .command("post",       "Upload video and create multi-platform draft",  _builderPost,       _handlePost)
+    .command("trim",       "Trim a video clip with ffmpeg (stream copy)",   _builderTrim,       _handleTrim)
+    .command("info",       "Inspect a video file via ffprobe",              _builderInfo,       _handleInfo)
+    .command("transcribe", "Transcribe video audio (yt-dlp + Whisper)",    _builderTranscribe, _handleTranscribe)
+    .demandCommand(1, "Specify a subcommand: post | trim | info | transcribe")
+    .strict()
+    .fail((msg, err) => {
+      output({ error: msg || err?.message, hint: "Run: postey.js video --help" });
+      process.exit(1);
+    })
+    .help()
+    .parseAsync();
 }
 
 function parseArgs(args, spec = {}) {
@@ -1049,269 +1283,179 @@ function writeConfig(configPath, config) {
   });
 }
 
-async function cmdSetup(args) {
-  const parsed = parseArgs(args, { "no-default": "boolean" });
-
-  // Check if running in non-interactive mode (key provided as argument)
+async function _promptApiKey(parsed, isNonInteractive) {
   let apiKey = parsed._positional[0] || parsed.key;
-  let location = parsed.location || parsed.scope;
-  const defaultSocialSetArg = parsed["default-social-set"];
-  const noDefault =
-    parsed["no-default"] === true || parsed["no-default"] === "true";
-
-  // Non-interactive mode when --key is provided
-  const isNonInteractive = !!apiKey;
-
-  // If key provided via argument, skip interactive prompt
   if (!apiKey) {
     console.error("");
     console.error(fmt.title("Postey CLI Setup"));
     console.error("");
-    console.error(
-      fmt.dim("Sign up free at postey.ai if you don't have an account."),
-    );
+    console.error(fmt.dim("Sign up free at postey.ai if you don't have an account."));
     console.error("");
     console.error(fmt.info(`Get your API key at: ${fmt.link(API_KEY_URL)}`));
     console.error("");
-    apiKey = await prompt(
-      `${colors.bold}Enter your Postey API key:${colors.reset} `,
-    );
+    apiKey = await prompt(`${colors.bold}Enter your Postey API key:${colors.reset} `);
   }
+  if (!apiKey) error("API key is required");
+  return apiKey;
+}
 
-  if (!apiKey) {
-    error("API key is required");
-  }
-
-  // Determine location
+async function _resolveLocation(isNonInteractive, parsed) {
+  let location = parsed.location || parsed.scope;
   if (!location) {
     if (isNonInteractive) {
-      // Default to global in non-interactive mode
       location = "global";
     } else {
       console.error("");
       console.error(fmt.bold("Where should the API key be stored?"));
-      console.error(
-        `  ${fmt.num("1.")} Global ${fmt.dim("(~/.config/postey/)")} ${fmt.label("- Available to all projects")}`,
-      );
-      console.error(
-        `  ${fmt.num("2.")} Local ${fmt.dim("(./.postey/)")} ${fmt.label("- Only this project")}`,
-      );
+      console.error(`  ${fmt.num("1.")} Global ${fmt.dim("(~/.config/postey/)")} ${fmt.label("- Available to all projects")}`);
+      console.error(`  ${fmt.num("2.")} Local ${fmt.dim("(./.postey/)")} ${fmt.label("- Only this project")}`);
       console.error("");
-      const choice = await prompt(
-        `${colors.bold}Choose location [1/2]${colors.reset} ${fmt.dim("(default: 1)")}: `,
-      );
+      const choice = await prompt(`${colors.bold}Choose location [1/2]${colors.reset} ${fmt.dim("(default: 1)")}: `);
       location = choice === "2" ? "local" : "global";
     }
   }
+  return location;
+}
 
-  const isLocal = location === "local" || location === "2";
-  const configPath = isLocal
-    ? path.join(process.cwd(), LOCAL_CONFIG_FILE)
-    : GLOBAL_CONFIG_FILE;
-
-  // Read existing config to preserve other settings
-  const existingConfig = readConfigFile(configPath) || {};
-  const newConfig = { ...existingConfig, apiKey };
-
-  writeConfig(configPath, newConfig);
-
-  // Offer to add .postey/ to .gitignore for local config
-  if (isLocal) {
-    const gitignorePath = path.join(process.cwd(), ".gitignore");
-    if (fs.existsSync(gitignorePath)) {
-      const gitignore = fs.readFileSync(gitignorePath, "utf-8");
-      if (!gitignore.includes(".postey/") && !gitignore.includes(".postey\n")) {
-        if (isNonInteractive) {
-          // Auto-add to .gitignore in non-interactive mode
-          fs.appendFileSync(
-            gitignorePath,
-            "\n# Postey config (contains API key)\n.postey/\n",
-          );
-          console.error(fmt.success("Added .postey/ to .gitignore"));
-        } else {
-          console.error("");
-          const addToGitignore = await prompt(
-            `${colors.bold}Add .postey/ to .gitignore?${colors.reset} ${fmt.dim("[Y/n]")}: `,
-          );
-          if (addToGitignore.toLowerCase() !== "n") {
-            fs.appendFileSync(
-              gitignorePath,
-              "\n# Postey config (contains API key)\n.postey/\n",
-            );
-            console.error(fmt.success("Added .postey/ to .gitignore"));
-          }
-        }
-      }
-    } else {
-      // No .gitignore exists - offer to create one to protect the API key
+async function _setupGitignore(isLocal, isNonInteractive) {
+  if (!isLocal) return;
+  const gitignorePath = path.join(process.cwd(), ".gitignore");
+  if (fs.existsSync(gitignorePath)) {
+    const gitignore = fs.readFileSync(gitignorePath, "utf-8");
+    if (!gitignore.includes(".postey/") && !gitignore.includes(".postey\n")) {
       if (isNonInteractive) {
-        // Auto-create .gitignore in non-interactive mode
-        fs.writeFileSync(
-          gitignorePath,
-          "# Postey config (contains API key)\n.postey/\n",
-        );
-        console.error(fmt.success("Created .gitignore with .postey/ entry"));
+        fs.appendFileSync(gitignorePath, "\n# Postey config (contains API key)\n.postey/\n");
+        console.error(fmt.success("Added .postey/ to .gitignore"));
       } else {
         console.error("");
-        console.error(
-          fmt.warn(
-            "No .gitignore found. Your API key could be accidentally committed.",
-          ),
-        );
-        const createGitignore = await prompt(
-          `${colors.bold}Create .gitignore with .postey/ entry?${colors.reset} ${fmt.dim("[Y/n]")}: `,
-        );
-        if (createGitignore.toLowerCase() !== "n") {
-          fs.writeFileSync(
-            gitignorePath,
-            "# Postey config (contains API key)\n.postey/\n",
-          );
-          console.error(fmt.success("Created .gitignore with .postey/ entry"));
-        } else {
-          console.error(
-            fmt.warn(
-              "Remember to add .postey/ to .gitignore to protect your API key",
-            ),
-          );
+        const addToGitignore = await prompt(`${colors.bold}Add .postey/ to .gitignore?${colors.reset} ${fmt.dim("[Y/n]")}: `);
+        if (addToGitignore.toLowerCase() !== "n") {
+          fs.appendFileSync(gitignorePath, "\n# Postey config (contains API key)\n.postey/\n");
+          console.error(fmt.success("Added .postey/ to .gitignore"));
         }
       }
     }
+  } else {
+    if (isNonInteractive) {
+      fs.writeFileSync(gitignorePath, "# Postey config (contains API key)\n.postey/\n");
+      console.error(fmt.success("Created .gitignore with .postey/ entry"));
+    } else {
+      console.error("");
+      console.error(fmt.warn("No .gitignore found. Your API key could be accidentally committed."));
+      const createGitignore = await prompt(`${colors.bold}Create .gitignore with .postey/ entry?${colors.reset} ${fmt.dim("[Y/n]")}: `);
+      if (createGitignore.toLowerCase() !== "n") {
+        fs.writeFileSync(gitignorePath, "# Postey config (contains API key)\n.postey/\n");
+        console.error(fmt.success("Created .gitignore with .postey/ entry"));
+      } else {
+        console.error(fmt.warn("Remember to add .postey/ to .gitignore to protect your API key"));
+      }
+    }
   }
+}
+
+async function _setupDefaultSocialSet({ apiKey, configPath, defaultSocialSetArg, noDefault, isNonInteractive }) {
+  if (defaultSocialSetArg) {
+    const origKey = process.env.POSTEY_API_KEY;
+    process.env.POSTEY_API_KEY = apiKey;
+    try {
+      await apiRequest("GET", `/social-sets/${defaultSocialSetArg}`, null, { exitOnError: false });
+    } catch {
+      if (origKey) process.env.POSTEY_API_KEY = origKey; else delete process.env.POSTEY_API_KEY;
+      error(`Social set ${defaultSocialSetArg} not found or not accessible`);
+    }
+    if (origKey) process.env.POSTEY_API_KEY = origKey; else delete process.env.POSTEY_API_KEY;
+    const updatedConfig = readConfigFile(configPath) || {};
+    updatedConfig.defaultSocialSetId = defaultSocialSetArg;
+    writeConfig(configPath, updatedConfig);
+    console.error(fmt.success(`Default social set saved: ${defaultSocialSetArg}`));
+    return defaultSocialSetArg;
+  }
+
+  if (noDefault) {
+    console.error(fmt.dim("Skipping default social set configuration."));
+    return null;
+  }
+
+  let socialSets = null;
+  try {
+    const origKey = process.env.POSTEY_API_KEY;
+    process.env.POSTEY_API_KEY = apiKey;
+    socialSets = await apiRequest("GET", "/social-sets?limit=50", null, { exitOnError: false });
+    if (origKey) process.env.POSTEY_API_KEY = origKey; else delete process.env.POSTEY_API_KEY;
+  } catch (err) {
+    console.error(fmt.warn(`Could not fetch social sets: ${err.message}`));
+    console.error(fmt.dim("You can set a default later with: postey.js config:set-default"));
+  }
+
+  if (!socialSets) return null;
+
+  if (!socialSets.results || socialSets.results.length === 0) {
+    console.error("");
+    console.error(fmt.warn("No social sets found."));
+    console.error(fmt.dim("To get started, connect a social account at postey.ai:"));
+    console.error(fmt.info(`${fmt.link("https://app.postey.ai")}`));
+    console.error("");
+    console.error(fmt.dim("After connecting, run: postey.js config:set-default"));
+    return null;
+  }
+
+  if (socialSets.results.length === 1) {
+    const { id, name, username } = socialSets.results[0];
+    const updatedConfig = readConfigFile(configPath) || {};
+    updatedConfig.defaultSocialSetId = id;
+    writeConfig(configPath, updatedConfig);
+    console.error(fmt.success(`Default social set: ${fmt.bold(name || "Unnamed")} ${fmt.dim(username ? `@${username}` : "")}`));
+    return id;
+  }
+
+  if (isNonInteractive) {
+    console.error(fmt.info(`Found ${socialSets.results.length} social sets. Use --default-social-set <id> to set one as default.`));
+    return null;
+  }
+
+  const formatted = formatSocialSetsForDisplay(socialSets.results);
+  console.error("");
+  console.error(fmt.bold("Choose a default social set"));
+  console.error(fmt.dim("This will be used when you don't specify one. You can always override it."));
+  console.error("");
+  formatted.forEach(({ displayLine }) => console.error(displayLine));
+  console.error("");
+
+  const choice = await prompt(`${colors.bold}Enter number${colors.reset} ${fmt.dim("(or Enter to skip)")}: `);
+  if (choice) {
+    const choiceNum = parseInt(choice, 10);
+    if (!isNaN(choiceNum) && choiceNum >= 1 && choiceNum <= formatted.length) {
+      const selectedId = formatted[choiceNum - 1].set.id;
+      const updatedConfig = readConfigFile(configPath) || {};
+      updatedConfig.defaultSocialSetId = selectedId;
+      writeConfig(configPath, updatedConfig);
+      console.error(fmt.success("Default social set saved"));
+      return selectedId;
+    }
+  }
+  return null;
+}
+
+async function cmdSetup(args) {
+  const parsed = parseArgs(args, { "no-default": "boolean" });
+  const noDefault = parsed["no-default"] === true || parsed["no-default"] === "true";
+  const defaultSocialSetArg = parsed["default-social-set"];
+  const isNonInteractive = !!(parsed._positional[0] || parsed.key);
+
+  const apiKey = await _promptApiKey(parsed, isNonInteractive);
+  const location = await _resolveLocation(isNonInteractive, parsed);
+  const isLocal = location === "local" || location === "2";
+  const configPath = isLocal ? path.join(process.cwd(), LOCAL_CONFIG_FILE) : GLOBAL_CONFIG_FILE;
+
+  const existingConfig = readConfigFile(configPath) || {};
+  writeConfig(configPath, { ...existingConfig, apiKey });
+
+  await _setupGitignore(isLocal, isNonInteractive);
 
   console.error("");
   console.error(fmt.success(`API key saved to ${fmt.dim(configPath)}`));
 
-  // Handle default social set
-  let defaultSocialSetId = null;
-
-  // If --default-social-set was provided, validate it before saving
-  if (defaultSocialSetArg) {
-    // Validate the social set exists via API
-    const origKey = process.env.POSTEY_API_KEY;
-    process.env.POSTEY_API_KEY = apiKey;
-    try {
-      await apiRequest("GET", `/social-sets/${defaultSocialSetArg}`, null, {
-        exitOnError: false,
-      });
-    } catch {
-      if (origKey) {
-        process.env.POSTEY_API_KEY = origKey;
-      } else {
-        delete process.env.POSTEY_API_KEY;
-      }
-      error(`Social set ${defaultSocialSetArg} not found or not accessible`);
-    }
-    if (origKey) {
-      process.env.POSTEY_API_KEY = origKey;
-    } else {
-      delete process.env.POSTEY_API_KEY;
-    }
-
-    defaultSocialSetId = defaultSocialSetArg;
-    const updatedConfig = readConfigFile(configPath) || {};
-    updatedConfig.defaultSocialSetId = defaultSocialSetId;
-    writeConfig(configPath, updatedConfig);
-    console.error(
-      fmt.success(`Default social set saved: ${defaultSocialSetId}`),
-    );
-  } else if (noDefault) {
-    // Skip setting default social set
-    console.error(fmt.dim("Skipping default social set configuration."));
-  } else {
-    // Fetch social sets to determine what to do
-    let socialSets = null;
-    try {
-      const origKey = process.env.POSTEY_API_KEY;
-      process.env.POSTEY_API_KEY = apiKey;
-      socialSets = await apiRequest("GET", "/social-sets?limit=50", null, {
-        exitOnError: false,
-      });
-      if (origKey) {
-        process.env.POSTEY_API_KEY = origKey;
-      } else {
-        delete process.env.POSTEY_API_KEY;
-      }
-    } catch (err) {
-      console.error(fmt.warn(`Could not fetch social sets: ${err.message}`));
-      console.error(
-        fmt.dim(
-          "You can set a default later with: postey.js config:set-default",
-        ),
-      );
-    }
-
-    if (socialSets) {
-      if (!socialSets.results || socialSets.results.length === 0) {
-        // No social sets found - provide helpful guidance
-        console.error("");
-        console.error(fmt.warn("No social sets found."));
-        console.error(
-          fmt.dim("To get started, connect a social account at postey.ai:"),
-        );
-        console.error(
-          fmt.info(`${fmt.link("https://app.postey.ai")}`),
-        );
-        console.error("");
-        console.error(
-          fmt.dim("After connecting, run: postey.js config:set-default"),
-        );
-      } else if (socialSets.results.length === 1) {
-        // Only one social set - auto-select it without asking
-        defaultSocialSetId = socialSets.results[0].id;
-        const updatedConfig = readConfigFile(configPath) || {};
-        updatedConfig.defaultSocialSetId = defaultSocialSetId;
-        writeConfig(configPath, updatedConfig);
-        const name = socialSets.results[0].name || "Unnamed";
-        const username = socialSets.results[0].username
-          ? `@${socialSets.results[0].username}`
-          : "";
-        console.error(
-          fmt.success(
-            `Default social set: ${fmt.bold(name)} ${fmt.dim(username)}`,
-          ),
-        );
-      } else if (isNonInteractive) {
-        // Multiple social sets in non-interactive mode
-        console.error(
-          fmt.info(
-            `Found ${socialSets.results.length} social sets. Use --default-social-set <id> to set one as default.`,
-          ),
-        );
-      } else {
-        // Multiple social sets in interactive mode - ask user to choose
-        const formatted = formatSocialSetsForDisplay(socialSets.results);
-
-        console.error("");
-        console.error(fmt.bold("Choose a default social set"));
-        console.error(
-          fmt.dim(
-            "This will be used when you don't specify one. You can always override it.",
-          ),
-        );
-        console.error("");
-        formatted.forEach(({ displayLine }) => console.error(displayLine));
-        console.error("");
-
-        const choice = await prompt(
-          `${colors.bold}Enter number${colors.reset} ${fmt.dim("(or Enter to skip)")}: `,
-        );
-        if (choice) {
-          const choiceNum = parseInt(choice, 10);
-          if (
-            !isNaN(choiceNum) &&
-            choiceNum >= 1 &&
-            choiceNum <= formatted.length
-          ) {
-            defaultSocialSetId = formatted[choiceNum - 1].set.id;
-            const updatedConfig = readConfigFile(configPath) || {};
-            updatedConfig.defaultSocialSetId = defaultSocialSetId;
-            writeConfig(configPath, updatedConfig);
-            console.error(fmt.success(`Default social set saved`));
-          }
-        }
-      }
-    }
-  }
+  const defaultSocialSetId = await _setupDefaultSocialSet({ apiKey, configPath, defaultSocialSetArg, noDefault, isNonInteractive });
 
   output({
     success: true,
@@ -1431,17 +1575,45 @@ COMMANDS:
   media:upload --platform <platform> --file <path>
                                              Upload a media file (unlinked). Returns CDN URL
 
-  video:post [account_id] [options]          Upload a video and create a multi-platform draft
-    --video <path|url>                       Local file path or https:// CDN URL (required)
-    --text <caption>                         Caption for all platforms (required)
-    --platforms <CSV>                        Comma-separated platform list (required)
-                                             Instagram gets video + auto cover thumbnail;
-                                             other platforms receive text only
-    --cover-time <sec>                       Seconds into video to extract cover frame (default: 3)
-    --title <title>                          Internal draft title (default: "Untitled Draft")
-    --tags <ids>                             Comma-separated numeric tag IDs
+  posts:create --account-id <id> --platforms <CSV> --text <caption>
+                                             Create a multi-platform draft via /posts/raw
+    --media-urls <CSV>                       Pre-uploaded CDN URLs to attach
+    --cover-url <url>                        Cover image CDN URL (Instagram)
+    --youtube-title <str>                    YouTube video title
+    --title <str>                            Internal draft title (default: "Untitled Draft")
+    --tags <CSV>                             Comma-separated numeric tag IDs
     --schedule <iso>                         Schedule at ISO-8601 UTC datetime
     --publish-now                            Publish immediately after creation
+
+VIDEO SUBCOMMANDS:
+  video post --video <path|url> --text <caption> --platforms <CSV> --account-id <id>
+                                             Upload video + create multi-platform draft
+                                             INSTAGRAM/TIKTOK/YOUTUBE get video attached
+    --cover-time <sec>                       Cover frame extraction offset in seconds (default: 3)
+    --cover-url <url>                        Skip auto cover extraction, use this URL
+    --youtube-title <str>                    YouTube video title
+    --title <str>                            Internal draft title
+    --tags <CSV>                             Comma-separated numeric tag IDs
+    --schedule <iso>                         Schedule at ISO-8601 UTC datetime
+    --publish-now                            Publish immediately
+    --dry-run                                Validate + show payload without calling API
+
+  video trim --file <path> --start <sec> (--end <sec> | --duration <sec>)
+                                             Trim a video clip (stream copy, no re-encode)
+    --output <path>                          Output path (default: <basename>_trimmed.<ext>)
+
+  video info --file <path>
+                                             Inspect video: duration, codec, dimensions, platform hints
+
+  video transcribe --input <url|path>
+                                             Transcribe video audio via yt-dlp + Whisper
+    --platform <CSV>                         If set, also create draft (requires --account-id)
+    --account-id <id>                        Account to post to when --platform is given
+    --model <size>                           Whisper model: tiny|base|small|medium|large (default: small)
+    --translate                              Translate audio to English
+    --dry-run                                Show what would be posted without API calls
+
+  Run  postey.js video <subcommand> --help  for full flag reference.
 
 EXAMPLES:
   # First time setup (interactive)
@@ -1460,10 +1632,19 @@ EXAMPLES:
   ./postey.js drafts:get 456
 
   # Upload local video → Instagram Reel (with auto cover) + text to LinkedIn and X
-  ./postey.js video:post 317 --video ./reel.mp4 --text "Caption here" --platforms INSTAGRAM,LINKEDIN,X
+  ./postey.js video post --video ./reel.mp4 --text "Caption here" --platforms INSTAGRAM,LINKEDIN,X --account-id 317
 
-  # Custom cover frame at 10 seconds, publish immediately
-  ./postey.js video:post 317 --video ./reel.mp4 --text "Caption" --platforms INSTAGRAM --cover-time 10 --publish-now
+  # Inspect video before uploading
+  ./postey.js video info --file ./reel.mp4
+
+  # Trim first 30 seconds
+  ./postey.js video trim --file ./reel.mp4 --start 0 --duration 30
+
+  # Transcribe a YouTube URL and get suggested captions
+  ./postey.js video transcribe --input https://youtu.be/abc123
+
+  # Dry-run: validate video post payload without calling API
+  ./postey.js video post --video ./reel.mp4 --text "Caption" --platforms INSTAGRAM --account-id 317 --dry-run
 
 CONFIG PRIORITY:
   1. POSTEY_API_KEY environment variable (highest)
@@ -1510,16 +1691,17 @@ async function cmdMediaUpload(args) {
 // ============================================================================
 
 const COMMANDS = {
-  "auth:login":  cmdAuthLogin,
-  "auth:logout": cmdAuthLogout,
-  setup: cmdSetup,
-  "drafts:get": cmdDraftsGet,
-  "media:upload": cmdMediaUpload,
-  "video:post": cmdVideoPost,
-  "config:show": cmdConfigShow,
-  help: showHelp,
-  "--help": showHelp,
-  "-h": showHelp,
+  "auth:login":    cmdAuthLogin,
+  "auth:logout":   cmdAuthLogout,
+  setup:           cmdSetup,
+  "drafts:get":    cmdDraftsGet,
+  "media:upload":  cmdMediaUpload,
+  "posts:create":  cmdPostsCreate,
+  video:           cmdVideoGroup,
+  "config:show":   cmdConfigShow,
+  help:            showHelp,
+  "--help":        showHelp,
+  "-h":            showHelp,
 };
 
 async function main() {

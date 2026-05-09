@@ -21,7 +21,6 @@ when_to_use: >
   generate captions from a video URL, or any social media publishing task.
 allowed-tools:
   - Bash(${CLAUDE_SKILL_DIR}/scripts/postey.js:*)
-  - Bash(node ${CLAUDE_SKILL_DIR}/scripts/video2post.js:*)
 mcp-tools:
   resources:
     - postey://accounts
@@ -75,7 +74,7 @@ routing:
   convert-content:     mcp-tool      # convert_post_content
   write-post:          mcp-tool      # create/update/publish/schedule/delete → MCP tools
   local-file:          cli           # any local path → unconditional CLI (video:post)
-  video-transcription: cli           # video2post.js (yt-dlp + Whisper)
+  video-transcription: cli           # postey.js video transcribe (yt-dlp + Whisper)
   ci-environment:      cli           # no MCP server available in CI/CD
   fallback:            cli           # unknown operations → CLI
 ---
@@ -94,7 +93,7 @@ Two execution paths exist: the CLI (`postey.js`) and MCP tools/resources. Pick o
    → **CLI only** — MCP cannot access the local filesystem.
 
 2. **Video transcription** (yt-dlp + Whisper)?
-   → **`node ${CLAUDE_SKILL_DIR}/scripts/video2post.js`** — no MCP equivalent.
+   → **`node ${CLAUDE_SKILL_DIR}/scripts/postey.js video transcribe <url>`** — no MCP equivalent.
 
 3. **Read-only state** (accounts, teams, post content)?
    → **MCP resource** — fast, cached, no subprocess:
@@ -166,8 +165,8 @@ Tell the user to run the setup command interactively — you cannot run it on th
 | "Show my recent posts" | MCP `get_posts` with `status=PUBLISHED` |
 | "Schedule this for tomorrow" | MCP `create_post` then MCP `schedule_post` |
 | "Post this now" | MCP `create_post` then MCP `publish_draft` |
-| "Make captions from this reel: \<url\>" | `video2post.js <url>` → apply Caption Generation Guide → MCP `create_post` |
-| "Upload video to Instagram/TikTok/YouTube" | `video:post` command (local file) or `video2post.js` workflow |
+| "Make captions from this reel: \<url\>" | `postey.js video transcribe <url>` → apply Caption Generation Guide → MCP `create_post` |
+| "Upload video to Instagram/TikTok/YouTube" | `postey.js video:post` (local file) or `postey.js video transcribe <url>` (remote URL) |
 
 ## Workflow
 

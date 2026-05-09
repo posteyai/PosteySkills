@@ -16,7 +16,7 @@ This document is the full routing reference for the Postey skill. The key rules 
    → CLI unconditionally. MCP cannot access the local filesystem. Stop here.
 
 2. Does the task involve VIDEO TRANSCRIPTION (yt-dlp + Whisper)?
-   → `node ${CLAUDE_SKILL_DIR}/scripts/video2post.js`. No MCP equivalent. Stop here.
+   → `node ${CLAUDE_SKILL_DIR}/scripts/postey.js video transcribe <url>`. No MCP equivalent. Stop here.
 
 3. Is the environment CI/CD, a shell script, Cursor, Windsurf, or an SDK agent?
    → CLI. MCP server is unavailable in these contexts. Stop here.
@@ -43,7 +43,7 @@ These operations have no MCP equivalent and **must** use the CLI:
 
 - Local file uploads (`--file`, `--video` with local path)
 - Chunked video upload (>50 MB) via `video:post`
-- Video transcription + cross-post via `video2post.js`
+- Video transcription + cross-post via `postey.js video transcribe`
 - Bulk / scripted operations in CI pipelines
 - Non-interactive setup: `setup --key ... --location global`
 

@@ -1,7 +1,7 @@
 # Postey AI Prompts
 
 Platform-specific prompts for generating titles and captions from video transcripts.
-Use these after running `video2post.js` to generate high-quality, platform-native content.
+Use these after running `postey.js video transcribe` to generate high-quality, platform-native content.
 
 > **Static snapshot:** The character limits, media specs, and writing rules below are a
 > cached reference for offline use. In Claude Code sessions, read the live MCP resource
@@ -217,16 +217,13 @@ Output format — one section per platform, clearly labelled:
 
 ## Usage in the Postey workflow
 
-After running `video2post.js`, pass the `transcript` (and `video_title`) from the JSON output into the relevant prompt above. Then use `drafts:create` with the generated caption:
+After running `postey.js video transcribe`, pass the `transcript` (and `video_title`) from the JSON output into the relevant prompt above. Then use MCP `create_post` with the generated caption:
 
 ```bash
 # Transcribe
-result=$(node ./scripts/video2post.js <url>)
+result=$(node ./scripts/postey.js video transcribe <url>)
 transcript=$(echo $result | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8'); console.log(JSON.parse(d).transcript)")
 
-# Paste transcript into the prompt above, generate caption with AI, then:
-node ./scripts/postey.js drafts:create <account_id> --platform YOUTUBE \
-  --youtube-title "<generated title>" \
-  --youtube-description "<generated description>" \
-  --text "<generated description>"
+# Paste transcript into the prompt above, generate caption with AI, then
+# use the MCP create_post tool with the generated content.
 ```
