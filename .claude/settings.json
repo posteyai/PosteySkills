@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "postey-skills": {
+      "source": {
+        "source": "github",
+        "repo": "posteyai/PosteySkills"
+      }
+    }
+  }
+}

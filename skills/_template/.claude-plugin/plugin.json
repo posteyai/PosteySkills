@@ -1,0 +1,12 @@
+{
+  "name": "skill-name",
+  "description": "One-line description of what this skill does",
+  "version": "1.0.0",
+  "author": {
+    "name": "Postey",
+    "url": "https://postey.ai"
+  },
+  "homepage": "https://postey.ai",
+  "repository": "https://github.com/posteyai/PosteySkills",
+  "license": "MIT"
+}

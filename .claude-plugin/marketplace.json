@@ -2,20 +2,27 @@
   "name": "postey-skills",
   "owner": {
     "name": "Postey",
-    "url": "https://postey.ai"
+    "email": "support@postey.ai"
   },
+  "description": "Official Postey skills for AI agents — draft, schedule, and publish social media posts",
   "metadata": {
-    "description": "Official Postey skills for AI agents",
-    "version": "1.0.0",
-    "repository": "https://github.com/posteyai/PosteySkills"
+    "pluginRoot": "./skills"
   },
   "plugins": [
     {
       "name": "postey",
       "source": "./skills/postey",
-      "description": "Draft, schedule, and manage social media posts across X, LinkedIn, Threads, Bluesky, and Mastodon",
-      "strict": false,
-      "skills": ["./skills/postey"]
+      "description": "Draft, schedule, and manage social media posts across X, LinkedIn, Instagram, TikTok, YouTube, Threads, and Bluesky",
+      "version": "1.2.0",
+      "author": {
+        "name": "Postey",
+        "url": "https://postey.ai"
+      },
+      "homepage": "https://postey.ai",
+      "repository": "https://github.com/posteyai/PosteySkills",
+      "license": "MIT",
+      "keywords": ["social-media", "twitter", "linkedin", "instagram", "tiktok", "youtube", "scheduling"],
+      "category": "productivity"
     }
   ]
 }

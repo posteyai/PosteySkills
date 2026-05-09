@@ -23,3 +23,9 @@ jobs:
       - name: Run Tests
         run: node --test
 
+      - name: Check version consistency
+        run: node scripts/check-versions.js
+
+      - name: Check platform sync
+        run: node scripts/check-platform-sync.js
+
