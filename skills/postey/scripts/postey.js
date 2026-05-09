@@ -402,52 +402,65 @@ async function uploadFileChunked(filePath, platform, mimeType) {
 
   process.stderr.write(`[upload] ${total_chunks} chunks × ${(chunk_size / 1024).toFixed(0)} KB (id: ${upload_id})\n`);
 
-  // 2. Upload chunks in parallel (8 concurrent)
-  const CONCURRENCY = 8;
+  // 2. Upload chunks in parallel (4 concurrent, 3 retries with backoff)
+  const CONCURRENCY = 4;
+  const MAX_RETRIES = 3;
   let completed = 0;
   let lastMilestone = -1;
+  const fd = fs.openSync(filePath, "r");
 
   async function uploadChunk(i) {
     const start = i * chunk_size;
     const end = Math.min(start + chunk_size, fileSize) - 1;
     const chunkLen = end - start + 1;
     const buf = Buffer.alloc(chunkLen);
-    const fd = fs.openSync(filePath, "r");
-    try {
-      fs.readSync(fd, buf, 0, chunkLen, start);
-    } finally {
-      fs.closeSync(fd);
-    }
+    fs.readSync(fd, buf, 0, chunkLen, start);
 
-    const form = new FormData();
-    form.append("file", new Blob([buf], { type: mimeType }), filename);
-
-    const patchRes = await fetch(`${API_BASE}/media/chunked/${upload_id}`, {
-      method: "PATCH",
-      headers: {
-        [auth.header]: auth.value,
-        "Content-Range": `bytes ${start}-${end}/${fileSize}`,
-      },
-      body: form,
-    });
-    if (!patchRes.ok) {
-      const errData = await patchRes.json().catch(() => ({}));
-      error(`HTTP ${patchRes.status} on chunk ${i + 1}`, { response: errData });
+    let lastErr;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        const delay = 1000 * 2 ** (attempt - 1); // 1s, 2s, 4s
+        process.stderr.write(`[upload] chunk ${i + 1} retry ${attempt}/${MAX_RETRIES} in ${delay / 1000}s\n`);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+      try {
+        const form = new FormData();
+        form.append("file", new Blob([buf], { type: mimeType }), filename);
+        const patchRes = await fetch(`${API_BASE}/media/chunked/${upload_id}`, {
+          method: "PATCH",
+          headers: {
+            [auth.header]: auth.value,
+            "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+          },
+          body: form,
+        });
+        if (!patchRes.ok) {
+          const errData = await patchRes.json().catch(() => ({}));
+          lastErr = { status: patchRes.status, response: errData };
+          continue; // retry on HTTP error too
+        }
+        completed++;
+        const pct = Math.floor((completed / total_chunks) * 100);
+        const milestone = Math.floor(pct / 25) * 25;
+        if (milestone > lastMilestone) {
+          lastMilestone = milestone;
+          process.stderr.write(`[upload] ${pct}% (${completed}/${total_chunks} chunks)\n`);
+        }
+        return; // success
+      } catch (e) {
+        lastErr = { message: e.message };
+      }
     }
-
-    completed++;
-    const pct = Math.floor((completed / total_chunks) * 100);
-    const milestone = Math.floor(pct / 25) * 25;
-    if (milestone > lastMilestone) {
-      lastMilestone = milestone;
-      process.stderr.write(`[upload] ${pct}% (${completed}/${total_chunks} chunks)\n`);
-    }
+    error(`Chunk ${i + 1} failed after ${MAX_RETRIES} retries`, { detail: lastErr });
   }
 
-  // Run with bounded concurrency
-  const indices = Array.from({ length: total_chunks }, (_, i) => i);
-  for (let i = 0; i < indices.length; i += CONCURRENCY) {
-    await Promise.all(indices.slice(i, i + CONCURRENCY).map(uploadChunk));
+  try {
+    const indices = Array.from({ length: total_chunks }, (_, i) => i);
+    for (let i = 0; i < indices.length; i += CONCURRENCY) {
+      await Promise.all(indices.slice(i, i + CONCURRENCY).map(uploadChunk));
+    }
+  } finally {
+    fs.closeSync(fd);
   }
 
   // 3. Complete
