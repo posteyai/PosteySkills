@@ -12,7 +12,7 @@ platforms:
 description: >
   Create, schedule, and manage social media posts via Postey across X, LinkedIn,
   Instagram, TikTok, YouTube, Threads, and Bluesky. Handles video/reel workflows:
-  transcribe any video URL and cross-post, or use `video:post` for single-command
+  transcribe any video URL and cross-post, or use `video post` for single-command
   upload with auto cover thumbnail.
 when_to_use: >
   Use when asked to: draft a tweet, post to LinkedIn, create a thread, schedule
@@ -73,7 +73,7 @@ routing:
   comment-read:        mcp-tool      # get_comment_for_specific_post
   convert-content:     mcp-tool      # convert_post_content
   write-post:          mcp-tool      # create/update/publish/schedule/delete → MCP tools
-  local-file:          cli           # any local path → unconditional CLI (video:post)
+  local-file:          cli           # any local path → unconditional CLI (video post)
   video-transcription: cli           # postey.js video transcribe (yt-dlp + Whisper)
   ci-environment:      cli           # no MCP server available in CI/CD
   fallback:            cli           # unknown operations → CLI
@@ -106,13 +106,14 @@ Two execution paths exist: the CLI (`postey.js`) and MCP tools/resources. Pick o
    → **MCP tools** — `validate_post_content`, `review_post_content_and_add_comments_for_virality` — no CLI equivalent; do not skip these in Claude Code sessions.
 
 5. **All other writes** (create, update, publish, schedule, delete, tag, upload by URL)?
-   → **CLI** — JSON stdout, composable, works in all distribution channels (Claude Code, Cursor, SDK agents, CI/CD).
+   → **MCP tools** in Claude Code sessions — `create_post`, `update_post`, `publish_draft`, `schedule_post`, `delete_draft`.
+   → **CLI** in CI/CD, SDK agents, Cursor, Windsurf — no MCP server available.
 
 ### Routing Table
 
 | Trigger | Tool | Reason |
 |---------|------|--------|
-| `--file <local-path>` or `--video <local-path>` | CLI only (`video:post`) | MCP has no filesystem access |
+| `--file <local-path>` or `--video <local-path>` | CLI only (`video post`) | MCP has no filesystem access |
 | Video transcription workflow | CLI only | Requires local yt-dlp, ffmpeg, Whisper |
 | Read accounts / teams / post content | MCP resource | Cached, no subprocess overhead |
 | Validate content before posting | MCP tool | No CLI equivalent |
@@ -166,7 +167,7 @@ Tell the user to run the setup command interactively — you cannot run it on th
 | "Schedule this for tomorrow" | MCP `create_post` then MCP `schedule_post` |
 | "Post this now" | MCP `create_post` then MCP `publish_draft` |
 | "Make captions from this reel: \<url\>" | `postey.js video transcribe <url>` → apply Caption Generation Guide → MCP `create_post` |
-| "Upload video to Instagram/TikTok/YouTube" | `postey.js video:post` (local file) or `postey.js video transcribe <url>` (remote URL) |
+| "Upload video to Instagram/TikTok/YouTube" | `postey.js video post` (local file) or `postey.js video transcribe <url>` (remote URL) |
 
 ## Workflow
 
@@ -217,12 +218,12 @@ Run `social-sets:list` first — a platform only works if that account is connec
 
 ## Direct Video Posting
 
-Use `video:post` when you have a caption ready and want to upload video + create a multi-platform draft in one command (no transcription).
+Use `video post` when you have a caption ready and want to upload video + create a multi-platform draft in one command (no transcription).
 
 **Requires:** `ffmpeg` on PATH for Instagram cover thumbnail extraction.
 
 ```bash
-${CLAUDE_SKILL_DIR}/scripts/postey.js video:post <account_id> \
+${CLAUDE_SKILL_DIR}/scripts/postey.js video post <account_id> \
   --video <local_path_or_https_url> \
   --text "<caption>" \
   --platforms INSTAGRAM,LINKEDIN,X \

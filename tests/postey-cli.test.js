@@ -179,7 +179,7 @@ test('config:show returns configured=false when no API key configured', async ()
     assert.equal(result.code, 0);
     assert.deepEqual(parseJsonOrNull(result.stdout), {
       configured: false,
-      hint: 'Run: postey.js setup',
+      hint: 'Run: postey.js auth:login  (OAuth)  or  postey.js setup  (API key)',
       api_key_url: 'https://app.postey.ai?settings=api',
     });
   } finally {
@@ -205,8 +205,8 @@ test('config:show reads local config and reports default social set source', asy
     assert.equal(result.code, 0);
     const out = parseJsonOrNull(result.stdout);
     assert.equal(out.configured, true);
-    assert.ok(out.active_source.endsWith(path.join('.postey', 'config.json')));
-    assert.equal(out.api_key_preview, 'typ_loca...');
+    assert.ok(out.config_files.local.path.endsWith(path.join('.postey', 'config.json')));
+    assert.equal(out.auth_preview, 'typ_loca...');
     assert.equal(out.default_social_set.id, '123');
   } finally {
     await sandbox.cleanup();

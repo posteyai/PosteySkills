@@ -6,8 +6,8 @@ This document is the full routing reference for the Postey skill. The key rules 
 
 | Path | Entry point | Best for |
 |------|-------------|----------|
-| **CLI** | `${CLAUDE_SKILL_DIR}/scripts/postey.js` | All write operations, local files, CI/CD, non-Claude Code environments |
-| **MCP tools/resources** | `mcp__claude_ai_Postey__*` and `postey://` URIs | Read-only state fetches, content validation, virality review |
+| **CLI** | `${CLAUDE_SKILL_DIR}/scripts/postey.js` | Local files, CI/CD, SDK agents, non-MCP environments; all write operations outside Claude Code |
+| **MCP tools/resources** | `mcp__claude_ai_Postey__*` and `postey://` URIs | Write operations in Claude Code sessions; read-only state; content validation; virality review |
 
 ## Full Decision Tree
 
@@ -32,9 +32,9 @@ This document is the full routing reference for the Postey skill. The key rules 
      No CLI equivalent — do not skip in Claude Code sessions.
 
 6. All other write operations (create, update, publish, schedule, delete, tag, upload by URL):
-   → CLI. Reasons: JSON stdout enables composability; works in all four distribution
-     channels (Claude Code, Cursor, SDK agents, CI/CD); no subprocess overhead is
-     negligible for these low-frequency calls.
+   → MCP tools in Claude Code sessions: `create_post`, `update_post`, `publish_draft`,
+     `schedule_post`, `delete_draft`, `add_tag`, `upload_media`.
+   → CLI in CI/CD, SDK agents, Cursor, Windsurf: no MCP server available in these contexts.
 ```
 
 ## CLI-Only Operations
@@ -42,7 +42,7 @@ This document is the full routing reference for the Postey skill. The key rules 
 These operations have no MCP equivalent and **must** use the CLI:
 
 - Local file uploads (`--file`, `--video` with local path)
-- Chunked video upload (>50 MB) via `video:post`
+- Chunked video upload (>50 MB) via `video post`
 - Video transcription + cross-post via `postey.js video transcribe`
 - Bulk / scripted operations in CI pipelines
 - Non-interactive setup: `setup --key ... --location global`
@@ -60,13 +60,13 @@ These operations have no CLI equivalent and **must** use MCP tools:
 When a workflow needs both read-state and write actions, keep them sequential — reads via MCP resources, writes via CLI:
 
 ```
-1. Read postey://accounts                        ← MCP resource
-2. Validate content via validate_post_content    ← MCP tool
-3. ${CLAUDE_SKILL_DIR}/scripts/postey.js drafts:create ...  ← CLI write
-4. ${CLAUDE_SKILL_DIR}/scripts/postey.js drafts:publish ... ← CLI write
+1. Read postey://accounts                                       ← MCP resource
+2. Validate content via validate_post_content                   ← MCP tool
+3. mcp create_post (account_id=..., platform=..., contents=[...])  ← MCP write
+4. mcp publish_draft (post_id=..., platforms=[...])             ← MCP write
 ```
 
-Never call `mcp__claude_ai_Postey__create_post` in the same workflow as `postey.js drafts:create` — pick one and stay with it for the entire create step.
+Never mix `mcp__claude_ai_Postey__create_post` with `postey.js posts:create` in the same workflow — pick one path for the write step and stay with it.
 
 ## Environment-Specific Guidance
 
