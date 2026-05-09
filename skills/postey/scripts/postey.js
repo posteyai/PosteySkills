@@ -849,11 +849,14 @@ Required:
 `,
   transcribe: `\
 Usage: postey.js video transcribe --input <url|path>
+       postey.js video transcribe <url|path>
 
 Transcribe video audio via yt-dlp + Whisper and optionally create a draft post.
+The input may be passed as --input or as the first positional argument.
 
 Required:
   --input <url|path>       YouTube/video URL or local file path
+                           (also accepted as a bare positional argument)
 
 Optional:
   --platform <CSV>         If set, also create a draft (requires --account-id)
@@ -932,11 +935,12 @@ async function cmdVideoGroup(args) {
 
   } else if (subcmd === "transcribe") {
     const p = _parseVideoFlags(rest, new Set(["translate", "keepFiles", "keep-files", "thumbnail", "dryRun", "dry-run"]));
-    if (!p.input) { output({ error: "--input is required" }); process.exit(1); }
+    const inputVal = p.input ?? (p._positional && p._positional[0]);
+    if (!inputVal) { output({ error: "--input is required" }); process.exit(1); }
     const acct = p.accountId ?? p["account-id"];
     if (p.platform && acct == null) { output({ error: "--account-id is required when --platform is set" }); process.exit(1); }
     await _handleTranscribe({
-      input:     p.input,
+      input:     inputVal,
       platform:  p.platform  || null,
       accountId: acct != null ? Number(acct) : null,
       model:     p.model     || "small",
@@ -1636,7 +1640,7 @@ VIDEO SUBCOMMANDS:
   video info --file <path>
                                              Inspect video: duration, codec, dimensions, platform hints
 
-  video transcribe --input <url|path>
+  video transcribe --input <url|path>   (or: video transcribe <url|path>)
                                              Transcribe video audio via yt-dlp + Whisper
     --platform <CSV>                         If set, also create draft (requires --account-id)
     --account-id <id>                        Account to post to when --platform is given

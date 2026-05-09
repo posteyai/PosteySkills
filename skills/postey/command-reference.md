@@ -27,7 +27,7 @@ All commands run via `${CLAUDE_SKILL_DIR}/scripts/postey.js <command> [args]`.
 | `video post --video <path\|url> --text "..." --platforms <CSV> --account-id <id>` | Upload video + create multi-platform draft. INSTAGRAM/TIKTOK/YOUTUBE get video attached; others get text only. Supports `--dry-run`. |
 | `video trim --file <path> --start <sec> (--end <sec>\|--duration <sec>)` | Trim video clip (stream copy, no re-encode). `--end` and `--duration` are mutually exclusive. |
 | `video info --file <path>` | Inspect video: duration, codec, dimensions, aspect ratio, platform hints via ffprobe. |
-| `video transcribe --input <url\|path> [--platform <CSV> --account-id <id>]` | Transcribe audio via yt-dlp + Whisper. Returns `transcript` + `suggested_captions` per platform. Optionally creates draft when `--platform` + `--account-id` given. Supports `--dry-run`. |
+| `video transcribe --input <url\|path> [--platform <CSV> --account-id <id>]` | Transcribe audio via yt-dlp + Whisper. `--input` may also be passed as a bare positional argument (e.g. `video transcribe /path/to/file.mp4`). Returns `transcript` + `suggested_captions` per platform. Optionally creates draft when `--platform` + `--account-id` given. Supports `--dry-run`. |
 
 ## Setup & Configuration
 
