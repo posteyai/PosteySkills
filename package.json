@@ -8,7 +8,5 @@
   "scripts": {
     "test": "node --test"
   },
-  "dependencies": {
-    "yargs": "^17"
-  }
+  "devDependencies": {}
 }

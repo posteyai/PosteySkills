@@ -531,7 +531,7 @@ async function cmdPostsCreate(args) {
 }
 
 // ============================================================================
-// video subcommand group  (yargs — lazy-loaded only when "video" is called)
+// video subcommand group
 // ============================================================================
 
 // Invoke another postey.js command in-process and return parsed JSON from its stdout
@@ -539,55 +539,6 @@ function _callSelf(...args) {
   const r = spawnSync(process.execPath, [__filename, ...args.map(String)], { encoding: "utf8", env: process.env });
   if (r.error) return { error: r.error.message };
   try { return JSON.parse(r.stdout); } catch { return { error: r.stderr || r.stdout || "Unknown error" }; }
-}
-
-// ── yargs builders ────────────────────────────────────────────────────────────
-
-function _builderPost(y) {
-  return y
-    .option("video",         { type: "string",  demandOption: true,  describe: "Local file path or https:// URL" })
-    .option("text",          { type: "string",  demandOption: true,  describe: "Caption for all platforms" })
-    .option("platforms",     { type: "string",  demandOption: true,  describe: "CSV: INSTAGRAM,TIKTOK,YOUTUBE,X,..." })
-    .option("account-id",    { type: "number",  demandOption: true,  describe: "Postey account ID" })
-    .option("cover-time",    { type: "number",  default: 3,          describe: "Seconds into video for cover frame (Instagram)" })
-    .option("cover-url",     { type: "string",                       describe: "Pre-existing cover CDN URL (skips ffmpeg)" })
-    .option("youtube-title", { type: "string",                       describe: "YouTube video title" })
-    .option("title",         { type: "string",  default: "Untitled Draft", describe: "Internal draft title" })
-    .option("tags",          { type: "string",                       describe: "Comma-separated numeric tag IDs" })
-    .option("schedule",      { type: "string",                       describe: "ISO-8601 datetime" })
-    .option("publish-now",   { type: "boolean", default: false,      describe: "Publish immediately after creation" })
-    .option("dry-run",       { type: "boolean", default: false,      describe: "Print payload without making API calls" });
-}
-
-function _builderTrim(y) {
-  return y
-    .option("file",     { type: "string", demandOption: true, describe: "Input video file path" })
-    .option("start",    { type: "number", default: 0,         describe: "Start time in seconds" })
-    .option("end",      { type: "number",                     describe: "End time in seconds" })
-    .option("duration", { type: "number",                     describe: "Clip length in seconds" })
-    .option("output",   { type: "string",                     describe: "Output path (default: <file>_trimmed.<ext>)" })
-    .conflicts("end", "duration")
-    .check((argv) => { if (argv.end == null && argv.duration == null) throw new Error("Provide --end <sec> or --duration <sec>"); return true; });
-}
-
-function _builderInfo(y) {
-  return y.option("file", { type: "string", demandOption: true, describe: "Video file path" });
-}
-
-function _builderTranscribe(y) {
-  return y
-    .option("input",      { type: "string",  demandOption: true,                                      describe: "Video URL or local file path" })
-    .option("platform",   { type: "string",                                                            describe: "CSV platforms — triggers draft creation" })
-    .option("account-id", { type: "number",                                                            describe: "Required when --platform is set" })
-    .option("model",      { type: "string",  default: "small", choices: ["tiny","base","small","medium","large"], describe: "Whisper model size" })
-    .option("translate",  { type: "boolean", default: false,                                           describe: "Translate audio to English" })
-    .option("keep-files", { type: "boolean", default: false,                                           describe: "Keep downloaded/temp files after completion" })
-    .option("output-dir", { type: "string",                                                            describe: "Save files to this directory" })
-    .option("thumbnail",  { type: "boolean", default: false,                                           describe: "Build 9:16 cover thumbnail (ffmpeg + optional ImageMagick)" })
-    .option("thumb-text", { type: "string",                                                            describe: "Text overlay on thumbnail" })
-    .option("thumb-time", { type: "number",                                                            describe: "Frame timestamp for thumbnail (default: scene-detect)" })
-    .option("dry-run",    { type: "boolean", default: false,                                           describe: "Validate without making API calls" })
-    .check((argv) => { if (argv.platform && argv.accountId == null) throw new Error("--account-id is required when --platform is set"); return true; });
 }
 
 // ── handlers ──────────────────────────────────────────────────────────────────
@@ -819,22 +770,104 @@ async function _handleTranscribe(argv) {
 
 // ── main video command dispatcher ─────────────────────────────────────────────
 
+function _parseVideoFlags(flagArgs, booleanFlags) {
+  const argv = {};
+  let i = 0;
+  while (i < flagArgs.length) {
+    const arg = flagArgs[i];
+    if (arg.startsWith("--")) {
+      const raw = arg.slice(2);
+      const key = raw.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+      if (booleanFlags.has(key) || booleanFlags.has(raw)) {
+        argv[key] = true;
+        i++;
+      } else if (i + 1 < flagArgs.length && !String(flagArgs[i + 1]).startsWith("--")) {
+        argv[key] = flagArgs[i + 1];
+        i += 2;
+      } else {
+        argv[key] = true;
+        i++;
+      }
+    } else {
+      argv._positional = argv._positional || [];
+      argv._positional.push(arg);
+      i++;
+    }
+  }
+  return argv;
+}
+
 async function cmdVideoGroup(args) {
-  return require("yargs")(args)
-    .scriptName("postey.js video")
-    .usage("Usage: postey.js video <command> [options]")
-    .command("post",       "Upload video and create multi-platform draft",  _builderPost,       _handlePost)
-    .command("trim",       "Trim a video clip with ffmpeg (stream copy)",   _builderTrim,       _handleTrim)
-    .command("info",       "Inspect a video file via ffprobe",              _builderInfo,       _handleInfo)
-    .command("transcribe", "Transcribe video audio (yt-dlp + Whisper)",    _builderTranscribe, _handleTranscribe)
-    .demandCommand(1, "Specify a subcommand: post | trim | info | transcribe")
-    .strict()
-    .fail((msg, err) => {
-      output({ error: msg || err?.message, hint: "Run: postey.js video --help" });
-      process.exit(1);
-    })
-    .help()
-    .parseAsync();
+  const subcmd = args[0];
+  const rest   = args.slice(1);
+
+  if (!subcmd || subcmd === "--help" || subcmd === "-h") {
+    output({ error: "Specify a subcommand: post | trim | info | transcribe", hint: "Run: postey.js video <command> --help" });
+    process.exit(1);
+  }
+
+  if (subcmd === "post") {
+    const p = _parseVideoFlags(rest, new Set(["dryRun", "dry-run", "publishNow", "publish-now"]));
+    const accountIdRaw = p.accountId ?? p["account-id"] ?? (p._positional && p._positional[0]);
+    if (!p.video)         { output({ error: "--video is required" });    process.exit(1); }
+    if (!p.text)          { output({ error: "--text is required" });     process.exit(1); }
+    if (!p.platforms)     { output({ error: "--platforms is required" }); process.exit(1); }
+    if (accountIdRaw == null) { output({ error: "--account-id is required" }); process.exit(1); }
+    await _handlePost({
+      video:        p.video,
+      text:         p.text,
+      platforms:    p.platforms,
+      accountId:    Number(accountIdRaw),
+      coverTime:    p.coverTime != null ? Number(p.coverTime) : 3,
+      coverUrl:     p.coverUrl  || null,
+      title:        p.title     || "Untitled Draft",
+      youtubeTitle: p.youtubeTitle || null,
+      tags:         p.tags      || null,
+      schedule:     p.schedule  || null,
+      publishNow:   !!p.publishNow,
+      dryRun:       !!p.dryRun,
+    });
+
+  } else if (subcmd === "trim") {
+    const p = _parseVideoFlags(rest, new Set());
+    if (!p.file) { output({ error: "--file is required" }); process.exit(1); }
+    if (p.end == null && p.duration == null) { output({ error: "Provide --end <sec> or --duration <sec>" }); process.exit(1); }
+    _handleTrim({
+      file:     p.file,
+      start:    p.start    != null ? Number(p.start)    : 0,
+      end:      p.end      != null ? Number(p.end)      : null,
+      duration: p.duration != null ? Number(p.duration) : null,
+      output:   p.output   || null,
+    });
+
+  } else if (subcmd === "info") {
+    const p = _parseVideoFlags(rest, new Set());
+    if (!p.file) { output({ error: "--file is required" }); process.exit(1); }
+    _handleInfo({ file: p.file });
+
+  } else if (subcmd === "transcribe") {
+    const p = _parseVideoFlags(rest, new Set(["translate", "keepFiles", "keep-files", "thumbnail", "dryRun", "dry-run"]));
+    if (!p.input) { output({ error: "--input is required" }); process.exit(1); }
+    const acct = p.accountId ?? p["account-id"];
+    if (p.platform && acct == null) { output({ error: "--account-id is required when --platform is set" }); process.exit(1); }
+    await _handleTranscribe({
+      input:     p.input,
+      platform:  p.platform  || null,
+      accountId: acct != null ? Number(acct) : null,
+      model:     p.model     || "small",
+      translate: !!(p.translate),
+      keepFiles: !!(p.keepFiles),
+      outputDir: p.outputDir || null,
+      thumbnail: !!(p.thumbnail),
+      thumbText: p.thumbText || null,
+      thumbTime: p.thumbTime != null ? Number(p.thumbTime) : null,
+      dryRun:    !!(p.dryRun),
+    });
+
+  } else {
+    output({ error: `Unknown video subcommand: ${subcmd}`, hint: "Valid subcommands: post | trim | info | transcribe" });
+    process.exit(1);
+  }
 }
 
 function parseArgs(args, spec = {}) {
