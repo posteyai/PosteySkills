@@ -55,6 +55,14 @@ mcp-tools:
     - mcp__claude_ai_Postey__get_comment_for_specific_post
     - mcp__claude_ai_Postey__convert_post_content
     - mcp__claude_ai_Postey__transcribe_video
+  prompts:
+    - compose-post
+    - review-for-virality
+    - repurpose-content
+    - improve-post
+    - analyze-engagement
+    - generate-captions-from-transcript
+    - generate-captions-batch
 # Machine-readable routing rules (mirrors routing-guide.md; used by CI and agents).
 # Values: mcp-resource | mcp-tool | cli
 routing:

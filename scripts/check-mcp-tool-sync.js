@@ -26,6 +26,9 @@ const SKILL_MD = path.join(ROOT, 'skills', 'postey', 'SKILL.md');
 const MCP_TOOLS_DIR = process.env.MCP_TOOLS_DIR;
 const MCP_SERVER_URL = process.env.MCP_SERVER_URL;
 const POSTEY_API_KEY = process.env.POSTEY_API_KEY;
+// Derived from MCP_TOOLS_DIR (../prompts.py) or overridden explicitly.
+const MCP_PROMPTS_FILE = process.env.MCP_PROMPTS_FILE ||
+  (MCP_TOOLS_DIR ? path.join(path.dirname(MCP_TOOLS_DIR), 'prompts.py') : null);
 
 let errors = 0;
 let warnings = 0;
@@ -77,6 +80,10 @@ function extractMcpResources(frontmatter) {
   return extractMcpSubSection(frontmatter, 'resources');
 }
 
+function extractMcpPrompts(frontmatter) {
+  return extractMcpSubSection(frontmatter, 'prompts');
+}
+
 // mcp__claude_ai_Postey__tool_name → tool_name
 function stripMcpPrefix(fullName) {
   const parts = fullName.split('__');
@@ -99,6 +106,16 @@ function extractToolsFromSource(toolsDir) {
     for (const m of matches) names.push(m[1]);
   }
   return names.sort();
+}
+
+function extractPromptsFromSource(promptsFile) {
+  if (!promptsFile || !fs.existsSync(promptsFile)) {
+    return null; // not available — caller decides whether to skip or warn
+  }
+  const src = fs.readFileSync(promptsFile, 'utf8');
+  // Match @mcp.prompt( on one line, name="..." on the next
+  const matches = [...src.matchAll(/@mcp\.prompt\(\s*\n\s*name=["']([^"']+)["']/g)];
+  return matches.map(m => m[1]).sort();
 }
 
 // --- Runtime mode ---
@@ -170,6 +187,7 @@ async function fetchManifestFromServer(serverUrl, apiKey) {
   const fm = extractFrontmatter(SKILL_MD);
   const skillTools = extractMcpTools(fm);
   const skillResources = extractMcpResources(fm);
+  const skillPrompts = extractMcpPrompts(fm);
 
   if (skillTools.length === 0) {
     console.log('⚠ mcp-tools.tools: empty in SKILL.md — nothing to verify');
@@ -179,6 +197,7 @@ async function fetchManifestFromServer(serverUrl, apiKey) {
   const skillRawNames = new Set(skillTools.map(stripMcpPrefix));
 
   let mcpRawNames;
+  let mcpPromptNames = null;
 
   if (MCP_SERVER_URL) {
     console.log(`Runtime mode: fetching manifest from ${MCP_SERVER_URL}`);
@@ -188,6 +207,9 @@ async function fetchManifestFromServer(serverUrl, apiKey) {
       const manifest = resp.data ?? resp;
       if (!manifest.tools) throw new Error('manifest.tools missing in response');
       mcpRawNames = new Set(manifest.tools.map(t => t.name));
+      if (manifest.prompts) {
+        mcpPromptNames = new Set(manifest.prompts.map(p => p.name));
+      }
     } catch (err) {
       console.error(`  ✗ Failed to fetch skill-manifest from server: ${err.message}`);
       if (!MCP_TOOLS_DIR) {
@@ -205,16 +227,24 @@ async function fetchManifestFromServer(serverUrl, apiKey) {
     process.exit(1);
   }
 
+  // In source-parse mode, extract prompts from prompts.py alongside the tools dir.
+  if (!mcpPromptNames) {
+    const parsed = extractPromptsFromSource(MCP_PROMPTS_FILE);
+    if (parsed) {
+      mcpPromptNames = new Set(parsed);
+    } else if (MCP_PROMPTS_FILE) {
+      warn(`MCP_PROMPTS_FILE not found: ${MCP_PROMPTS_FILE} — skipping prompt sync check`);
+    }
+  }
+
+  // ── Tools check ────────────────────────────────────────────────────────────
   console.log('\nMCP tools in server:', [...mcpRawNames].sort().join(', '));
   console.log('MCP tools in SKILL.md:', [...skillRawNames].sort().join(', '));
-
-  let driftFound = false;
 
   // SKILL.md lists a tool that doesn't exist in the server → hard error
   for (const name of skillRawNames) {
     if (!mcpRawNames.has(name)) {
       fail(`'${name}' listed in SKILL.md mcp-tools.tools: but not found in MCP server`);
-      driftFound = true;
     }
   }
 
@@ -222,20 +252,39 @@ async function fetchManifestFromServer(serverUrl, apiKey) {
   for (const name of mcpRawNames) {
     if (!skillRawNames.has(name)) {
       warn(`'${name}' registered in MCP server but missing from SKILL.md mcp-tools.tools:`);
-      driftFound = true;
     }
   }
 
+  // ── Prompts check ───────────────────────────────────────────────────────────
+  if (mcpPromptNames && skillPrompts.length > 0) {
+    console.log('\nMCP prompts in server:', [...mcpPromptNames].sort().join(', '));
+    console.log('MCP prompts in SKILL.md:', [...skillPrompts].sort().join(', '));
+
+    for (const name of skillPrompts) {
+      if (!mcpPromptNames.has(name)) {
+        fail(`'${name}' listed in SKILL.md mcp-tools.prompts: but not found in MCP server`);
+      }
+    }
+    for (const name of mcpPromptNames) {
+      if (!skillPrompts.includes(name)) {
+        warn(`'${name}' registered in MCP server but missing from SKILL.md mcp-tools.prompts:`);
+      }
+    }
+  } else if (skillPrompts.length === 0) {
+    console.log('\n⚠ mcp-tools.prompts: empty in SKILL.md — skipping prompt sync check');
+  }
+
+  // ── Summary ─────────────────────────────────────────────────────────────────
   if (errors > 0) {
-    console.error(`\n✗ MCP tool sync failed (${errors} error(s), ${warnings} warning(s)).`);
-    console.error('  Update SKILL.md mcp-tools.tools: to match the server registry.');
+    console.error(`\n✗ MCP sync failed (${errors} error(s), ${warnings} warning(s)).`);
+    console.error('  Update SKILL.md mcp-tools sections to match the server registry.');
     process.exit(1);
   }
 
   if (warnings > 0) {
-    console.log(`\n⚠ ${warnings} tool(s) in server not listed in SKILL.md (may be intentional).`);
+    console.log(`\n⚠ ${warnings} item(s) in server not listed in SKILL.md (may be intentional).`);
   } else {
-    console.log('\n✓ MCP tools in sync.');
+    console.log('\n✓ MCP tools and prompts in sync.');
   }
 })().catch(err => {
   console.error(`Unexpected error: ${err.message}`);

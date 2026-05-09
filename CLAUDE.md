@@ -141,14 +141,68 @@ MCP resource in Claude Code sessions. `check-platform-sync.js` verifies JS ↔ S
 Agents parse it to decide CLI vs MCP-resource vs MCP-tool without reading prose.
 Keep both in sync when adding new operation types.
 
+### Prompt Registry Sync
+`SKILL.md mcp-tools.prompts:` must list every prompt declared with `@mcp.prompt(name="...")`
+in `app/core/mcp/prompts.py`. `check-mcp-tool-sync.js` enforces this alongside tools.
+
+- **Source-parse mode**: automatically reads `prompts.py` from the parent of `MCP_TOOLS_DIR`.
+  ```bash
+  MCP_TOOLS_DIR=../MarqetiveBackendV2/app/core/mcp/tools node scripts/check-mcp-tool-sync.js
+  # → also reads ../MarqetiveBackendV2/app/core/mcp/prompts.py
+  ```
+- **Override**: set `MCP_PROMPTS_FILE=<path>` to point at a different file.
+- **Runtime mode**: reads `manifest.prompts` from `postey://skill-manifest` (server v2.1.0+).
+
 ### New Skill MCP Integration Checklist
 When creating a skill that has an MCP server counterpart:
 1. Set `mcp-server-module:` in `SKILL.md` frontmatter (e.g. `app.core.mcp`)
 2. List all MCP tools in `mcp-tools.tools:` with the appropriate `mcp__<service>__` prefix
 3. List all MCP resources in `mcp-tools.resources:`
-4. Add `routing:` block with machine-readable routing rules
-5. Set `MCP_TOOLS_DIR` in CI workflow env to enable drift detection
-6. Copy `_template/SKILL.md` for the scaffold (it includes the commented sections)
+4. List all MCP prompts in `mcp-tools.prompts:` (prompt names, no prefix)
+5. Add `routing:` block with machine-readable routing rules
+6. Set `MCP_TOOLS_DIR` in CI workflow env to enable drift detection
+7. Copy `_template/SKILL.md` for the scaffold (it includes the commented sections)
+
+## Adding a New MCP Tool
+
+When adding a tool to `MarqetiveBackendV2/app/core/mcp/tools/*.py`, do all of these:
+
+1. **[Backend]** Add `@mcp.tool(\n    name="<name>", ...)` to the correct `tools/*.py` file.
+   If it's a new module file, add the module name to `_EXPECTED_TOOL_MODULES` in `server.py`.
+
+2. **[Backend]** If the tool needs agent guidance (hard rules, ordering, anti-patterns), add
+   instructions to `_build_instructions()` in `server.py`.
+
+3. **[PosteySkills]** Add `mcp__claude_ai_Postey__<name>` to `SKILL.md mcp-tools.tools:` for
+   any skill that should surface this tool. Comment-annotate its category (write / read / AI).
+
+4. **[PosteySkills]** Add a `routing:` entry in `SKILL.md` if the tool has a specific CLI vs
+   MCP routing preference (e.g. `my-operation: mcp-tool`).
+
+5. **[CI]** Run `MCP_TOOLS_DIR=../MarqetiveBackendV2/app/core/mcp/tools node scripts/check-mcp-tool-sync.js`
+   — it fails if SKILL.md is out of sync. Fix before merging.
+
+## Adding a New MCP Prompt
+
+When adding a prompt to `MarqetiveBackendV2/app/core/mcp/prompts.py`:
+
+1. **[Backend]** Declare with `@mcp.prompt(\n    name="<name>", ...)`.
+
+2. **[PosteySkills]** Add `<name>` (no prefix) to `SKILL.md mcp-tools.prompts:`.
+
+3. **[CI]** Run `check-mcp-tool-sync.js` — it will now also verify prompts.
+
+## Adding a New Skill
+
+1. Copy `skills/_template/` to `skills/<new-name>/`.
+2. Fill in `SKILL.md` frontmatter: name, version (start at `1.0.0`), platforms, description,
+   `allowed-tools:`, `mcp-tools:` (tools, resources, prompts), and `routing:`.
+3. Fill in `.claude-plugin/plugin.json` (name, version, author, etc.).
+4. Add a `plugins` entry in `.claude-plugin/marketplace.json`.
+5. Add a row to `skills/REGISTRY.md`.
+6. Write the CLI entry point in `skills/<new-name>/scripts/`.
+7. Run `npm test` — `check-versions.js` and `check-mcp-tool-sync.js` will catch mismatches.
+8. Tag release as `skills/<new-name>/v1.0.0`.
 
 ## Commit & PR Guidelines
 
