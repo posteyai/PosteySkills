@@ -386,9 +386,7 @@ async function uploadFileChunked(filePath, platform, mimeType) {
   const filename = path.basename(filePath);
   const mediaPlatform = MEDIA_PLATFORM_NAME[platform] || platform.toLowerCase();
 
-  if (process.stderr.isTTY) {
-    process.stderr.write(`Chunked upload: ${filename} (${(fileSize / 1024 / 1024).toFixed(1)} MB)\n`);
-  }
+  process.stderr.write(`[upload] ${filename} (${(fileSize / 1024 / 1024).toFixed(1)} MB) → ${platform}\n`);
 
   // 1. Init session
   const initRes = await fetch(`${API_BASE}/media/chunked/init`, {
@@ -402,13 +400,12 @@ async function uploadFileChunked(filePath, platform, mimeType) {
   }
   const { upload_id, chunk_size, total_chunks } = await initRes.json();
 
-  if (process.stderr.isTTY) {
-    process.stderr.write(`Upload ID: ${upload_id} | ${total_chunks} chunks × ${(chunk_size / 1024).toFixed(0)} KB\n`);
-  }
+  process.stderr.write(`[upload] ${total_chunks} chunks × ${(chunk_size / 1024).toFixed(0)} KB (id: ${upload_id})\n`);
 
-  // 2. Upload chunks in parallel (max 4 concurrent)
+  // 2. Upload chunks in parallel (8 concurrent)
   const CONCURRENCY = 8;
   let completed = 0;
+  let lastMilestone = -1;
 
   async function uploadChunk(i) {
     const start = i * chunk_size;
@@ -439,9 +436,11 @@ async function uploadFileChunked(filePath, platform, mimeType) {
     }
 
     completed++;
-    if (process.stderr.isTTY) {
-      const pct = ((completed / total_chunks) * 100).toFixed(0);
-      process.stderr.write(`\r  ${pct}% (${completed}/${total_chunks} chunks)`);
+    const pct = Math.floor((completed / total_chunks) * 100);
+    const milestone = Math.floor(pct / 25) * 25;
+    if (milestone > lastMilestone) {
+      lastMilestone = milestone;
+      process.stderr.write(`[upload] ${pct}% (${completed}/${total_chunks} chunks)\n`);
     }
   }
 
@@ -450,8 +449,6 @@ async function uploadFileChunked(filePath, platform, mimeType) {
   for (let i = 0; i < indices.length; i += CONCURRENCY) {
     await Promise.all(indices.slice(i, i + CONCURRENCY).map(uploadChunk));
   }
-
-  if (process.stderr.isTTY) process.stderr.write("\n");
 
   // 3. Complete
   const completeRes = await fetch(`${API_BASE}/media/chunked/${upload_id}/complete`, {
@@ -524,11 +521,16 @@ async function cmdPostsCreate(args) {
 // video subcommand group
 // ============================================================================
 
-// Invoke another postey.js command in-process and return parsed JSON from its stdout
+// Invoke another postey.js command in-process and return parsed JSON from its stdout.
+// Child stderr is forwarded to the parent so progress output (chunked upload %) is visible.
 function _callSelf(...args) {
-  const r = spawnSync(process.execPath, [__filename, ...args.map(String)], { encoding: "utf8", env: process.env });
+  const r = spawnSync(process.execPath, [__filename, ...args.map(String)], {
+    encoding: "utf8",
+    env: process.env,
+    stdio: ["ignore", "pipe", "inherit"],
+  });
   if (r.error) return { error: r.error.message };
-  try { return JSON.parse(r.stdout); } catch { return { error: r.stderr || r.stdout || "Unknown error" }; }
+  try { return JSON.parse(r.stdout); } catch { return { error: r.stdout || "Unknown error" }; }
 }
 
 // ── handlers ──────────────────────────────────────────────────────────────────
@@ -557,11 +559,11 @@ async function _handlePost(argv) {
     } else {
       if (!fs.existsSync(argv.video)) { error(`File not found: ${argv.video}`); }
       const uploadPlatform = hasInsta ? "INSTAGRAM" : platforms.find((p) => _VIDEO_CAPABLE_PLATFORMS.has(p));
-      if (process.stderr.isTTY) process.stderr.write(`Uploading video for ${uploadPlatform}...\n`);
+      process.stderr.write(`[video:post] uploading video for ${uploadPlatform}...\n`);
       const mediaResult = _callSelf("media:upload", "--platform", uploadPlatform, "--file", argv.video);
       if (mediaResult.error) { error("Video upload failed", { detail: mediaResult.error }); }
       videoUrl = mediaResult.url;
-      if (process.stderr.isTTY) process.stderr.write(`Video URL: ${videoUrl}\n`);
+      process.stderr.write(`[video:post] video ready: ${videoUrl}\n`);
     }
   }
 
@@ -573,11 +575,11 @@ async function _handlePost(argv) {
     try {
       const ff = spawnSync("ffmpeg", ["-ss", String(argv.coverTime), "-i", argv.video, "-vframes", "1", "-q:v", "2", thumbOut, "-y"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
       if (ff.status === 0 && fs.existsSync(thumbOut)) {
-        if (process.stderr.isTTY) process.stderr.write("Uploading cover thumbnail...\n");
+        process.stderr.write("[video:post] uploading cover thumbnail...\n");
         const coverResult = _callSelf("media:upload", "--platform", "INSTAGRAM", "--file", thumbOut);
         if (!coverResult.error) {
           coverUrl = coverResult.url;
-          if (process.stderr.isTTY) process.stderr.write(`Cover URL: ${coverUrl}\n`);
+          process.stderr.write(`[video:post] cover ready: ${coverUrl}\n`);
         }
       } else {
         process.stderr.write("Warning: ffmpeg cover extraction failed — posting without cover_url\n");
@@ -787,13 +789,93 @@ function _parseVideoFlags(flagArgs, booleanFlags) {
   return argv;
 }
 
+const VIDEO_SUBCOMMAND_HELP = {
+  post: `\
+Usage: postey.js video post --video <path|url> --text <caption> --platforms <CSV> --account-id <id>
+
+Upload a video and create a multi-platform draft.
+INSTAGRAM / TIKTOK / YOUTUBE get video attached; other platforms receive text only.
+
+Required:
+  --video <path|url>       Local file path or direct video URL
+  --text <caption>         Post caption / body text
+  --platforms <CSV>        Comma-separated platform list (e.g. INSTAGRAM,LINKEDIN,X)
+  --account-id <id>        Numeric account ID
+
+Optional:
+  --cover-time <sec>       Cover frame offset in seconds (default: 3)
+  --cover-url <url>        Skip auto cover extraction, use this CDN URL
+  --youtube-title <str>    YouTube video title
+  --title <str>            Internal draft title (default: "Untitled Draft")
+  --tags <CSV>             Comma-separated numeric tag IDs
+  --schedule <iso>         Schedule at ISO-8601 UTC datetime
+  --publish-now            Publish immediately after creation
+  --dry-run                Validate + show payload without calling API
+`,
+  trim: `\
+Usage: postey.js video trim --file <path> --start <sec> (--end <sec> | --duration <sec>)
+
+Trim a video clip using stream copy (no re-encode).
+
+Required:
+  --file <path>            Source video file
+  --start <sec>            Start time in seconds (default: 0)
+  --end <sec>              End time in seconds  (mutually exclusive with --duration)
+  --duration <sec>         Clip length in seconds (mutually exclusive with --end)
+
+Optional:
+  --output <path>          Output path (default: <basename>_trimmed.<ext>)
+`,
+  info: `\
+Usage: postey.js video info --file <path>
+
+Inspect a video file: duration, codec, dimensions, and platform upload hints.
+
+Required:
+  --file <path>            Video file to inspect
+`,
+  transcribe: `\
+Usage: postey.js video transcribe --input <url|path>
+
+Transcribe video audio via yt-dlp + Whisper and optionally create a draft post.
+
+Required:
+  --input <url|path>       YouTube/video URL or local file path
+
+Optional:
+  --platform <CSV>         If set, also create a draft (requires --account-id)
+  --account-id <id>        Account to post to when --platform is given
+  --model <size>           Whisper model: tiny|base|small|medium|large (default: small)
+  --translate              Translate audio to English instead of transcribing
+  --thumbnail              Generate a thumbnail image
+  --thumb-text <str>       Text overlay for the generated thumbnail
+  --thumb-time <sec>       Frame offset for thumbnail extraction
+  --output-dir <path>      Directory for output files
+  --keep-files             Keep temporary audio/video files after transcription
+  --dry-run                Show what would be posted without making API calls
+`,
+};
+
 async function cmdVideoGroup(args) {
   const subcmd = args[0];
   const rest   = args.slice(1);
 
-  if (!subcmd || subcmd === "--help" || subcmd === "-h") {
+  if (subcmd === "--help" || subcmd === "-h") {
+    process.stderr.write(`Usage: postey.js video <subcommand> [flags]\n\nSubcommands:\n  post        Upload video + create multi-platform draft\n  trim        Trim a video clip (stream copy, no re-encode)\n  info        Inspect video: duration, codec, dimensions, platform hints\n  transcribe  Transcribe video audio via yt-dlp + Whisper\n\nRun: postey.js video <subcommand> --help  for full flag reference.\n`);
+    process.exit(0);
+  }
+
+  if (!subcmd) {
     output({ error: "Specify a subcommand: post | trim | info | transcribe", hint: "Run: postey.js video <command> --help" });
     process.exit(1);
+  }
+
+  if (rest.includes("--help") || rest.includes("-h")) {
+    const helpText = VIDEO_SUBCOMMAND_HELP[subcmd];
+    if (helpText) {
+      process.stderr.write(helpText);
+      process.exit(0);
+    }
   }
 
   if (subcmd === "post") {

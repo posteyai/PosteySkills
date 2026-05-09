@@ -24,6 +24,13 @@ pip install mlx-whisper
 
 ---
 
+## Choosing a Workflow
+
+- **Caption not yet written?** → Use **Workflow B** (transcribe first). The transcript gives you raw material; `suggested_captions` give you a starting point. Refine before posting.
+- **Caption already written?** → Use **Workflow A** (upload + post directly).
+
+---
+
 ## Workflow A — Upload Video + Create Draft
 
 Use when you have the caption ready and just need to upload and post.
@@ -68,7 +75,7 @@ ${CLAUDE_SKILL_DIR}/scripts/postey.js video post \
 
 ## Workflow B — Transcribe → Generate Captions → Post
 
-Use when you want Whisper-generated captions refined before posting.
+**Default when no caption is provided.** Use when the user shares a video URL without caption text, or when you want Whisper-generated captions refined before posting.
 
 **Step 1** — Transcribe only:
 ```bash

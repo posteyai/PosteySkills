@@ -208,6 +208,7 @@ Before any write operation, Claude **must** know which account to target. Follow
 | "Post this now" | MCP `create_post` then MCP `publish_draft` |
 | "Make captions from this reel: \<url\>" | `postey.js video transcribe <url>` → apply Caption Generation Guide → MCP `create_post` |
 | "Upload video to Instagram/TikTok/YouTube" | `postey.js video post` (local file) or `postey.js video transcribe <url>` (remote URL) |
+| User provides a video but no caption | Run `video transcribe` first → refine `suggested_captions` → `video post --text` or `create_post` |
 
 ## Workflow
 
@@ -259,6 +260,8 @@ Run `social-sets:list` first — a platform only works if that account is connec
 ## Direct Video Posting
 
 Use `video post` when you have a caption ready and want to upload video + create a multi-platform draft in one command (no transcription).
+
+**No caption yet?** Run `video transcribe` first — it returns a transcript and `suggested_captions` per platform. Refine those captions (see [prompts.md](prompts.md)) then pass the result to `video post --text` or `create_post`. Never paste a raw transcript as a caption.
 
 **Requires:** `ffmpeg` on PATH for Instagram cover thumbnail extraction.
 
