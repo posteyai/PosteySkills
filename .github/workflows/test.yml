@@ -26,11 +26,12 @@ jobs:
       - name: Check version consistency
         run: node scripts/check-versions.js
 
-      # tests/ is excluded on purpose: it contains synthetic secret-shaped fixtures.
-      # Note: secrets are empty on fork PRs, so external PRs are checked against the
-      # committed hashes only; maintainers re-check on merge.
+      # Scans the whole repo; tests/ is skipped inside the scanner (synthetic
+      # secret-shaped fixtures). Committed hashes carry only high-entropy terms;
+      # the sensitive short terms arrive via the LEAK_EXTRA_TERMS secret, which
+      # is EMPTY on fork PRs — maintainers re-check on merge.
       - name: Check for private-identifier leaks
-        run: node scripts/check-leaks.js skills README.md CLAUDE.md
+        run: node scripts/check-leaks.js .
         env:
           LEAK_EXTRA_TERMS: ${{ secrets.LEAK_EXTRA_TERMS }}
 

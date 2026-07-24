@@ -8,15 +8,24 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
-const SKIP_DIRS = new Set(['node_modules', '.git']);
-// Unicode-aware: hyphenated, dotted, spaced, or accented terms become token
-// SEQUENCES ("acme-corp" -> ["acme","corp"]) and are matched as n-grams.
-const TOKEN_RE = /[\p{L}\p{N}_]+/gu;
+// tests/ is skipped on purpose: it contains synthetic secret-shaped fixtures.
+const SKIP_DIRS = new Set(['node_modules', '.git', 'tests']);
+// Unicode-aware: hyphenated, dotted, spaced, underscored, or accented terms
+// become token SEQUENCES ("acme-corp" and "acme_corp" -> ["acme","corp"]) and
+// are matched as n-grams. NFKC-normalized; format chars (zero-width etc.)
+// stripped so they cannot split a token to evade matching.
+const TOKEN_RE = /[\p{L}\p{N}]+/gu;
 
 const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
 
 function tokenize(text) {
-  return text.toLowerCase().match(TOKEN_RE) || [];
+  return (
+    text
+      .normalize('NFKC')
+      .replace(/\p{Cf}/gu, '')
+      .toLowerCase()
+      .match(TOKEN_RE) || []
+  );
 }
 
 // A term is stored as the hash of its space-joined token sequence, keyed by
@@ -51,8 +60,8 @@ function loadDenylist(jsonPath, extraPlaintextPath) {
   return { byLen, patterns };
 }
 
-function mask(tok) {
-  return tok.length <= 2 ? '***' : tok[0] + '***';
+function mask() {
+  return '***'; // never echo any part of a match; file:line + kind locate it
 }
 
 function scanText(text, denylist) {
@@ -82,13 +91,23 @@ function scanText(text, denylist) {
 
 function scanTree(rootDir, denylist) {
   const out = [];
+  const seen = new Set(); // realpath cycle guard for symlinked dirs
   (function walk(dir) {
+    const real = fs.realpathSync(dir);
+    if (seen.has(real)) return;
+    seen.add(real);
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       if (SKIP_DIRS.has(entry.name)) continue;
       const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
+      let st;
+      try {
+        st = fs.statSync(full); // follows symlinks
+      } catch {
+        continue; // broken symlink
+      }
+      if (st.isDirectory()) {
         walk(full);
-      } else if (entry.isFile()) {
+      } else if (st.isFile()) {
         const buf = fs.readFileSync(full);
         if (buf.subarray(0, 1024).includes(0)) continue; // binary: skip
         for (const f of scanText(buf.toString('utf8'), denylist)) {
@@ -106,7 +125,14 @@ if (require.main === module) {
   const finds = [];
   for (const target of targets) {
     const full = path.resolve(target);
-    if (fs.statSync(full).isDirectory()) {
+    let st;
+    try {
+      st = fs.statSync(full);
+    } catch {
+      console.error(`check-leaks: target not found: ${target}`);
+      process.exit(2);
+    }
+    if (st.isDirectory()) {
       finds.push(...scanTree(full, denylist));
     } else {
       for (const f of scanText(fs.readFileSync(full, 'utf8'), denylist)) {

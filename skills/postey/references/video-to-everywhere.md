@@ -23,8 +23,8 @@ it posted: "post this everywhere," "make a post from this video," "caption this 
 5. **Upload the media.** Use `upload_media` with the video URL (hosted flow). Note platform
    boundaries and tell the user when one matters: over 60 seconds publishes as a regular YouTube
    video rather than a Short; some platforms need a smaller encode and may reject oversized files.
-6. **Create one draft.** A single `create_post` covering every connected platform via
-   `additional_platforms`, captions attached per platform, media included, status DRAFT.
+6. **Create one draft.** `create_post` for the primary platform with its caption, then one `update_post` per remaining platform with that platform's caption, same `post_id` throughout (the "Different content per platform" sequence in SKILL.md). Never a separate draft per platform. Status stays DRAFT.
+   Attach the media to each platform.
 7. **Verify.** Fetch each platform with `get_specific_post_content`: caption present, media
    attached, right format. Fix before presenting.
 8. **Tag and hand over.** Agent tag plus topic tags (reuse existing ones). Reply with the share

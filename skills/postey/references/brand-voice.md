@@ -23,8 +23,8 @@ topic. Also run this first when another flow needs a voice and no brand profile 
    `hook-formulas.md`. Adjust the profile from their reaction before drafting anything long.
 5. **Draft the batch.** Write 5 to 7 drafts across the profile's content pillars. Every caption is
    platform-specific: follow `platform-archetypes.md` and run the checks in `caption-playbook.md`.
-6. **Create in Postey.** One `create_post` per topic covering all connected platforms via
-   `additional_platforms`. Upload any media first with `upload_media`. Status stays DRAFT.
+6. **Create in Postey.** Per topic: `create_post` for the primary platform with its caption, then one `update_post` per remaining platform with that platform's caption, same `post_id` throughout (the "Different content per platform" sequence in SKILL.md). Never a separate draft per platform. Status stays DRAFT.
+   Upload any media first with `upload_media`.
 7. **Verify and tag.** Fetch each platform's content back with `get_specific_post_content` and fix
    anything missing. Apply the agent tag plus 2 or 3 topic tags, reusing existing tags when they
    already exist.

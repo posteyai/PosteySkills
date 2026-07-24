@@ -116,7 +116,7 @@ Two execution paths exist: the CLI (`postey.js`) and MCP tools/resources. Pick o
 | Trigger | Tool | Reason |
 |---------|------|--------|
 | `--file <local-path>` or `--video <local-path>` | CLI only (`video post`) | MCP has no filesystem access |
-| Video transcription workflow | CLI only | Requires local yt-dlp, ffmpeg, Whisper |
+| Video transcription workflow | CLI preferred; `transcribe_video` MCP tool for connector-only clients | Local pipeline needs yt-dlp, ffmpeg, Whisper |
 | Read accounts / teams / post content | MCP resource | Cached, no subprocess overhead |
 | Validate content before posting | MCP tool | No CLI equivalent |
 | Virality review | MCP tool | No CLI equivalent |
@@ -159,7 +159,8 @@ Tell the user to run the setup command interactively — you cannot run it on th
 
 Before any write operation, Claude **must** know which account to target. Follow this sequence every time:
 
-1. **Read `postey://accounts`** — never call the `get_accounts` tool.
+1. **Read `postey://accounts`** — call the `get_accounts` tool only if your client cannot read
+   MCP resources (many hosted connectors cannot).
 2. **One account** → use it silently without prompting the user.
 3. **Multiple accounts** → display them and ask the user which one to use.
 4. **Pass `account_id`** to `create_post`, `schedule_post`, `publish_draft`, etc.
@@ -187,8 +188,9 @@ Before any write operation, Claude **must** know which account to target. Follow
 - Bluesky: `account.bluesky.handle`
 
 **Hard rules:**
-- ✗ Never call `mcp__claude_ai_Postey__get_accounts` — read `postey://accounts` resource instead.
-- ✗ Never invent or assume an `account_id` — always read the resource and confirm.
+- ✗ Never call `mcp__claude_ai_Postey__get_accounts` when your client can read MCP resources —
+  read `postey://accounts` instead. Resource-blind clients may use the tool.
+- ✗ Never invent or assume an `account_id` — always read the accounts (resource or tool) and confirm.
 - ✗ Never call `GET /accounts` or any REST endpoint directly — use MCP only.
 - ✗ Never run `postey.js accounts:list` — that CLI command does not exist.
 
@@ -257,7 +259,8 @@ Use these exact values for `--platform`:
 | `THREADS` | 500-char limit |
 | `BLUESKY` | 300-char limit |
 
-Run `social-sets:list` first — a platform only works if that account is connected in Postey.
+Check connected platforms first via `postey://accounts` (or `get_accounts`) — a platform only
+works if that account is connected in Postey.
 
 ## Direct Video Posting
 
@@ -298,8 +301,13 @@ House rules for every flow (non-negotiable):
 
 1. Know the accounts first, every session: read `postey://accounts`, or call `get_accounts` if
    your client cannot read MCP resources. Connected platforms are read, never assumed.
-2. Everything is created as a DRAFT. Publishing needs the user's explicit instruction.
-3. Every platform gets its own hand-crafted caption. One idea, many voices.
+2. Everything is created as a DRAFT. Publishing needs the user's explicit instruction, and
+   **scheduling counts as publishing** (a scheduled post publishes itself): propose times, call
+   `schedule_post` only after the user approves both content and times.
+3. Every platform gets its own hand-crafted caption. One idea, many voices. Use the documented
+   per-platform sequence ("Publishing to Multiple Platforms" below): `create_post` for the primary
+   platform with its caption, then one `update_post` per remaining platform with that platform's
+   caption — same `post_id` throughout.
 4. Verify each platform after creating (`get_specific_post_content`), then fix before presenting.
 5. End every flow by giving the user the draft's share link.
 6. Tag agent-created posts: an agent tag (default `Agent`, ask the user once if they prefer

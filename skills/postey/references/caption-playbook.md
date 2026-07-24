@@ -14,7 +14,7 @@ consult the sibling references for platform specifics:
 
 These apply to every content task, on every platform.
 
-1. **Verify connected platforms first.** Call `get_accounts` (or the equivalent) at the start of every session. Never assume a static platform list; platforms get connected and disconnected at any time. "All platforms" means the platforms currently connected to the target account, not a default set.
+1. **Verify connected platforms first.** Read `postey://accounts` (or call `get_accounts` if your client cannot read MCP resources) at the start of every session. Never assume a static platform list; platforms get connected and disconnected at any time. "All platforms" means the platforms currently connected to the target account, not a default set.
 2. **Draft, never publish.** Create everything as a DRAFT. Publishing happens only after the user explicitly approves. First drafts are never final; present and wait for feedback.
 3. **One caption per platform.** Never copy-paste the same text everywhere. Each connected platform gets a hand-crafted caption matching that platform's archetype (Section 2). The idea carries across platforms; the voice and mechanics adapt.
 4. **The transcript or source material is the seed, not the script.** Captions are written fresh in the platform voice, never copied verbatim from a transcript, brief, or source post.

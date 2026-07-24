@@ -21,8 +21,7 @@ into posts," "make content out of this thought," "announce X across my platforms
 4. **Write.** Hooks per `hook-formulas.md` (write 10, keep the best). Full checks from
    `caption-playbook.md`. Media: propose what visual would carry each platform and mark missing
    media clearly in the draft body as [ATTACH: description] so the user can supply it.
-5. **Create one draft.** A single `create_post` across connected platforms via
-   `additional_platforms`, DRAFT status.
+5. **Create one draft.** `create_post` for the primary platform with its caption, then one `update_post` per remaining platform with that platform's caption, same `post_id` throughout (the "Different content per platform" sequence in SKILL.md). Never a separate draft per platform. Status stays DRAFT.
 6. **Verify, tag, hand over.** Verify each platform via `get_specific_post_content`, apply the
    agent tag plus topic tags (reuse existing tags; never create duplicates), then reply with the
    share link, the per-platform format list, and PROPOSED schedule times, spacing value posts

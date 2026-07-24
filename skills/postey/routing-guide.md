@@ -16,13 +16,15 @@ This document is the full routing reference for the Postey skill. The key rules 
    → CLI unconditionally. MCP cannot access the local filesystem. Stop here.
 
 2. Does the task involve VIDEO TRANSCRIPTION (yt-dlp + Whisper)?
-   → `node ${CLAUDE_SKILL_DIR}/scripts/postey.js video transcribe <url>`. No MCP equivalent. Stop here.
+   → `node ${CLAUDE_SKILL_DIR}/scripts/postey.js video transcribe <url>` wherever the CLI runs.
+     Connector-only clients (no CLI) use the `transcribe_video` MCP tool instead. Stop here.
 
 3. Is the environment CI/CD, a shell script, Cursor, Windsurf, or an SDK agent?
    → CLI. MCP server is unavailable in these contexts. Stop here.
 
 4. Is the task READ-ONLY state retrieval (accounts, teams, post content)?
-   → Read the MCP resource URI directly. Do not call a tool or the CLI.
+   → Read the MCP resource URI directly when your client supports MCP resources; resource-blind
+     clients (many hosted connectors) use the equivalent read tools instead.
      - Accounts  → postey://accounts
      - Teams     → postey://teams
      - Post content → postey://posts/{id}/content/{platform}
@@ -39,11 +41,12 @@ This document is the full routing reference for the Postey skill. The key rules 
 
 ## CLI-Only Operations
 
-These operations have no MCP equivalent and **must** use the CLI:
+These operations **must** use the CLI where it is available:
 
-- Local file uploads (`--file`, `--video` with local path)
-- Chunked video upload (>50 MB) via `video post`
-- Video transcription + cross-post via `postey.js video transcribe`
+- Local file uploads (`--file`, `--video` with local path) — no MCP equivalent
+- Chunked video upload (>50 MB) via `video post` — no MCP equivalent
+- Video transcription + cross-post via `postey.js video transcribe` (connector-only clients fall
+  back to the `transcribe_video` MCP tool)
 - Bulk / scripted operations in CI pipelines
 - Non-interactive setup: `setup --key ... --location global`
 

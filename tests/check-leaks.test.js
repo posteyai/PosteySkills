@@ -97,3 +97,42 @@ test('real denylist + shipped skill content is clean', () => {
   const finds = scanTree(path.join(__dirname, '..', 'skills'), real);
   assert.deepStrictEqual(finds, []);
 });
+
+test('NFD and NFC forms of the same term both match', () => {
+  const nfdDl = {
+    byLen: new Map([[1, new Set([h('josé'.normalize('NFKC'))])]]),
+    patterns: [],
+  };
+  assert.strictEqual(scanText('by José today', nfdDl).length, 1, 'NFD text must match NFC-hashed term');
+});
+
+test('underscore and hyphen forms share one token sequence', () => {
+  assert.strictEqual(scanText('made by acme_corp today', dl).length, 1);
+});
+
+test('zero-width characters cannot split a term to evade matching', () => {
+  assert.strictEqual(scanText('by zzsecret​name today', dl).length, 1);
+});
+
+test('hashedPhrases in the JSON file are honored', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'leakjson-'));
+  try {
+    const jsonPath = path.join(dir, 'dl.json');
+    fs.writeFileSync(jsonPath, JSON.stringify({
+      hashedTerms: [],
+      hashedPhrases: [{ n: 2, hash: h('zz corp') }],
+      patterns: [],
+    }));
+    const loaded = loadDenylist(jsonPath);
+    assert.strictEqual(scanText('shipped by zz-corp today', loaded).length, 1);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('CLI exits 2 with a clean error on a missing target', () => {
+  const script = path.join(__dirname, '..', 'scripts', 'check-leaks.js');
+  const r = spawnSync(process.execPath, [script, path.join(os.tmpdir(), 'no-such-dir-zz')], { encoding: 'utf8' });
+  assert.strictEqual(r.status, 2);
+  assert.match(r.stderr, /target not found/);
+});

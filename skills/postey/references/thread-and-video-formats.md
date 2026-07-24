@@ -19,7 +19,7 @@ Classify before writing. If the content fits none of these, it's probably a sing
 
 **Hook patterns (fill in the blanks):**
 - Launch Breakdown: `BREAKING: [Company] just [bold transformation verb]. / [What launched, one plain sentence.] / [Stakes escalation.] / Here's the full breakdown:`: or the trend variant: `[CATEGORY] is taking over in [YEAR]. [Company] just announced [Product]. Here are [N] wild examples:`
-- Challenger Upset: `[Challenger] just dropped [product] that beats [Leader 1], [Leader 2], and [Leader 3]. / [Two specific capabilities + one number.] / Here's everything:`: body tweet 1 introduces the product with a first-person test result; tweet 2 runs the same task on the incumbent and contrasts.
+- Challenger Upset: `[Challenger] just dropped [product] that beats [Leader 1], [Leader 2], and [Leader 3]. / [Two specific capabilities + one number.] / Here's everything:`: body tweet 1 introduces the product with a sourced, verifiable result (cite where it comes from; never invent a first-person test you did not run); tweet 2 contrasts the incumbent on the same sourced task.
 - Builder Profile: `This is [Name], [Title] at [Company]. / [N] years ago, [dramatic surprising action]. / The journey: 👇`: body is chronological chapters: origin, first inflection, the bold bet (with a number), the setback, the breakthrough (with a metric), where they are now, one-sentence lesson without moralizing.
 - Video Gallery: authentic disbelief opener, lowercase and raw, no "BREAKING:". One clip per post, one sentence of context max; the clip is the post.
 - Resource Roundup: `Everyone pays $[Y] for [Z], but [problem]. / I found [N] FREE [things] that [specific outcome].`: one resource per post: name, URL, what it does, how to use it, result.

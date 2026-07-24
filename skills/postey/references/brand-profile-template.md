@@ -57,4 +57,4 @@ Conversion pitfalls: income-claim styles from info-product creators feel scammy 
 
 ### Repurposing workflow
 
-One idea → every platform: write the longest version first (LinkedIn or blog) → extract the hook into short-form (X, Threads, Bluesky) → turn the structure into a carousel (Instagram) → record or cut a video (Reels, TikTok, Shorts) → schedule the batch, per-platform captions throughout.
+One idea → every platform: write the longest version first (LinkedIn or blog) → extract the hook into short-form (X, Threads, Bluesky) → turn the structure into a carousel (Instagram) → record or cut a video (Reels, TikTok, Shorts) → propose a posting schedule and apply it only after the user approves the times; per-platform captions throughout.
