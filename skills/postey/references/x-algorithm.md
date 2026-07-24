@@ -1,6 +1,6 @@
 # X Algorithm Notes (Public Sources)
 
-Part of the `postey` skill. Loaded on demand — see SKILL.md "Content Flows".
+Part of the `postey` skill. Loaded on demand; see SKILL.md "Content Flows".
 
 ## 4. X Algorithm Rules Worth Teaching Any Agent
 

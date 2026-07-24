@@ -47,11 +47,11 @@ examples.md
 
 When the goal is signups rather than reach, layer these five elements:
 
-1. **Bold number hook** — stops the scroll with specificity
-2. **Low-barrier framing** — makes the outcome feel achievable
-3. **Engagement-trigger CTA** — one-word comment trigger; frictionless, and the reply volume feeds the algorithm
-4. **Free lead magnet** — delivered via DM; the lead magnet should BE the product demo (a template whose workflow naturally showcases the product)
-5. **Value-to-promo rhythm** — never two conversion posts in a row; warm up with 2-3 value posts first
+1. **Bold number hook**: stops the scroll with specificity
+2. **Low-barrier framing**: makes the outcome feel achievable
+3. **Engagement-trigger CTA**: one-word comment trigger; frictionless, and the reply volume feeds the algorithm
+4. **Free lead magnet**: delivered via DM; the lead magnet should BE the product demo (a template whose workflow naturally showcases the product)
+5. **Value-to-promo rhythm**: never two conversion posts in a row; warm up with 2-3 value posts first
 
 Conversion pitfalls: income-claim styles from info-product creators feel scammy for SaaS (use real product metrics); links in the main X post kill reach (first reply instead); max ~2 engagement-trigger posts per week or followers tune out; the trigger comment is worthless without the DM follow-up; text + link with no media is the lowest-reach combination.
 

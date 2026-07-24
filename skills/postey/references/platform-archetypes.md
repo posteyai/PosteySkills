@@ -1,6 +1,6 @@
 # Per-Platform Caption Archetypes
 
-Part of the `postey` skill. Loaded on demand — see SKILL.md "Content Flows".
+Part of the `postey` skill. Loaded on demand; see SKILL.md "Content Flows".
 
 ## 2. Per-Platform Caption Archetypes
 

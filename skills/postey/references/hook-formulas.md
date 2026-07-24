@@ -1,6 +1,6 @@
 # Hook Formulas & Quality Gates
 
-Part of the `postey` skill. Loaded on demand — see SKILL.md "Content Flows".
+Part of the `postey` skill. Loaded on demand; see SKILL.md "Content Flows".
 
 ## 3. Hook Formulas
 
@@ -10,8 +10,8 @@ For conversion-oriented posts:
 
 ```
 Line 1: The pain or fact, under 10 words, with a specific number
-Line 2: The reward — what the reader GETS (a large value gap)
-Line 3: The action — one clear CTA
+Line 2: The reward, what the reader GETS (a large value gap)
+Line 3: The action, one clear CTA
 ```
 
 Rules:

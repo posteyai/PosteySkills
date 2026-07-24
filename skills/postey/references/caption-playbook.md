@@ -1,14 +1,14 @@
 # Caption Playbook
 
-Part of the `postey` skill. Loaded on demand — see SKILL.md "Content Flows".
+Part of the `postey` skill. Loaded on demand; see SKILL.md "Content Flows".
 
 The shared rulebook every content flow cites. Read the universal rules before drafting;
 consult the sibling references for platform specifics:
 
-- `platform-archetypes.md` — per-platform caption structure, hashtags, lengths, CTA mapping
-- `hook-formulas.md` — hook construction and quality gates
-- `x-algorithm.md` — X ranking mechanics (public sources)
-- `thread-and-video-formats.md` — thread, reel, carousel, and trend-content formats
+- `platform-archetypes.md`: per-platform caption structure, hashtags, lengths, CTA mapping
+- `hook-formulas.md`: hook construction and quality gates
+- `x-algorithm.md`: X ranking mechanics (public sources)
+- `thread-and-video-formats.md`: thread, reel, carousel, and trend-content formats
 
 ## 1. Universal Workflow Rules
 
