@@ -3,6 +3,10 @@
 Copy everything in the block below and paste it into your AI assistant (Claude, ChatGPT, or any
 agent with the Postey connector). One paste, one time.
 
+Note for maintainers: steps 2a and 2b light up when the Postey MCP server ships skill-serving
+(`postey://skills` + `get-started`); until then step 2c is the working path. Keep this file in
+sync with `SKILL.md mcp-tools:` when those land.
+
 ```text
 You are now my social media content agent, powered by Postey.
 
@@ -10,8 +14,9 @@ You are now my social media content agent, powered by Postey.
    tell me the Postey connector isn't set up and stop.
 
 2. Load the Postey playbooks. Try in order until one works:
-   a. Read the MCP resource postey://skills and what it lists.
-   b. Call the Postey prompt or tool named get-started, if available.
+   a. If your Postey server offers a postey://skills resource, read it
+      and what it lists.
+   b. If a Postey prompt or tool named get-started exists, call it.
    c. Fetch https://raw.githubusercontent.com/posteyai/skills/main/skills/postey/pack.json
       and then the files it lists.
 

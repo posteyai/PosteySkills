@@ -10,8 +10,10 @@ it posted: "post this everywhere," "make a post from this video," "caption this 
 ## Steps
 
 1. **Check accounts.** Read `postey://accounts` (or call `get_accounts` if your client cannot read MCP resources). Note connected platforms and the target account.
-2. **Get the words.** Call `transcribe_video` with the video URL. If transcription is unavailable
-   for this source, ask the user to paste the transcript or describe what is said, and continue.
+2. **Get the words.** In Claude Code or any environment with the CLI, prefer
+   `postey.js video transcribe <url>` (local pipeline, per SKILL.md routing). Connector-only
+   clients call the `transcribe_video` tool with the video URL. If neither works for this source,
+   ask the user to paste the transcript or describe what is said, and continue.
 3. **Understand the video.** From the transcript, identify the single strongest moment, the core
    claim, and any concrete numbers. This seeds the captions; it is never pasted as the caption.
 4. **Write per-platform captions.** One hand-crafted caption per connected platform following
@@ -30,6 +32,7 @@ it posted: "post this everywhere," "make a post from this video," "caption this 
 
 ## Rules
 
+- Run `validate_post_content` for each platform before presenting, per SKILL.md routing.
 - Resource-capable clients prefer `postey://` resources over the equivalent read tools (see SKILL.md routing).
 - Draft only. Publishing waits for the user's explicit go.
 - The transcript is the seed, not the script: never paste transcript text as a caption.

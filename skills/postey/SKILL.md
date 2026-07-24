@@ -93,14 +93,16 @@ Two execution paths exist: the CLI (`postey.js`) and MCP tools/resources. Pick o
    → **CLI only** — MCP cannot access the local filesystem.
 
 2. **Video transcription** (yt-dlp + Whisper)?
-   → **`node ${CLAUDE_SKILL_DIR}/scripts/postey.js video transcribe <url>`** — no MCP equivalent.
+   → **`node ${CLAUDE_SKILL_DIR}/scripts/postey.js video transcribe <url>`** — preferred wherever
+   the CLI runs. Connector-only clients (no CLI) use the `transcribe_video` MCP tool instead.
 
 3. **Read-only state** (accounts, teams, post content)?
    → **MCP resource** — fast, cached, no subprocess:
    - Accounts → `postey://accounts`
    - Teams → `postey://teams`
    - Post content → `postey://posts/{id}/content/{platform}`
-   - **Never** call `mcp__claude_ai_Postey__get_accounts` or `get_posts` when a resource URI exists.
+   - Prefer resource URIs over `get_accounts` / `get_posts` tools whenever your client can read
+     MCP resources; resource-blind clients (many hosted connectors) use the tools.
 
 4. **Content validation or virality review** before publishing?
    → **MCP tools** — `validate_post_content`, `review_post_content_and_add_comments_for_virality` — no CLI equivalent; do not skip these in Claude Code sessions.
@@ -125,7 +127,7 @@ Two execution paths exist: the CLI (`postey.js`) and MCP tools/resources. Pick o
 ### Anti-Patterns
 
 - **Never** call `mcp__claude_ai_Postey__get_accounts` when your client can read MCP resources — read `postey://accounts` instead. Resource-blind clients (many hosted connectors) may use the tool.
-- **Never** call `mcp__claude_ai_Postey__upload_media_for_post` for a local file — it accepts URLs only.
+- **Never** call `mcp__claude_ai_Postey__upload_media` for a local file — it accepts URLs only.
 - **Never** skip `validate_post_content` / `review_post_content_and_add_comments_for_virality` in Claude Code sessions.
 - **Never** use CLI `drafts:create` / `drafts:publish` / `drafts:schedule` — these commands are removed; use MCP tools.
 - **Never** call REST endpoints directly (e.g. `GET /accounts`) — always use MCP resources or tools.

@@ -1,5 +1,6 @@
 {
-  "comment": "hashedTerms are sha256 hex of lowercased exact tokens; the plaintext source list is kept private (CI can extend via LEAK_EXTRA_DENYLIST=<path>). Patterns catch generic secret shapes.",
+  "comment": "hashedTerms are sha256 hex of lowercased exact tokens; hashedPhrases are {n, hash} for multi-token terms (hash of the space-joined token sequence). The plaintext source list is private; CI extends it via the LEAK_EXTRA_TERMS secret (note: secrets are empty on fork PRs, so external PRs are checked against committed hashes only). Threat model: these hashes deter ACCIDENTAL inclusion of known private identifiers; they are unsalted sha256 of short terms and are not resistant to determined offline guessing. The protected terms are non-secret markers (names, handles, ids), not credentials, so that trade-off is accepted deliberately. Patterns catch generic secret shapes.",
+  "hashedPhrases": [],
   "hashedTerms": [
     "02a869ddf8b669a4328c5bf2aa2a185c4376916de658550abb34eb24929e216b",
     "03415d240e59ef440b9c3761d24e00f238e7d965b949c37b6680dd2d72a8ab18",

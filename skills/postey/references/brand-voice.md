@@ -33,6 +33,7 @@ topic. Also run this first when another flow needs a voice and no brand profile 
 
 ## Rules
 
+- Run `validate_post_content` for each platform before presenting, per SKILL.md routing.
 - Resource-capable clients prefer `postey://` resources over the equivalent read tools (see SKILL.md routing).
 - Draft only. Never publish or schedule without the user's explicit instruction.
 - The profile's banned topics and banned phrases override everything else.

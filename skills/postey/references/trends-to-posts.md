@@ -25,12 +25,14 @@ my niche," or wants a recurring daily/weekly content mix.
    full checks from `caption-playbook.md`. Cite the source of every claim in the caption where the
    platform culture allows it, and put external links in the first reply on X, never the main post.
 6. **Create, verify, tag.** One `create_post` per topic across connected platforms, DRAFT status,
-   verify each platform via `get_specific_post_content`, agent tag plus a pillar tag plus topic tags.
+   verify each platform via `get_specific_post_content`, agent tag plus a pillar tag plus topic
+   tags (reuse existing tags; never create duplicates).
 7. **Hand over.** Share links, one line per draft naming the pillar, and any skipped pillars with
    the reason.
 
 ## Rules
 
+- Run `validate_post_content` for each platform before presenting, per SKILL.md routing.
 - Resource-capable clients prefer `postey://` resources over the equivalent read tools (see SKILL.md routing).
 - Draft only; scheduling or publishing needs the user's explicit instruction.
 - Every stat, name, and quote traces to a source found in step 3. Unverifiable claims are dropped.

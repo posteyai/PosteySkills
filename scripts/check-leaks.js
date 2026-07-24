@@ -9,24 +9,46 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 const SKIP_DIRS = new Set(['node_modules', '.git']);
-const TOKEN_RE = /[a-z0-9_]+/g;
+// Unicode-aware: hyphenated, dotted, spaced, or accented terms become token
+// SEQUENCES ("acme-corp" -> ["acme","corp"]) and are matched as n-grams.
+const TOKEN_RE = /[\p{L}\p{N}_]+/gu;
+
+const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
+
+function tokenize(text) {
+  return text.toLowerCase().match(TOKEN_RE) || [];
+}
+
+// A term is stored as the hash of its space-joined token sequence, keyed by
+// token count, so "internal.example.com" and "internal example com" match alike.
+function addTerm(term, byLen) {
+  const toks = tokenize(term);
+  if (!toks.length) return;
+  const n = toks.length;
+  if (!byLen.has(n)) byLen.set(n, new Set());
+  byLen.get(n).add(sha256(toks.join(' ')));
+}
 
 function loadDenylist(jsonPath, extraPlaintextPath) {
   const raw = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-  const hashes = new Set(raw.hashedTerms || []);
+  const byLen = new Map();
+  if (raw.hashedTerms && raw.hashedTerms.length) byLen.set(1, new Set(raw.hashedTerms));
+  for (const p of raw.hashedPhrases || []) {
+    if (!byLen.has(p.n)) byLen.set(p.n, new Set());
+    byLen.get(p.n).add(p.hash);
+  }
   const extraPath = extraPlaintextPath || process.env.LEAK_EXTRA_DENYLIST;
   let extraTerms = '';
   if (extraPath && fs.existsSync(extraPath)) extraTerms += fs.readFileSync(extraPath, 'utf8') + '\n';
   if (process.env.LEAK_EXTRA_TERMS) extraTerms += process.env.LEAK_EXTRA_TERMS;
   for (const term of extraTerms.split(/\r?\n/)) {
-    const t = term.trim().toLowerCase();
-    if (t) hashes.add(crypto.createHash('sha256').update(t).digest('hex'));
+    if (term.trim()) addTerm(term, byLen);
   }
   const patterns = (raw.patterns || []).map((p) => ({
     name: p.name,
     re: new RegExp(p.regex, 'g'),
   }));
-  return { hashes, patterns };
+  return { byLen, patterns };
 }
 
 function mask(tok) {
@@ -37,10 +59,13 @@ function scanText(text, denylist) {
   const finds = [];
   const lines = text.split(/\r?\n/);
   lines.forEach((lineText, i) => {
-    for (const tok of lineText.toLowerCase().match(TOKEN_RE) || []) {
-      const hex = crypto.createHash('sha256').update(tok).digest('hex');
-      if (denylist.hashes.has(hex)) {
-        finds.push({ line: i + 1, kind: 'denylisted-term', masked: mask(tok) });
+    const toks = tokenize(lineText);
+    for (const [n, hashSet] of denylist.byLen) {
+      for (let s = 0; s + n <= toks.length; s++) {
+        const gram = toks.slice(s, s + n).join(' ');
+        if (hashSet.has(sha256(gram))) {
+          finds.push({ line: i + 1, kind: 'denylisted-term', masked: mask(gram) });
+        }
       }
     }
     for (const p of denylist.patterns) {
@@ -48,6 +73,7 @@ function scanText(text, denylist) {
       let m;
       while ((m = p.re.exec(lineText)) !== null) {
         finds.push({ line: i + 1, kind: p.name, masked: mask(m[0]) });
+        if (m[0] === '') p.re.lastIndex++;
       }
     }
   });
@@ -63,7 +89,9 @@ function scanTree(rootDir, denylist) {
       if (entry.isDirectory()) {
         walk(full);
       } else if (entry.isFile()) {
-        for (const f of scanText(fs.readFileSync(full, 'utf8'), denylist)) {
+        const buf = fs.readFileSync(full);
+        if (buf.subarray(0, 1024).includes(0)) continue; // binary: skip
+        for (const f of scanText(buf.toString('utf8'), denylist)) {
           out.push({ file: path.relative(process.cwd(), full), ...f });
         }
       }
@@ -73,9 +101,19 @@ function scanTree(rootDir, denylist) {
 }
 
 if (require.main === module) {
-  const target = process.argv[2] || 'skills';
+  const targets = process.argv.length > 2 ? process.argv.slice(2) : ['skills'];
   const denylist = loadDenylist(path.join(__dirname, 'leak-denylist.json'));
-  const finds = scanTree(path.resolve(target), denylist);
+  const finds = [];
+  for (const target of targets) {
+    const full = path.resolve(target);
+    if (fs.statSync(full).isDirectory()) {
+      finds.push(...scanTree(full, denylist));
+    } else {
+      for (const f of scanText(fs.readFileSync(full, 'utf8'), denylist)) {
+        finds.push({ file: path.relative(process.cwd(), full), ...f });
+      }
+    }
+  }
   if (finds.length) {
     for (const f of finds) console.error(`${f.file}:${f.line} [${f.kind}] ${f.masked}`);
     console.error(`check-leaks: ${finds.length} finding(s). Failing.`);

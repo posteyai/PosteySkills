@@ -23,17 +23,21 @@ into posts," "make content out of this thought," "announce X across my platforms
    media clearly in the draft body as [ATTACH: description] so the user can supply it.
 5. **Create one draft.** A single `create_post` across connected platforms via
    `additional_platforms`, DRAFT status.
-6. **Schedule if asked.** When the user wants the batch spread out, use `schedule_post` with times
-   at least 10 minutes in the future in UTC ISO-8601, spacing value posts before any promotional
-   one. Never schedule two conversion-style posts back to back.
-7. **Verify, tag, hand over.** Verify each platform via `get_specific_post_content`, apply agent
-   tag plus topic tags, then reply with the share link, the per-platform format list, and proposed
-   schedule times for approval.
+6. **Verify, tag, hand over.** Verify each platform via `get_specific_post_content`, apply the
+   agent tag plus topic tags (reuse existing tags; never create duplicates), then reply with the
+   share link, the per-platform format list, and PROPOSED schedule times, spacing value posts
+   before any promotional one.
+7. **Schedule only after approval.** Once the user approves the times, call `schedule_post` with
+   times at least 10 minutes in the future in UTC ISO-8601. A scheduled post publishes itself, so
+   scheduling never happens before the user has approved both content and times. Never schedule
+   two conversion-style posts back to back.
 
 ## Rules
 
 - Resource-capable clients prefer `postey://` resources over the equivalent read tools (see SKILL.md routing).
-- Draft only. Scheduling happens only when the user asked for it; publishing only on explicit go.
+- Draft only. Scheduling happens only after the user approves the proposed times; publishing only
+  on explicit go.
+- Run `validate_post_content` for each platform before presenting, per SKILL.md routing.
 - A user-supplied hook or phrasing is the literal first line everywhere.
 - One idea per draft. A second idea in the conversation becomes a second run of this flow.
 - Stay on the stated idea; do not fold in adjacent products or campaigns you know about.
