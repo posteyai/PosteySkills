@@ -1,0 +1,20 @@
+{
+  "name": "postey",
+  "version": "1.4.0",
+  "description": "Postey social publishing skill: MCP/CLI routing plus four guided content flows (brand voice, video everywhere, trends, idea to posts). Fetch skill + bootstrapPrompt + references for a complete install.",
+  "skill": "SKILL.md",
+  "bootstrapPrompt": "bootstrap-prompt.md",
+  "references": [
+    "references/brand-profile-template.md",
+    "references/brand-voice.md",
+    "references/caption-playbook.md",
+    "references/hook-formulas.md",
+    "references/idea-to-posts.md",
+    "references/platform-archetypes.md",
+    "references/thread-and-video-formats.md",
+    "references/trends-to-posts.md",
+    "references/video-to-everywhere.md",
+    "references/x-algorithm.md"
+  ],
+  "rawBase": "https://raw.githubusercontent.com/posteyai/skills/main/skills/postey/"
+}
