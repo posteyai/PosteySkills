@@ -1,0 +1,61 @@
+{
+  "comment": "hashedTerms are sha256 hex of lowercased exact tokens; the plaintext source list is kept private (CI can extend via LEAK_EXTRA_DENYLIST=<path>). Patterns catch generic secret shapes.",
+  "hashedTerms": [
+    "02a869ddf8b669a4328c5bf2aa2a185c4376916de658550abb34eb24929e216b",
+    "03415d240e59ef440b9c3761d24e00f238e7d965b949c37b6680dd2d72a8ab18",
+    "05f514fae7ca5710f9e9289a20a5c9b372af781bfc94dd23d9cb8a044122460f",
+    "19404ce9e897c60dde098e25d85dece4f4a6f36b4cc58d805f582d9cea14e6eb",
+    "2c348893efb2316e5f1753dd68e3da88bce6847ff8c7b6ea083fe1fd46d7061a",
+    "30a4dfacb1c3f4b07b05193c1b499e6f92b30e35634ac4d463803d09cce8b24c",
+    "396f804443825586c1283a27fdcadf74abb82008bcd9b260a30912a26563f27d",
+    "46b52e5d021692a988203b3515cc14f56a2f9ed7d18d912151ac288c2b4cda21",
+    "59f6c59d4e41b4a773ee9861eef9903a8ccab77bca9875573f5b971eebff5b91",
+    "61c2a3deb3b5658a1327d8265ea2abc9d573319bb8e530f8958e27563fc6d916",
+    "71b3c44cdde817295d28d326119a513b975eba872ef3106d58622741fd5ee165",
+    "76252466ae57bb7f0ec480bc347da0f62c805af2e1b57fc0983c69165e63f23f",
+    "79672d8381e02513e7941767f7692499eeb7af280a71861235c3efda72ee621a",
+    "8acc23987b8960d83c44541f9f0eb46454cea080ea94d916f56fccf033db866f",
+    "8cfde6efdfc4ed5ab1f6acbbd1ba49bf31932f84d0a4c090eb41c7d151e8b180",
+    "8d4321d936320802386311d254c4af52951abb880b47fb077edf3d89c150b289",
+    "8d6534aa6ff9be614dfec1c0f9f90d7f43c40123956db1ba196f6ce74f128d91",
+    "96a4bc2602655473120fcc571ee3d8cfe5f8801f8038ccc06323d305e323331c",
+    "9d2fb6404c1be89256562b71aa5aca912b45007aeddbb419b6c6b60846218619",
+    "9d66ddc14e6e914087e97a54eaefce30d7fa1cbe602bbd5a111d3039758c68cc",
+    "9d6bcd4ee86d6bb7e7943119cc51c0f0c420e6b13c45a08f4ac770f6b474680e",
+    "9d998215870ac377ffa93e9a021f37effcbb87c95bf193f8c1f498c41e3bddf1",
+    "a3c4dd3d911c3c6fd52cd9aa858ed5b37bcc3822fab388a61fe98ba3e0ab101b",
+    "a801df67e52b82808b60964ed6a821b2fe98f6b1cdfd90bae99dd11921aa9717",
+    "a82a5ff809867765b52add3d4c1d21c45ff5a7d6aaf78780bef572bbce6ed034",
+    "ab9d08c571dfd1f826d30b23f5a128b137920f338156e3d91e3b6d08b4ceac74",
+    "b3ab785b16ab0ffcdf1d5ff52786c7d829e7b00d7c826200cdebb37fd4a95f4e",
+    "b3d98e6503c51c9874301e9305ec45765a7dcc1afc2e1a163377924bc3a4ea2e",
+    "be9d587defa1f0c09ef49eb17e206983a5f8f8289e4281860bd0ee5a19592c67",
+    "c87f42bd454c031b875b76c76b0412feb4649fe67a17cc9bde2c2f31a74fbaf4",
+    "cdb807fdbf33c8cb14c74ae6555fa20458a6d7d95da587eee94341da2f9c99f8",
+    "cfbff47427fb68609fc3d9b0c28b81a6b4d7621a5c81cf5170fb7da07b92c54f",
+    "d3ff83f7b8a054f8def92fa581bf5b64487f935c24384df41fc4475c40831412",
+    "d8a472048419306d4c5f9f6c66d815346dbf7bf9c88bcb58b65e0e24e615142c",
+    "e73bd46f90d13a4b20d2a475b808cbf97b5a065f9110ba904953ade61d5aad4c",
+    "e888a676e1926d0c08b5f11fb9116df58b62604b05846f39f8d6fc4dd0ba31f1",
+    "f103c0e329f89bd80bc01f4a462d93b389b2ebe6c91e96a6beaf6d30c176dc76",
+    "fd270b86272fbdec7081993de131193a4db4ac712a4aaabd38073099ceba1bf7"
+  ],
+  "patterns": [
+    {
+      "name": "postey-api-key",
+      "regex": "mk_[A-Za-z0-9_-]{20,}"
+    },
+    {
+      "name": "whatsapp-group",
+      "regex": "\\d{10,}@g\\.us"
+    },
+    {
+      "name": "whatsapp-number",
+      "regex": "\\d{10,}@s\\.whatsapp\\.net"
+    },
+    {
+      "name": "generic-secret",
+      "regex": "sk-[A-Za-z0-9]{20,}"
+    }
+  ]
+}

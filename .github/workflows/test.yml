@@ -26,6 +26,11 @@ jobs:
       - name: Check version consistency
         run: node scripts/check-versions.js
 
+      - name: Check for private-identifier leaks
+        run: node scripts/check-leaks.js skills
+        env:
+          LEAK_EXTRA_TERMS: ${{ secrets.LEAK_EXTRA_TERMS }}
+
       - name: Check platform sync
         run: node scripts/check-platform-sync.js
 
