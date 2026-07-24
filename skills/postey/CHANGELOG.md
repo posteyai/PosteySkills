@@ -4,6 +4,24 @@ All notable user-facing changes to the Postey skill and its CLI are documented h
 
 The format is based on Keep a Changelog.
 
+## [1.4.0]
+
+### Added
+
+- **Content Flows**: four guided workflows built into the skill — Brand voice (learn a brand's
+  voice from a handle/site and draft a batch), Video everywhere (any video URL to a per-platform
+  multi-draft), Trends (fresh niche content across five pillars), Idea to posts (one idea expanded
+  and scheduled across platforms). One skill install delivers all of them; flow references load
+  on demand from `references/`.
+- Shared content playbooks in `references/`: caption playbook with pre-upload checklist,
+  per-platform caption archetypes, hook formulas, X algorithm notes (public sources),
+  thread/reel/carousel/trend formats, and a brand-profile template.
+- `pack.json` machine-readable manifest for fetch-based installs (agents fetch the skill without
+  a plugin system).
+- `bootstrap-prompt.md`: the one-paste prompt that sets up any connected agent.
+- CI leak gate (`scripts/check-leaks.js`): hashed-denylist and secret-pattern scanner that blocks
+  private identifiers from ever shipping in skill content.
+
 ## [1.3.0]
 
 ### Removed

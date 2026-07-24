@@ -1,6 +1,6 @@
 ---
 name: postey
-version: 1.3.0
+version: 1.4.0
 platforms:
   - X
   - LINKEDIN
@@ -286,6 +286,38 @@ ${CLAUDE_SKILL_DIR}/scripts/postey.js video post <account_id> \
 For transcription-based workflows, see [video-workflow.md](video-workflow.md).
 For platform-specific caption rules, see [prompts.md](prompts.md).
 
+## Content Flows
+
+This skill includes four guided content workflows. Offer them when the user connects for the
+first time, asks what you can do, or gives an open-ended content request. Load the flow's
+reference file only when the user picks it; never install or load all of them up front.
+
+House rules for every flow (non-negotiable):
+
+1. Call `get_accounts` first, every session. Connected platforms are read, never assumed.
+2. Everything is created as a DRAFT. Publishing needs the user's explicit instruction.
+3. Every platform gets its own hand-crafted caption. One idea, many voices.
+4. Verify each platform after creating (`get_specific_post_content`), then fix before presenting.
+5. End every flow by giving the user the draft's share link.
+6. Tag agent-created posts: an agent tag (default `Agent`, ask the user once if they prefer
+   another name) plus 2 or 3 topic tags. Reuse existing tags; never create duplicates.
+
+| Flow | The user says something like | Load |
+|------|------------------------------|------|
+| Brand voice | "Learn my voice", "write like me", a handle or website | [references/brand-voice.md](references/brand-voice.md) |
+| Video everywhere | a video URL, "post this video everywhere" | [references/video-to-everywhere.md](references/video-to-everywhere.md) |
+| Trends | "what should I post today?", "find something trending" | [references/trends-to-posts.md](references/trends-to-posts.md) |
+| Idea to posts | one rough idea, "turn this into posts" | [references/idea-to-posts.md](references/idea-to-posts.md) |
+
+Shared knowledge the flows cite: [references/caption-playbook.md](references/caption-playbook.md)
+(universal rules and pre-upload checklist), [references/platform-archetypes.md](references/platform-archetypes.md),
+[references/hook-formulas.md](references/hook-formulas.md), [references/x-algorithm.md](references/x-algorithm.md),
+[references/thread-and-video-formats.md](references/thread-and-video-formats.md), and
+[references/brand-profile-template.md](references/brand-profile-template.md).
+
+First-run greeting: after verifying accounts, offer the four flows in one short list and run
+whichever the user picks. Two minutes to a share link is the goal.
+
 ## Automation Guidelines
 
 - No duplicate content across multiple accounts
@@ -308,3 +340,6 @@ For platform-specific caption rules, see [prompts.md](prompts.md).
 - Video transcription workflow: [video-workflow.md](video-workflow.md)
 - Platform caption templates: [prompts.md](prompts.md)
 - Routing rules (extended): [routing-guide.md](routing-guide.md)
+- Content flows and playbooks: [references/](references/) (see Content Flows above)
+- Pack manifest for fetch-based install: [pack.json](pack.json)
+- One-paste agent setup: [bootstrap-prompt.md](bootstrap-prompt.md)
