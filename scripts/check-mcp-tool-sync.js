@@ -94,8 +94,13 @@ function stripMcpPrefix(fullName) {
 
 function extractToolsFromSource(toolsDir) {
   if (!fs.existsSync(toolsDir)) {
-    console.error(`MCP_TOOLS_DIR not found: ${toolsDir}`);
-    process.exit(1);
+    // Mirror check-platform-sync.js: the backend repo is a sibling checkout that
+    // CI does not have (runtime mode is opt-in via MCP_STAGING_URL secret), so a
+    // missing source is a skip, not a failure. Drift is still enforced wherever
+    // the sibling repo exists (local dev) or the secret is set.
+    console.warn(`⚠ MCP_TOOLS_DIR not found: ${toolsDir} — skipping MCP tool sync check`);
+    console.warn('  Set MCP_SERVER_URL/MCP_STAGING_URL (runtime mode) or check out the backend repo to enable.');
+    process.exit(0);
   }
   const pyFiles = fs.readdirSync(toolsDir).filter(f => f.endsWith('.py'));
   const names = [];
