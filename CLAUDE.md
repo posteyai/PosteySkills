@@ -11,7 +11,7 @@ Note: `AGENTS.md` is a symlink to this file; edits propagate.
 ## Repository Layout
 
 ```
-PosteySkills/
+skills/  (repo: posteyai/skills)
 ├── .claude-plugin/
 │   └── marketplace.json       — Marketplace catalog listing all plugins
 ├── .claude/
@@ -173,10 +173,10 @@ When adding a tool to `MarqetiveBackendV2/app/core/mcp/tools/*.py`, do all of th
 2. **[Backend]** If the tool needs agent guidance (hard rules, ordering, anti-patterns), add
    instructions to `_build_instructions()` in `server.py`.
 
-3. **[PosteySkills]** Add `mcp__claude_ai_Postey__<name>` to `SKILL.md mcp-tools.tools:` for
+3. **[skills repo]** Add `mcp__claude_ai_Postey__<name>` to `SKILL.md mcp-tools.tools:` for
    any skill that should surface this tool. Comment-annotate its category (write / read / AI).
 
-4. **[PosteySkills]** Add a `routing:` entry in `SKILL.md` if the tool has a specific CLI vs
+4. **[skills repo]** Add a `routing:` entry in `SKILL.md` if the tool has a specific CLI vs
    MCP routing preference (e.g. `my-operation: mcp-tool`).
 
 5. **[CI]** Run `MCP_TOOLS_DIR=../MarqetiveBackendV2/app/core/mcp/tools node scripts/check-mcp-tool-sync.js`
@@ -188,7 +188,7 @@ When adding a prompt to `MarqetiveBackendV2/app/core/mcp/prompts.py`:
 
 1. **[Backend]** Declare with `@mcp.prompt(\n    name="<name>", ...)`.
 
-2. **[PosteySkills]** Add `<name>` (no prefix) to `SKILL.md mcp-tools.prompts:`.
+2. **[skills repo]** Add `<name>` (no prefix) to `SKILL.md mcp-tools.prompts:`.
 
 3. **[CI]** Run `check-mcp-tool-sync.js` — it will now also verify prompts.
 
