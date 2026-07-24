@@ -10,7 +10,7 @@ topic. Also run this first when another flow needs a voice and no brand profile 
 
 ## Steps
 
-1. **Check accounts.** Call `get_accounts`. Note the connected platforms and the target account.
+1. **Check accounts.** Read `postey://accounts` (or call `get_accounts` if your client cannot read MCP resources). Note the connected platforms and the target account.
    If nothing is connected, tell the user to connect a platform in Postey first and stop.
 2. **Research the brand.** Using your web tools, read the given website or the public profile and
    recent posts of the given handle. Look for: what they write about, how they talk, who follows
@@ -33,6 +33,7 @@ topic. Also run this first when another flow needs a voice and no brand profile 
 
 ## Rules
 
+- Resource-capable clients prefer `postey://` resources over the equivalent read tools (see SKILL.md routing).
 - Draft only. Never publish or schedule without the user's explicit instruction.
 - The profile's banned topics and banned phrases override everything else.
 - If the user supplies a hook or phrasing, use it verbatim as the first line.

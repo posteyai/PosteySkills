@@ -124,7 +124,7 @@ Two execution paths exist: the CLI (`postey.js`) and MCP tools/resources. Pick o
 
 ### Anti-Patterns
 
-- **Never** call `mcp__claude_ai_Postey__get_accounts` — read `postey://accounts` instead.
+- **Never** call `mcp__claude_ai_Postey__get_accounts` when your client can read MCP resources — read `postey://accounts` instead. Resource-blind clients (many hosted connectors) may use the tool.
 - **Never** call `mcp__claude_ai_Postey__upload_media_for_post` for a local file — it accepts URLs only.
 - **Never** skip `validate_post_content` / `review_post_content_and_add_comments_for_virality` in Claude Code sessions.
 - **Never** use CLI `drafts:create` / `drafts:publish` / `drafts:schedule` — these commands are removed; use MCP tools.
@@ -136,7 +136,7 @@ Two execution paths exist: the CLI (`postey.js`) and MCP tools/resources. Pick o
 
 ## Setup
 
-1. **API Key** — Get your key at https://postey.com/?settings=api, then:
+1. **API Key** — Get your key at https://app.postey.ai/?settings=api, then:
    ```bash
    ${CLAUDE_SKILL_DIR}/scripts/postey.js setup
    ```
@@ -294,7 +294,8 @@ reference file only when the user picks it; never install or load all of them up
 
 House rules for every flow (non-negotiable):
 
-1. Call `get_accounts` first, every session. Connected platforms are read, never assumed.
+1. Know the accounts first, every session: read `postey://accounts`, or call `get_accounts` if
+   your client cannot read MCP resources. Connected platforms are read, never assumed.
 2. Everything is created as a DRAFT. Publishing needs the user's explicit instruction.
 3. Every platform gets its own hand-crafted caption. One idea, many voices.
 4. Verify each platform after creating (`get_specific_post_content`), then fix before presenting.

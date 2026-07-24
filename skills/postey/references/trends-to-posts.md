@@ -9,7 +9,7 @@ my niche," or wants a recurring daily/weekly content mix.
 
 ## Steps
 
-1. **Check accounts and niche.** Call `get_accounts`. Read the brand profile for the niche; if no
+1. **Check accounts and niche.** Read `postey://accounts` (or call `get_accounts` if your client cannot read MCP resources). Read the brand profile for the niche; if no
    profile exists, ask for the niche in one question (or run the brand-voice flow first).
 2. **Freshness check.** Call `get_posts` for the account's recent posts. Note covered angles so
    nothing repeats. Never redraft an angle the account already posted.
@@ -31,6 +31,7 @@ my niche," or wants a recurring daily/weekly content mix.
 
 ## Rules
 
+- Resource-capable clients prefer `postey://` resources over the equivalent read tools (see SKILL.md routing).
 - Draft only; scheduling or publishing needs the user's explicit instruction.
 - Every stat, name, and quote traces to a source found in step 3. Unverifiable claims are dropped.
 - Respect the brand profile's banned topics without naming why a topic is banned.

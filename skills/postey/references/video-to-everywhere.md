@@ -9,7 +9,7 @@ it posted: "post this everywhere," "make a post from this video," "caption this 
 
 ## Steps
 
-1. **Check accounts.** Call `get_accounts`. Note connected platforms and the target account.
+1. **Check accounts.** Read `postey://accounts` (or call `get_accounts` if your client cannot read MCP resources). Note connected platforms and the target account.
 2. **Get the words.** Call `transcribe_video` with the video URL. If transcription is unavailable
    for this source, ask the user to paste the transcript or describe what is said, and continue.
 3. **Understand the video.** From the transcript, identify the single strongest moment, the core
@@ -30,6 +30,7 @@ it posted: "post this everywhere," "make a post from this video," "caption this 
 
 ## Rules
 
+- Resource-capable clients prefer `postey://` resources over the equivalent read tools (see SKILL.md routing).
 - Draft only. Publishing waits for the user's explicit go.
 - The transcript is the seed, not the script: never paste transcript text as a caption.
 - A user-supplied hook is the literal first line on every platform.

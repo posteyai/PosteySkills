@@ -9,7 +9,7 @@ into posts," "make content out of this thought," "announce X across my platforms
 
 ## Steps
 
-1. **Check accounts.** Call `get_accounts`. Note connected platforms and target account. Read the
+1. **Check accounts.** Read `postey://accounts` (or call `get_accounts` if your client cannot read MCP resources). Note connected platforms and target account. Read the
    brand profile if one exists.
 2. **Sharpen the idea.** Restate the idea as one claim with stakes: who it matters to and why now.
    If the idea is too vague to claim anything, ask exactly one clarifying question.
@@ -32,6 +32,7 @@ into posts," "make content out of this thought," "announce X across my platforms
 
 ## Rules
 
+- Resource-capable clients prefer `postey://` resources over the equivalent read tools (see SKILL.md routing).
 - Draft only. Scheduling happens only when the user asked for it; publishing only on explicit go.
 - A user-supplied hook or phrasing is the literal first line everywhere.
 - One idea per draft. A second idea in the conversation becomes a second run of this flow.
