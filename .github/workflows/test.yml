@@ -26,22 +26,34 @@ jobs:
       - name: Check version consistency
         run: node scripts/check-versions.js
 
-      # Scans the whole repo; tests/ is skipped inside the scanner (synthetic
-      # secret-shaped fixtures). Committed hashes carry only high-entropy terms;
-      # the sensitive short terms arrive via the LEAK_EXTRA_TERMS secret, which
-      # is EMPTY on fork PRs — maintainers re-check on merge.
-      - name: Check for private-identifier leaks
+      # Two scopes on purpose. Full repo: secret-shaped patterns + committed
+      # high-entropy hashes (root tests/ is skipped inside the scanner —
+      # synthetic secret-shaped fixtures). No private secret here: the private
+      # terms (person names, internal repo/product names) legitimately appear
+      # in committed infra files like CLAUDE.md and would false-positive.
+      - name: Check for leaks (full repo, committed denylist)
         run: node scripts/check-leaks.js .
+
+      # Shipped skill content only, with the private term list merged in.
+      # LEAK_EXTRA_TERMS is newline- or comma-separated plaintext terms; it is
+      # EMPTY on fork PRs (no secrets) — maintainers re-check on merge.
+      - name: Check for leaks (shipped content, private denylist)
+        run: node scripts/check-leaks.js skills
         env:
           LEAK_EXTRA_TERMS: ${{ secrets.LEAK_EXTRA_TERMS }}
 
       - name: Check platform sync
         run: node scripts/check-platform-sync.js
 
+      # Source-parse mode soft-skips here (no sibling backend checkout in CI).
+      # Setting the MCP_STAGING_URL + MCP_STAGING_API_KEY secrets switches on
+      # runtime verification, which HARD-FAILS if the fetch fails — a
+      # configured check never degrades into a green skip.
       - name: Check MCP tool sync
         run: |
           MCP_TOOLS_DIR=../MarqetiveBackendV2/app/core/mcp/tools \
           node scripts/check-mcp-tool-sync.js
         env:
           MCP_SERVER_URL: ${{ secrets.MCP_STAGING_URL }}
+          POSTEY_API_KEY: ${{ secrets.MCP_STAGING_API_KEY }}
 

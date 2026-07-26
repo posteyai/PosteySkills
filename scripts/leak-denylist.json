@@ -1,5 +1,5 @@
 {
-  "comment": "hashedTerms are sha256 hex of NFKC-lowercased exact tokens; hashedPhrases are {n, hash} of space-joined token sequences. Committed hashes carry ONLY higher-entropy brand/product identifiers whose reversal reveals nothing sensitive; person names, short numeric ids, and common words live exclusively in the LEAK_EXTRA_TERMS CI secret (and maintainers' local LEAK_EXTRA_DENYLIST file) because unsalted sha256 of short terms is reversible by offline guessing. Consequence, accepted deliberately: fork PRs (no secrets) are gated only by the committed subset; maintainers re-check on merge. Patterns catch generic secret shapes.",
+  "comment": "Generate every hash with `node scripts/check-leaks.js --hash '<term>'` — never by hand-hashing the raw term (separator terms hashed by hand will silently never match). hashedTerms are single-token entries (n=1); hashedPhrases are {n, hash} of space-joined token sequences. Committed hashes carry ONLY higher-entropy brand/product identifiers whose reversal reveals nothing sensitive; person names, short numeric ids, and common words live exclusively in the LEAK_EXTRA_TERMS CI secret (and maintainers' local LEAK_EXTRA_DENYLIST file) because unsalted sha256 of short terms is reversible by offline guessing. Consequence, accepted deliberately: fork PRs (no secrets) are gated only by the committed subset; maintainers re-check on merge. Patterns catch generic secret shapes.",
   "hashedPhrases": [],
   "hashedTerms": [
     "02a869ddf8b669a4328c5bf2aa2a185c4376916de658550abb34eb24929e216b",
@@ -36,7 +36,7 @@
     },
     {
       "name": "generic-secret",
-      "regex": "sk-[A-Za-z0-9]{20,}"
+      "regex": "sk-[A-Za-z0-9_-]{20,}"
     }
   ]
 }
