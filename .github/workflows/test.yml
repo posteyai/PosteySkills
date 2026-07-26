@@ -51,7 +51,7 @@ jobs:
       # configured check never degrades into a green skip.
       - name: Check MCP tool sync
         run: |
-          MCP_TOOLS_DIR=../MarqetiveBackendV2/app/core/mcp/tools \
+          MCP_TOOLS_DIR=../postey-backend/app/core/mcp/tools \
           node scripts/check-mcp-tool-sync.js
         env:
           MCP_SERVER_URL: ${{ secrets.MCP_STAGING_URL }}

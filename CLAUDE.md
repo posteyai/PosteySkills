@@ -68,7 +68,7 @@ skills/  (repo: posteyai/skills)
   2. `./.postey/config.json` (project-local)
   3. `~/.config/postey/config.json` (user-global)
 - **Platform enum** is defined in one place (`SOCIAL_PLATFORMS`). When adding or removing a platform, also update: `SKILL.md` frontmatter `platforms:` list, `skills/postey/SKILL.md` Platform Names table, `.claude-plugin/marketplace.json` plugin description. The CI `check-platform-sync.js` script verifies JS ↔ SKILL.md ↔ `platform_knowledge.py` (MCP server) consistency.
-- **MCP tool list** in `SKILL.md mcp-tools.tools:` must match the `@mcp.tool(name="...")` declarations in `MarqetiveBackendV2/app/core/mcp/tools/*.py`. The CI `check-mcp-tool-sync.js` script enforces this. See "MCP Integration" section below.
+- **MCP tool list** in `SKILL.md mcp-tools.tools:` must match the `@mcp.tool(name="...")` declarations in `postey-backend/app/core/mcp/tools/*.py`. The CI `check-mcp-tool-sync.js` script enforces this. See "MCP Integration" section below.
 
 ## Installation Flow
 
@@ -97,7 +97,7 @@ node scripts/check-versions.js
 node scripts/check-platform-sync.js
 
 # Check MCP tool sync (source-parse mode — no live server needed)
-MCP_TOOLS_DIR=../MarqetiveBackendV2/app/core/mcp/tools node scripts/check-mcp-tool-sync.js
+MCP_TOOLS_DIR=../postey-backend/app/core/mcp/tools node scripts/check-mcp-tool-sync.js
 
 # Check MCP tool sync (runtime mode — requires live server + API key)
 MCP_SERVER_URL=https://srvr.postey.ai POSTEY_API_KEY=mk_... node scripts/check-mcp-tool-sync.js
@@ -117,12 +117,12 @@ There is no build step, no lint config, and no formatter config in this repo.
 4. **SKILL.md body must stay under 500 lines** — move heavy content to supporting files (`command-reference.md`, `video-workflow.md`, `routing-guide.md`).
 5. **Preserve JSON-only stdout** in the CLI — any new output path must go to stderr or be part of the JSON payload.
 6. **Do not remove `last-updated` from SKILL.md** — the field was removed; do not re-add it. Freshness tracking is via CHANGELOG and git history.
-7. **When adding an MCP tool** to `MarqetiveBackendV2/app/core/mcp/tools/*.py`: also add the tool to `SKILL.md mcp-tools.tools:` with the `mcp__claude_ai_postey__` prefix. Run `check-mcp-tool-sync.js` to verify.
+7. **When adding an MCP tool** to `postey-backend/app/core/mcp/tools/*.py`: also add the tool to `SKILL.md mcp-tools.tools:` with the `mcp__claude_ai_postey__` prefix. Run `check-mcp-tool-sync.js` to verify.
 8. **When adding a platform** to `platform_knowledge.py`: also update `SOCIAL_PLATFORMS` in `postey.js` and `platforms:` in `SKILL.md`. Run `check-platform-sync.js` to verify all three agree.
 
 ## MCP Integration
 
-The skill integrates with the Postey MCP server (`MarqetiveBackendV2/app/core/mcp/`) through three contracts:
+The skill integrates with the Postey MCP server (`postey-backend/app/core/mcp/`) through three contracts:
 
 ### 1. Tool Registry Sync
 `SKILL.md mcp-tools.tools:` must list every tool declared with `@mcp.tool(name="...")` in `tools/*.py`.
@@ -130,7 +130,7 @@ CI enforces this via `check-mcp-tool-sync.js`.
 
 - **Source-parse mode** (default, offline): reads `@mcp.tool(name=...)` from Python files.
   ```bash
-  MCP_TOOLS_DIR=../MarqetiveBackendV2/app/core/mcp/tools node scripts/check-mcp-tool-sync.js
+  MCP_TOOLS_DIR=../postey-backend/app/core/mcp/tools node scripts/check-mcp-tool-sync.js
   ```
 - **Runtime mode** (live server): fetches `postey://skill-manifest` resource.
   ```bash
@@ -154,8 +154,8 @@ in `app/core/mcp/prompts.py`. `check-mcp-tool-sync.js` enforces this alongside t
 
 - **Source-parse mode**: automatically reads `prompts.py` from the parent of `MCP_TOOLS_DIR`.
   ```bash
-  MCP_TOOLS_DIR=../MarqetiveBackendV2/app/core/mcp/tools node scripts/check-mcp-tool-sync.js
-  # → also reads ../MarqetiveBackendV2/app/core/mcp/prompts.py
+  MCP_TOOLS_DIR=../postey-backend/app/core/mcp/tools node scripts/check-mcp-tool-sync.js
+  # → also reads ../postey-backend/app/core/mcp/prompts.py
   ```
 - **Override**: set `MCP_PROMPTS_FILE=<path>` to point at a different file.
 - **Runtime mode**: reads `manifest.prompts` from `postey://skill-manifest` (server v2.1.0+).
@@ -172,7 +172,7 @@ When creating a skill that has an MCP server counterpart:
 
 ## Adding a New MCP Tool
 
-When adding a tool to `MarqetiveBackendV2/app/core/mcp/tools/*.py`, do all of these:
+When adding a tool to `postey-backend/app/core/mcp/tools/*.py`, do all of these:
 
 1. **[Backend]** Add `@mcp.tool(\n    name="<name>", ...)` to the correct `tools/*.py` file.
    If it's a new module file, add the module name to `_EXPECTED_TOOL_MODULES` in `server.py`.
@@ -186,12 +186,12 @@ When adding a tool to `MarqetiveBackendV2/app/core/mcp/tools/*.py`, do all of th
 4. **[skills repo]** Add a `routing:` entry in `SKILL.md` if the tool has a specific CLI vs
    MCP routing preference (e.g. `my-operation: mcp-tool`).
 
-5. **[CI]** Run `MCP_TOOLS_DIR=../MarqetiveBackendV2/app/core/mcp/tools node scripts/check-mcp-tool-sync.js`
+5. **[CI]** Run `MCP_TOOLS_DIR=../postey-backend/app/core/mcp/tools node scripts/check-mcp-tool-sync.js`
    — it fails if SKILL.md is out of sync. Fix before merging.
 
 ## Adding a New MCP Prompt
 
-When adding a prompt to `MarqetiveBackendV2/app/core/mcp/prompts.py`:
+When adding a prompt to `postey-backend/app/core/mcp/prompts.py`:
 
 1. **[Backend]** Declare with `@mcp.prompt(\n    name="<name>", ...)`.
 

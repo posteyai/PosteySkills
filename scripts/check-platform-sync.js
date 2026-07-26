@@ -57,7 +57,7 @@ console.log(`✓ JS ↔ SKILL.md platforms in sync: ${[...jsSet].join(', ')}`);
 
 // Phase 2: SKILL.md platforms vs platform_knowledge.py (MCP server)
 const pyPath = process.env.MCP_PLATFORM_KNOWLEDGE_PATH
-  ?? path.join(ROOT, '..', 'MarqetiveBackendV2', 'app', 'core', 'mcp', 'platform_knowledge.py');
+  ?? path.join(ROOT, '..', 'postey-backend', 'app', 'core', 'mcp', 'platform_knowledge.py');
 
 if (!fs.existsSync(pyPath)) {
   console.log(`⚠ platform_knowledge.py not found at ${pyPath} — skipping MCP platform check`);

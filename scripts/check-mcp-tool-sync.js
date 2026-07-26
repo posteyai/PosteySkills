@@ -5,7 +5,7 @@
  * CI: verify that SKILL.md mcp-tools.tools: matches the MCP server tool registry.
  *
  * Source-parse mode (default, offline):
- *   MCP_TOOLS_DIR=../MarqetiveBackendV2/app/core/mcp/tools \
+ *   MCP_TOOLS_DIR=../postey-backend/app/core/mcp/tools \
  *   node scripts/check-mcp-tool-sync.js
  *
  * Runtime mode (requires live server):
