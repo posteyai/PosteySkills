@@ -8,6 +8,10 @@ Use these after running `postey.js video transcribe` to generate high-quality, p
 > `postey://platform-limits` (or `postey://platforms/{platform}/rules` per-platform) for
 > authoritative, always-current platform specifications. The MCP resource is the single
 > source of truth; this file is updated manually and may lag behind.
+>
+> **Style precedence:** for caption style (hashtag counts, CTA style, thread length,
+> voice), `references/platform-archetypes.md` is the maintained playbook and wins over
+> anything here that disagrees. Keep both in sync when editing either.
 
 ---
 
@@ -16,7 +20,7 @@ Use these after running `postey.js video transcribe` to generate high-quality, p
 ### Title
 ```
 Write a YouTube video title for the following transcript. Requirements:
-- Maximum 70 characters
+- Maximum 100 characters (hard limit); front-load the meaning in the first 70, since search results truncate around there
 - Keyword-rich and SEO-friendly
 - Create a curiosity gap or strong value proposition
 - No clickbait — the title must accurately reflect the content
@@ -53,7 +57,7 @@ Write an Instagram caption for the following video transcript. Requirements:
 - 150–300 words
 - Use short paragraphs with line breaks for readability
 - Include a clear call-to-action (save this, follow for more, comment below, etc.)
-- End with 5–8 relevant hashtags on their own line
+- End with 5–10 relevant hashtags on their own line, mixing broad and specific
 - Conversational and relatable tone
 - No corporate-speak
 
@@ -71,7 +75,7 @@ Write a TikTok caption for the following video transcript. Requirements:
 - Maximum 150 characters for the main hook (shown before "more")
 - Hook must be punchy and create immediate curiosity or FOMO
 - Use emojis sparingly but effectively (1–3 max)
-- End with 5–10 trending, relevant hashtags
+- End with 5–7 trending, relevant hashtags
 - Tone: fast, energetic, casual — like you're talking to a friend
 
 Transcript:
@@ -88,8 +92,8 @@ Write an X (Twitter) post for the following video transcript. Requirements:
 - Maximum 280 characters total (including hashtags)
 - Lead with the single most compelling insight or hook
 - Direct and punchy — no fluff
-- 1–2 hashtags max (only if they add reach, not just to fill space)
-- No emojis unless they genuinely add meaning
+- No hashtags (they read as a low-quality signal on X; see references/x-algorithm.md)
+- No emojis in organic posts
 
 Transcript:
 {{transcript}}
@@ -100,11 +104,11 @@ Transcript:
 Write an X (Twitter) thread for the following video transcript. Requirements:
 - First tweet is the hook — must make people want to read the rest (max 240 chars, leave room for "🧵")
 - Each subsequent tweet is one clear, standalone point
-- 5–10 tweets total
-- Last tweet has a call-to-action (follow, retweet, reply)
+- 6–15 tweets total — thread only if the content genuinely has that many distinct beats; otherwise write a single post
+- Last tweet closes with a value takeaway or a future-moment bookmark ("Bookmark this...") — never generic engagement bait (no follow/retweet/reply asks)
 - Separate tweets with "---" on its own line
 - Conversational but authoritative tone
-- 1–2 hashtags on the last tweet only
+- No hashtags
 
 Transcript:
 {{transcript}}
@@ -121,9 +125,9 @@ Write a LinkedIn post for the following video transcript. Requirements:
 - 150–400 words
 - Use short paragraphs (1–3 lines each) with blank lines between them for mobile readability
 - Tell a story or share a specific lesson — not a generic list
-- End with a question to drive comments
+- End with a soft CTA or a question to drive comments
 - Professional but human tone — avoid corporate jargon
-- 3–5 relevant hashtags at the end on their own line
+- 3–4 lightweight hashtags at the end on their own line
 - No emojis unless used once for emphasis
 
 Transcript:
@@ -141,7 +145,7 @@ Write a Threads post for the following video transcript. Requirements:
 - Conversational and authentic — Threads rewards genuine voice over polished marketing
 - One clear thought or insight per post
 - Optional: end with a question to spark replies
-- No hashtags (they don't work well on Threads)
+- 0–2 hashtags, usually none (they rarely help on Threads)
 - Tone: like a thoughtful text message to your audience
 
 Transcript:
@@ -159,7 +163,7 @@ Write a Bluesky post for the following video transcript. Requirements:
 - Bluesky audience values authenticity, tech-savviness, and nuance
 - Lead with the most interesting or surprising insight
 - Conversational and direct
-- 1 hashtag max (only if highly relevant)
+- 0–1 hashtags, usually none (the culture is hashtag-light)
 - No corporate marketing language
 
 Transcript:

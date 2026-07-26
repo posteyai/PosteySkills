@@ -5,7 +5,7 @@
  * CI: verify that SKILL.md mcp-tools.tools: matches the MCP server tool registry.
  *
  * Source-parse mode (default, offline):
- *   MCP_TOOLS_DIR=../MarqetiveBackendV2/app/core/mcp/tools \
+ *   MCP_TOOLS_DIR=../postey-backend/app/core/mcp/tools \
  *   node scripts/check-mcp-tool-sync.js
  *
  * Runtime mode (requires live server):
@@ -84,7 +84,7 @@ function extractMcpPrompts(frontmatter) {
   return extractMcpSubSection(frontmatter, 'prompts');
 }
 
-// mcp__claude_ai_Postey__tool_name → tool_name
+// mcp__claude_ai_postey__tool_name → tool_name
 function stripMcpPrefix(fullName) {
   const parts = fullName.split('__');
   return parts.length >= 3 ? parts.slice(2).join('__') : fullName;
@@ -94,8 +94,14 @@ function stripMcpPrefix(fullName) {
 
 function extractToolsFromSource(toolsDir) {
   if (!fs.existsSync(toolsDir)) {
-    console.error(`MCP_TOOLS_DIR not found: ${toolsDir}`);
-    process.exit(1);
+    // Mirror check-platform-sync.js: the backend repo is a sibling checkout that
+    // CI does not have (runtime mode is opt-in via MCP_STAGING_URL secret), so a
+    // missing source is a skip, not a failure — but ONLY when runtime mode was
+    // never configured. A configured runtime check that failed must not degrade
+    // into a green skip, so that path hard-fails before ever reaching here.
+    console.log(`⚠ MCP_TOOLS_DIR not found: ${toolsDir} — skipping MCP tool sync check`);
+    console.log('  Set MCP_SERVER_URL/MCP_STAGING_URL (runtime mode) or check out the backend repo to enable.');
+    process.exit(0);
   }
   const pyFiles = fs.readdirSync(toolsDir).filter(f => f.endsWith('.py'));
   const names = [];
@@ -211,13 +217,14 @@ async function fetchManifestFromServer(serverUrl, apiKey) {
         mcpPromptNames = new Set(manifest.prompts.map(p => p.name));
       }
     } catch (err) {
+      // Runtime mode was explicitly configured (MCP_SERVER_URL set): a failed
+      // fetch is a failed check, full stop. Falling back to source-parse here
+      // would silently skip in CI (no sibling backend checkout) and turn a
+      // staging outage or missing POSTEY_API_KEY into a green no-op.
       console.error(`  ✗ Failed to fetch skill-manifest from server: ${err.message}`);
-      if (!MCP_TOOLS_DIR) {
-        console.error('    Set MCP_TOOLS_DIR to fall back to source-parse mode.');
-        process.exit(1);
-      }
-      console.warn('    Falling back to source-parse mode.');
-      mcpRawNames = new Set(extractToolsFromSource(MCP_TOOLS_DIR));
+      console.error('    Runtime verification was configured but could not run; failing rather than skipping.');
+      console.error('    Check MCP_SERVER_URL and POSTEY_API_KEY, or unset them to use source-parse mode.');
+      process.exit(1);
     }
   } else if (MCP_TOOLS_DIR) {
     console.log(`Source-parse mode: reading ${MCP_TOOLS_DIR}`);

@@ -7,7 +7,7 @@ This document is the full routing reference for the Postey skill. The key rules 
 | Path | Entry point | Best for |
 |------|-------------|----------|
 | **CLI** | `${CLAUDE_SKILL_DIR}/scripts/postey.js` | Local files, CI/CD, SDK agents, non-MCP environments; all write operations outside Claude Code |
-| **MCP tools/resources** | `mcp__claude_ai_Postey__*` and `postey://` URIs | Write operations in Claude Code sessions; read-only state; content validation; virality review |
+| **MCP tools/resources** | `mcp__claude_ai_postey__*` and `postey://` URIs | Write operations in Claude Code sessions; read-only state; content validation; virality review |
 
 ## Full Decision Tree
 
@@ -16,13 +16,15 @@ This document is the full routing reference for the Postey skill. The key rules 
    → CLI unconditionally. MCP cannot access the local filesystem. Stop here.
 
 2. Does the task involve VIDEO TRANSCRIPTION (yt-dlp + Whisper)?
-   → `node ${CLAUDE_SKILL_DIR}/scripts/postey.js video transcribe <url>`. No MCP equivalent. Stop here.
+   → `node ${CLAUDE_SKILL_DIR}/scripts/postey.js video transcribe <url>` wherever the CLI runs.
+     Connector-only clients (no CLI) use the `transcribe_video` MCP tool instead. Stop here.
 
 3. Is the environment CI/CD, a shell script, Cursor, Windsurf, or an SDK agent?
    → CLI. MCP server is unavailable in these contexts. Stop here.
 
 4. Is the task READ-ONLY state retrieval (accounts, teams, post content)?
-   → Read the MCP resource URI directly. Do not call a tool or the CLI.
+   → Read the MCP resource URI directly when your client supports MCP resources; resource-blind
+     clients (many hosted connectors) use the equivalent read tools instead.
      - Accounts  → postey://accounts
      - Teams     → postey://teams
      - Post content → postey://posts/{id}/content/{platform}
@@ -39,11 +41,12 @@ This document is the full routing reference for the Postey skill. The key rules 
 
 ## CLI-Only Operations
 
-These operations have no MCP equivalent and **must** use the CLI:
+These operations **must** use the CLI where it is available:
 
-- Local file uploads (`--file`, `--video` with local path)
-- Chunked video upload (>50 MB) via `video post`
-- Video transcription + cross-post via `postey.js video transcribe`
+- Local file uploads (`--file`, `--video` with local path) — no MCP equivalent
+- Chunked video upload (>50 MB) via `video post` — no MCP equivalent
+- Video transcription + cross-post via `postey.js video transcribe` (connector-only clients fall
+  back to the `transcribe_video` MCP tool)
 - Bulk / scripted operations in CI pipelines
 - Non-interactive setup: `setup --key ... --location global`
 
@@ -57,7 +60,8 @@ These operations have no CLI equivalent and **must** use MCP tools:
 
 ## Mixed-Path Workflow (Correct Pattern)
 
-When a workflow needs both read-state and write actions, keep them sequential — reads via MCP resources, writes via CLI:
+When a workflow needs both read-state and write actions, keep them sequential — reads via MCP
+resources, writes on one path chosen up front:
 
 ```
 1. Read postey://accounts                                       ← MCP resource
@@ -66,14 +70,17 @@ When a workflow needs both read-state and write actions, keep them sequential �
 4. mcp publish_draft (post_id=..., platforms=[...])             ← MCP write
 ```
 
-Never mix `mcp__claude_ai_Postey__create_post` with `postey.js posts:create` in the same workflow — pick one path for the write step and stay with it.
+Never mix `mcp__claude_ai_postey__create_post` with `postey.js posts:create` in the same workflow — pick one path for the write step and stay with it.
 
 ## Environment-Specific Guidance
 
+The CLI has no account-listing command — account discovery always needs MCP (resource or
+`get_accounts` tool). Where no MCP server is reachable, the `account_id` comes from the user
+or from stored config; never guess one.
+
 | Environment | Read state | Write operations |
 |-------------|------------|-----------------|
-| Claude Code (interactive) | MCP resources | CLI (or MCP tools for MCP-only ops) |
-| Cursor / Windsurf | `social-sets:list` CLI | CLI |
-| SDK agent | `social-sets:list` CLI | CLI |
-| CI/CD pipeline | `social-sets:list` CLI | CLI |
-| npx install | `social-sets:list` CLI | CLI |
+| Claude Code (interactive) | MCP resources | MCP tools (CLI for local files) |
+| Hosted connector (claude.ai, ChatGPT) | MCP resources, or `get_accounts` / `get_posts` if resource-blind | MCP tools |
+| Cursor / Windsurf | MCP resources or read tools (both support MCP) | MCP tools; CLI for local files |
+| SDK agent / CI/CD / npx | `get_accounts` via MCP if configured; else ask the user for the `account_id` | CLI |

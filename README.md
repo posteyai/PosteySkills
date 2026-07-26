@@ -1,10 +1,12 @@
 # Postey Skills
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.0-green.svg)]()
+[![Version](https://img.shields.io/badge/version-1.4.0-green.svg)]()
 [![Postey API](https://img.shields.io/badge/Postey-API-3B9AF8)](https://postey.ai/docs/api)
 
 AI agent skills for drafting, scheduling, and managing social media posts across X, LinkedIn, Instagram, TikTok, YouTube, Threads, and Bluesky.
+
+One install gives your agent four guided content flows: **Brand voice** (learn a brand's voice from a handle or website), **Video everywhere** (any video URL becomes a per-platform multi-draft), **Trends** (fresh niche content daily), and **Idea to posts** (one idea, every platform, scheduled). No plugin system? Any connected agent can self-install with the one-paste prompt in [`skills/postey/bootstrap-prompt.md`](skills/postey/bootstrap-prompt.md), which fetches [`skills/postey/pack.json`](skills/postey/pack.json).
 
 ## Installation
 
@@ -54,7 +56,7 @@ For native MCP tool access without a CLI, connect the Postey MCP server directly
 
 ### 1. Get your API key
 
-Copy an existing key or create a new one at https://postey.com/?settings=api
+Copy an existing key or create a new one at https://app.postey.ai/?settings=api
 
 ### 2. Run setup
 
@@ -115,8 +117,10 @@ The CLI requires Node.js 18+ (for built-in `fetch`). Install a recent Node.js ve
 
 ### Drafts not appearing
 
-- Run `./skills/postey/scripts/postey.js social-sets:list` to verify your account ID
-- Check draft status with `./skills/postey/scripts/postey.js drafts:list <social_set_id>`
+- Verify the account: read the `postey://accounts` MCP resource (or call the `get_accounts` tool)
+  and confirm you targeted the right `account_id`
+- List drafts with the `get_posts` MCP tool (`status=DRAFT`), or inspect one directly:
+  `./skills/postey/scripts/postey.js drafts:get <draft_id>`
 
 ## Links
 
