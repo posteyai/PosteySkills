@@ -17,13 +17,17 @@ skills/  (repo: posteyai/skills)
 ├── .claude/
 │   └── settings.json          — extraKnownMarketplaces for team auto-install
 ├── .github/workflows/
-│   └── test.yml               — CI: node --test + check-versions + check-platform-sync + check-mcp-tool-sync
+│   └── test.yml               — CI: node --test + check-versions + check-leaks (2 scopes) + check-platform-sync + check-mcp-tool-sync
 ├── scripts/
-│   ├── check-versions.js      — CI: verify SKILL.md version == plugin.json == marketplace
+│   ├── check-versions.js      — CI: verify SKILL.md version == plugin.json == marketplace == pack.json == REGISTRY.md == README badge
 │   ├── check-platform-sync.js — CI: verify SOCIAL_PLATFORMS in JS == SKILL.md == platform_knowledge.py
-│   └── check-mcp-tool-sync.js — CI: verify SKILL.md mcp-tools.tools: == MCP server registry
+│   ├── check-mcp-tool-sync.js — CI: verify SKILL.md mcp-tools.tools: == MCP server registry
+│   ├── check-leaks.js         — CI leak gate: hashed-denylist + secret-pattern scanner (`--hash` mode generates denylist entries)
+│   └── leak-denylist.json     — Committed sha256 hashes (high-entropy terms only) + secret-shape patterns
 ├── tests/
-│   └── postey-cli.test.js     — node:test suite for postey CLI
+│   ├── postey-cli.test.js     — node:test suite for postey CLI
+│   ├── check-leaks.test.js    — leak-gate suite (synthetic secret-shaped fixtures; root tests/ is skip-listed in the scanner)
+│   └── pack-manifest.test.js  — pack.json completeness + version + tag-pinned rawBase
 └── skills/
     ├── REGISTRY.md            — Index of all skills in this repo
     ├── _template/             — Starter template for new skills (copy and fill in)
@@ -36,9 +40,12 @@ skills/  (repo: posteyai/skills)
         ├── routing-guide.md   — Extended CLI vs MCP routing reference
         ├── video-workflow.md  — Video transcription + cross-post workflow
         ├── prompts.md         — Platform caption generation templates
+        ├── pack.json          — Fetch-install manifest (rawBase pinned to the release tag)
+        ├── bootstrap-prompt.md — One-paste agent setup prompt
+        ├── references/        — Content flows + playbooks (10 files, loaded on demand)
         └── scripts/
             ├── postey.js      — Main CLI (zero runtime deps, Node 18+)
-            ├── video2post.js  — Video transcription + cross-post
+            ├── videoUtils.js  — Video transcription + cross-post helpers
             └── mediaValidator.js — MIME validation
 ```
 
@@ -104,13 +111,13 @@ There is no build step, no lint config, and no formatter config in this repo.
 
 ## When Editing the Skill or CLI
 
-1. **Update `version:`** in `skills/postey/SKILL.md` frontmatter, `skills/postey/.claude-plugin/plugin.json`, and the plugin entry in `.claude-plugin/marketplace.json` — all three must match. Run `node scripts/check-versions.js` to verify.
+1. **Update `version:`** in `skills/postey/SKILL.md` frontmatter, `skills/postey/.claude-plugin/plugin.json`, the plugin entry in `.claude-plugin/marketplace.json`, `skills/postey/pack.json` (version AND the tag in `rawBase`), the `skills/REGISTRY.md` row, and the README badge — all must match. Run `node scripts/check-versions.js` to verify. **At release, push the tag `skills/postey/vX.Y.Z`** — pack.json's `rawBase` points at it, so fetch-based installs 404 until the tag exists.
 2. **Update `skills/postey/CHANGELOG.md`** for user-facing changes (new commands/flags, behavior changes, bug fixes). Skip internal refactors, test/CI changes, formatting-only edits.
 3. **Keep SKILL.md and CLI in sync**: if you add/rename a command or flag, update `command-reference.md`. The command list in `command-reference.md` is the contract agents read.
 4. **SKILL.md body must stay under 500 lines** — move heavy content to supporting files (`command-reference.md`, `video-workflow.md`, `routing-guide.md`).
 5. **Preserve JSON-only stdout** in the CLI — any new output path must go to stderr or be part of the JSON payload.
 6. **Do not remove `last-updated` from SKILL.md** — the field was removed; do not re-add it. Freshness tracking is via CHANGELOG and git history.
-7. **When adding an MCP tool** to `MarqetiveBackendV2/app/core/mcp/tools/*.py`: also add the tool to `SKILL.md mcp-tools.tools:` with the `mcp__claude_ai_Postey__` prefix. Run `check-mcp-tool-sync.js` to verify.
+7. **When adding an MCP tool** to `MarqetiveBackendV2/app/core/mcp/tools/*.py`: also add the tool to `SKILL.md mcp-tools.tools:` with the `mcp__claude_ai_postey__` prefix. Run `check-mcp-tool-sync.js` to verify.
 8. **When adding a platform** to `platform_knowledge.py`: also update `SOCIAL_PLATFORMS` in `postey.js` and `platforms:` in `SKILL.md`. Run `check-platform-sync.js` to verify all three agree.
 
 ## MCP Integration
@@ -173,7 +180,7 @@ When adding a tool to `MarqetiveBackendV2/app/core/mcp/tools/*.py`, do all of th
 2. **[Backend]** If the tool needs agent guidance (hard rules, ordering, anti-patterns), add
    instructions to `_build_instructions()` in `server.py`.
 
-3. **[skills repo]** Add `mcp__claude_ai_Postey__<name>` to `SKILL.md mcp-tools.tools:` for
+3. **[skills repo]** Add `mcp__claude_ai_postey__<name>` to `SKILL.md mcp-tools.tools:` for
    any skill that should surface this tool. Comment-annotate its category (write / read / AI).
 
 4. **[skills repo]** Add a `routing:` entry in `SKILL.md` if the tool has a specific CLI vs

@@ -34,26 +34,32 @@ mcp-tools:
     - postey://skill-manifest
   tools:
     # Write operations (prefer CLI in Claude Code; MCP tools available for MCP-only clients)
-    - mcp__claude_ai_Postey__create_post
-    - mcp__claude_ai_Postey__update_post
-    - mcp__claude_ai_Postey__delete_draft
-    - mcp__claude_ai_Postey__publish_draft
-    - mcp__claude_ai_Postey__schedule_post
-    - mcp__claude_ai_Postey__add_tag
-    - mcp__claude_ai_Postey__upload_media
+    - mcp__claude_ai_postey__create_post
+    - mcp__claude_ai_postey__update_post
+    - mcp__claude_ai_postey__delete_draft
+    - mcp__claude_ai_postey__publish_draft
+    - mcp__claude_ai_postey__schedule_post
+    - mcp__claude_ai_postey__unschedule_post
+    - mcp__claude_ai_postey__update_schedule
+    - mcp__claude_ai_postey__add_tag
+    - mcp__claude_ai_postey__remove_tag
+    - mcp__claude_ai_postey__upload_media
+    - mcp__claude_ai_postey__reply_to_manual_comment
     # Read operations (fallback tools when resources unavailable)
-    - mcp__claude_ai_Postey__get_accounts
-    - mcp__claude_ai_Postey__get_teams
-    - mcp__claude_ai_Postey__get_team_info
-    - mcp__claude_ai_Postey__get_posts
-    - mcp__claude_ai_Postey__get_specific_post_content
-    - mcp__claude_ai_Postey__get_post_by_share_link
+    - mcp__claude_ai_postey__get_accounts
+    - mcp__claude_ai_postey__get_teams
+    - mcp__claude_ai_postey__get_team_info
+    - mcp__claude_ai_postey__get_posts
+    - mcp__claude_ai_postey__get_specific_post_content
+    - mcp__claude_ai_postey__get_post_by_share_link
+    - mcp__claude_ai_postey__get_schedule
+    - mcp__claude_ai_postey__get_manual_comments
     # AI-enhanced operations (no CLI equivalent — always use MCP)
-    - mcp__claude_ai_Postey__validate_post_content
-    - mcp__claude_ai_Postey__review_post_content_and_add_comments_for_virality
-    - mcp__claude_ai_Postey__get_comment_for_specific_post
-    - mcp__claude_ai_Postey__convert_post_content
-    - mcp__claude_ai_Postey__transcribe_video
+    - mcp__claude_ai_postey__validate_post_content
+    - mcp__claude_ai_postey__review_post_content_and_add_comments_for_virality
+    - mcp__claude_ai_postey__get_comment_for_specific_post
+    - mcp__claude_ai_postey__convert_post_content
+    - mcp__claude_ai_postey__transcribe_video
   prompts:
     - compose-post
     - review-for-virality
@@ -63,9 +69,11 @@ mcp-tools:
     - generate-captions-from-transcript
     - generate-captions-batch
 # Machine-readable routing rules (mirrors routing-guide.md; used by CI and agents).
-# Values: mcp-resource | mcp-tool | cli
+# Values: a single path, or "primary > fallback" — use the fallback only when
+# your client lacks the primary capability (cannot read MCP resources, or has
+# no CLI/shell). Paths: mcp-resource | mcp-tool | cli
 routing:
-  read-only-state:     mcp-resource  # accounts, teams, post-content → postey://... resources
+  read-only-state:     mcp-resource > mcp-tool  # postey://... resources; resource-blind clients use get_* read tools
   platform-limits:     mcp-resource  # postey://platform-limits / postey://platforms/{p}/rules
   analytics:           mcp-resource  # postey://posts/{id}/analytics
   validation:          mcp-tool      # validate_post_content (no CLI equivalent)
@@ -74,7 +82,7 @@ routing:
   convert-content:     mcp-tool      # convert_post_content
   write-post:          mcp-tool      # create/update/publish/schedule/delete → MCP tools
   local-file:          cli           # any local path → unconditional CLI (video post)
-  video-transcription: cli           # postey.js video transcribe (yt-dlp + Whisper)
+  video-transcription: cli > mcp-tool  # postey.js video transcribe; connector-only clients use transcribe_video
   ci-environment:      cli           # no MCP server available in CI/CD
   fallback:            cli           # unknown operations → CLI
 ---
@@ -101,11 +109,13 @@ Two execution paths exist: the CLI (`postey.js`) and MCP tools/resources. Pick o
    - Accounts → `postey://accounts`
    - Teams → `postey://teams`
    - Post content → `postey://posts/{id}/content/{platform}`
-   - Prefer resource URIs over `get_accounts` / `get_posts` tools whenever your client can read
-     MCP resources; resource-blind clients (many hosted connectors) use the tools.
+   - Prefer a resource URI over the equivalent read tool (e.g. `postey://accounts` over
+     `get_accounts`) whenever your client can read MCP resources; resource-blind clients (many
+     hosted connectors) use the tools. Reads with no resource equivalent (post listings →
+     `get_posts`) always use the tool.
 
 4. **Content validation or virality review** before publishing?
-   → **MCP tools** — `validate_post_content`, `review_post_content_and_add_comments_for_virality` — no CLI equivalent; do not skip these in Claude Code sessions.
+   → **MCP tools** — `validate_post_content`, `review_post_content_and_add_comments_for_virality` — no CLI equivalent; do not skip these in any MCP-capable session.
 
 5. **All other writes** (create, update, publish, schedule, delete, tag, upload by URL)?
    → **MCP tools** in Claude Code sessions — `create_post`, `update_post`, `publish_draft`, `schedule_post`, `delete_draft`.
@@ -126,13 +136,13 @@ Two execution paths exist: the CLI (`postey.js`) and MCP tools/resources. Pick o
 
 ### Anti-Patterns
 
-- **Never** call `mcp__claude_ai_Postey__get_accounts` when your client can read MCP resources — read `postey://accounts` instead. Resource-blind clients (many hosted connectors) may use the tool.
-- **Never** call `mcp__claude_ai_Postey__upload_media` for a local file — it accepts URLs only.
-- **Never** skip `validate_post_content` / `review_post_content_and_add_comments_for_virality` in Claude Code sessions.
+- **Never** call `mcp__claude_ai_postey__get_accounts` when your client can read MCP resources — read `postey://accounts` instead. Resource-blind clients (many hosted connectors) may use the tool.
+- **Never** call `mcp__claude_ai_postey__upload_media` for a local file — it accepts URLs only.
+- **Never** skip `validate_post_content` / `review_post_content_and_add_comments_for_virality` in any MCP-capable session.
 - **Never** use CLI `drafts:create` / `drafts:publish` / `drafts:schedule` — these commands are removed; use MCP tools.
 - **Never** call REST endpoints directly (e.g. `GET /accounts`) — always use MCP resources or tools.
-- **Never** guess or invent an `account_id` — always read `postey://accounts` and confirm with the user.
-- **Never** run `postey.js accounts:list` — that command does not exist; use the `postey://accounts` MCP resource.
+- **Never** guess or invent an `account_id` — always read the accounts (`postey://accounts`, or `get_accounts` for resource-blind clients) and confirm with the user.
+- **Never** run `postey.js accounts:list` — that command does not exist; read `postey://accounts` (or call `get_accounts`).
 
 ---
 
@@ -188,7 +198,7 @@ Before any write operation, Claude **must** know which account to target. Follow
 - Bluesky: `account.bluesky.handle`
 
 **Hard rules:**
-- ✗ Never call `mcp__claude_ai_Postey__get_accounts` when your client can read MCP resources —
+- ✗ Never call `mcp__claude_ai_postey__get_accounts` when your client can read MCP resources —
   read `postey://accounts` instead. Resource-blind clients may use the tool.
 - ✗ Never invent or assume an `account_id` — always read the accounts (resource or tool) and confirm.
 - ✗ Never call `GET /accounts` or any REST endpoint directly — use MCP only.
@@ -196,7 +206,7 @@ Before any write operation, Claude **must** know which account to target. Follow
 
 ## Accounts & Defaults
 
-- Most commands take a positional `account_id` (e.g. `drafts:list 123`, `drafts:create 123 ...`)
+- CLI commands that act on an account take a positional `account_id` (e.g. `video post 123 --video ...`); `drafts:get` takes a `draft_id`. See [command-reference.md](command-reference.md) for the full argument list.
 
 ## Common Actions
 
@@ -303,15 +313,21 @@ House rules for every flow (non-negotiable):
    your client cannot read MCP resources. Connected platforms are read, never assumed.
 2. Everything is created as a DRAFT. Publishing needs the user's explicit instruction, and
    **scheduling counts as publishing** (a scheduled post publishes itself): propose times, call
-   `schedule_post` only after the user approves both content and times.
+   `schedule_post` only after the user approves both content and times, with times at least
+   10 minutes in the future in UTC ISO-8601.
 3. Every platform gets its own hand-crafted caption. One idea, many voices. Use the documented
-   per-platform sequence ("Publishing to Multiple Platforms" below): `create_post` for the primary
+   per-platform sequence ("Publishing to Multiple Platforms" above): `create_post` for the primary
    platform with its caption, then one `update_post` per remaining platform with that platform's
    caption — same `post_id` throughout.
-4. Verify each platform after creating (`get_specific_post_content`), then fix before presenting.
+4. Verify each platform after creating — read `postey://posts/{id}/content/{platform}` (or call
+   `get_specific_post_content` if your client cannot read resources) — and run
+   `validate_post_content` per platform, then fix before presenting.
 5. End every flow by giving the user the draft's share link.
 6. Tag agent-created posts: an agent tag (default `Agent`, ask the user once if they prefer
-   another name) plus 2 or 3 topic tags. Reuse existing tags; never create duplicates.
+   another name) plus 2 or 3 topic tags. `add_tag` is get-or-create by exact name, so reusing
+   the same spelling never creates a duplicate — keep tag names consistent across sessions and
+   reuse the tag names visible on recent posts (`get_posts` returns each post's tags) instead of
+   inventing near-duplicates. `remove_tag` undoes a mis-tag.
 
 | Flow | The user says something like | Load |
 |------|------------------------------|------|

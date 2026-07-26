@@ -2,7 +2,7 @@
 
 Part of the `postey` skill. Loaded on demand; see SKILL.md "Content Flows".
 
-## 4. X Algorithm Rules Worth Teaching Any Agent
+## X Algorithm Rules Worth Teaching Any Agent
 
 Grounded in public sources: the open-sourced ranking code at `github.com/xai-org/x-algorithm` and `github.com/twitter/the-algorithm`, plus large-scale public analyses of post-performance data (including a study of 18.8M posts across 71,000 accounts). Weight figures are approximate, derived from third-party code reviews; re-check the repositories for updates.
 
@@ -29,5 +29,3 @@ Negative actions (mute, block, report, "not interested") subtract. **Early engag
 **Practical levers:** design for high-weight actions (genuine questions, strong opinions, actionable insights that invite replies and bookmarks); attach media; post when the audience is active; reply thoughtfully to early comments; keep a consistent topical niche (helps embedding-based matching); avoid spammy repetition.
 
 **High-intent vs vanity signals:** bookmarks, "how do I do this?" replies, and profile visits convert; likes from peers, generic "great post!" replies, and follower count without activation do not. Content that earns bookmarks: numbered mistake breakdowns, step-by-step playbooks, before/after case studies with metrics, checklists.
-
-

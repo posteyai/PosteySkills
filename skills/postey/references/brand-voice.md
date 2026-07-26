@@ -25,9 +25,10 @@ topic. Also run this first when another flow needs a voice and no brand profile 
    platform-specific: follow `platform-archetypes.md` and run the checks in `caption-playbook.md`.
 6. **Create in Postey.** Per topic: `create_post` for the primary platform with its caption, then one `update_post` per remaining platform with that platform's caption, same `post_id` throughout (the "Different content per platform" sequence in SKILL.md). Never a separate draft per platform. Status stays DRAFT.
    Upload any media first with `upload_media`.
-7. **Verify and tag.** Fetch each platform's content back with `get_specific_post_content` and fix
-   anything missing. Apply the agent tag plus 2 or 3 topic tags, reusing existing tags when they
-   already exist.
+7. **Verify and tag.** Fetch each platform's content back (read
+   `postey://posts/{id}/content/{platform}`, or call `get_specific_post_content` if your client
+   cannot read resources) and fix anything missing. Apply the agent tag plus 2 or 3 topic tags,
+   reusing the exact tag names already in use (`add_tag` is get-or-create by name).
 8. **Hand over.** Reply with the share link for each draft, one line on what each covers, and an
    offer to adjust voice or schedule the batch.
 

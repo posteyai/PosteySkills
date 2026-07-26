@@ -2,7 +2,10 @@
 
 Part of the `postey` skill. Loaded on demand; see SKILL.md "Content Flows".
 
-## 2. Per-Platform Caption Archetypes
+Style authority for captions: where another file disagrees on style (hashtag counts, CTA
+style, thread length), this file wins. Hard limits (character caps, media specs) come from
+the `postey://platform-limits` MCP resource; the numbers here are working targets.
+
 
 ### X (Twitter)
 
@@ -13,7 +16,7 @@ Part of the `postey` skill. Loaded on demand; see SKILL.md "Content Flows".
 - **Hashtags:** none. **Emojis:** none in organic posts.
 - **Length:** know the account's tier. Standard accounts cap at 280 characters; Premium accounts allow long-form (up to 25K). Don't pad; cut anything that doesn't earn its place.
 - **Video-forward variant:** when the video is the content, write 3 punchy lines max (scene-setting, one hard stat, short close). No CTA, no hashtags.
-- **External links:** never in the main post (see Section 4). Put the link in the first reply.
+- **External links:** never in the main post (see x-algorithm.md). Put the link in the first reply.
 - **Quote posts:** append the original post URL at the end of the text so it renders as an embed.
 
 ### LinkedIn
@@ -27,18 +30,18 @@ Part of the `postey` skill. Loaded on demand; see SKILL.md "Content Flows".
 
 - **Archetype:** native creator voice with a comment-mechanic hook: "Comment 'WORD' and I'll send you the guide." If the video has a spoken hook, that spoken line becomes the first line of the caption.
 - **Structure:** comment-mechanic hook → one-line setup ("Most people don't realize you can...") → 3-step numbered body → close ("That's it. [Outcome]." + "Follow for more [topic]") → hashtag block.
-- **Hashtags:** 8-10, mixing broad and specific.
+- **Hashtags:** 5-10, mixing broad and specific.
 - **Length:** 2,200 char limit (rarely a constraint). Reels have a hard 90-second video maximum; vertical 9:16 performs best.
 
 ### TikTok
 
 - **Archetype:** short native voice. One-line hook, one-line value prop, optional comment CTA, hashtag block.
-- **Hashtags:** heavy; #fyp plus 5-7 topic tags.
+- **Hashtags:** 5-7, topic-led (#fyp counts toward the total, not on top of it).
 - **Length:** sweet spot under 200 characters total including hashtags.
 
 ### YouTube
 
-- **Regular videos:** title ≤100 chars, pattern "[Verb] [Subject] [Qualifier] ([Hook in parens])". Description mirrors the Instagram caption. 8-15 comma-separated tags mixing broad and specific. Pick the category to match the content.
+- **Regular videos:** title ≤100 chars (front-load the first 70; search results truncate), pattern "[Verb] [Subject] [Qualifier] ([Hook in parens])". Description mirrors the Instagram caption and ends with 3-5 hashtags. 8-15 comma-separated tags (video metadata, distinct from description hashtags) mixing broad and specific. Pick the category to match the content.
 - **Shorts (≤60s):** punchier title ≤60 chars, no parentheticals, lead with the most surprising fact. Description under 500 chars.
 - Flag it when a video's length changes its placement (over 60s means it publishes as a regular video, not a Short).
 
@@ -69,5 +72,3 @@ The intent of a CTA carries; the mechanic adapts:
 | Bluesky | "Save this." or omit |
 
 Never port the Instagram comment-DM mechanic verbatim onto X; it kills the long-form voice.
-
-

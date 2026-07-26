@@ -3,17 +3,17 @@
 Part of the `postey` skill. Filled in once per brand by the brand-voice flow; every other
 flow reads it before drafting.
 
-Everything identity-specific lives in one per-brand profile, separate from this playbook. Fill in these fields for each brand or creator the agent writes for (fields only; content is yours):
+Everything identity-specific lives in one per-brand profile, separate from this playbook. The profile is a single document with the six sections below, stored wherever your client persists things (memory, project knowledge, or a saved file). Fill in every field for each brand or creator the agent writes for (fields only; content is yours):
 
 ```
-brand-profile.md
+## Identity
   - Brand / creator name and one-line positioning
   - Target audience (who exactly reads this; what do they respect)
   - Content niche / beat
   - Connected platforms and any account tiers (e.g., X Premium: yes/no)
   - Default caption length preference (long-form vs punchy) per platform
 
-voice.md
+## Voice
   - Voice adjectives (e.g., authoritative operator / curious builder / playful)
   - First-person stance (practitioner? commentator? curator?)
   - Banned topics (companies, people, or themes this account never names, e.g.
@@ -22,22 +22,22 @@ voice.md
   - Organic vs sponsored voice modes and how they differ
   - Disclosure rules for paid content (who decides on #ad etc.)
 
-pillars.md
+## Pillars
   - 3-5 content pillars with target percentage mix
     (e.g., problem awareness / product showcase / social proof /
      thought leadership / promotion)
   - Posting rhythm (weekly cadence per pillar; promo frequency cap)
   - Value-to-promotion ratio (e.g., 3:1 for SaaS)
 
-hooks.md
+## Hooks
   - 8-10 pre-approved hook templates in the brand voice
   - Approved trigger words for comment-CTA posts
   - Approved CTA destinations (links, lead magnets)
 
-promotions.md
+## Promotions
   - Current offers, codes, deadlines (keep dated; expire aggressively)
 
-examples.md
+## Examples
   - Top-performing past posts with view counts and the archetype each used
     (the agent matches new topics to the closest proven archetype and
      writes fresh; never copies lines verbatim)

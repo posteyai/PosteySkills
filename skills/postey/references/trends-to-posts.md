@@ -25,8 +25,10 @@ my niche," or wants a recurring daily/weekly content mix.
    full checks from `caption-playbook.md`. Cite the source of every claim in the caption where the
    platform culture allows it, and put external links in the first reply on X, never the main post.
 6. **Create, verify, tag.** Per topic: `create_post` for the primary platform with its caption, then one `update_post` per remaining platform with that platform's caption, same `post_id` throughout (the "Different content per platform" sequence in SKILL.md). Never a separate draft per platform. Status stays DRAFT.
-   Verify each platform via `get_specific_post_content`, agent tag plus a pillar tag plus topic
-   tags (reuse existing tags; never create duplicates).
+   Verify each platform (read `postey://posts/{id}/content/{platform}`, or call
+   `get_specific_post_content` if your client cannot read resources). Apply the agent tag plus
+   2 or 3 topic tags, using the pillar name as one of the topic tags; reuse the exact tag names
+   already in use (`add_tag` is get-or-create by name).
 7. **Hand over.** Share links, one line per draft naming the pillar, and any skipped pillars with
    the reason.
 

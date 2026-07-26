@@ -17,10 +17,29 @@ The format is based on Keep a Changelog.
   per-platform caption archetypes, hook formulas, X algorithm notes (public sources),
   thread/reel/carousel/trend formats, and a brand-profile template.
 - `pack.json` machine-readable manifest for fetch-based installs (agents fetch the skill without
-  a plugin system).
+  a plugin system). Fetched content is pinned to the immutable release tag, not `main`.
 - `bootstrap-prompt.md`: the one-paste prompt that sets up any connected agent.
-- CI leak gate (`scripts/check-leaks.js`): hashed-denylist and secret-pattern scanner that blocks
-  private identifiers from ever shipping in skill content.
+- MCP tools newly listed in the skill: `get_schedule`, `update_schedule`, `unschedule_post`,
+  `remove_tag`, `get_manual_comments`, `reply_to_manual_comment`.
+
+### Changed
+
+- Routing now documents fallbacks for constrained clients: resource-blind clients (many hosted
+  connectors) use the `get_accounts` / `get_posts` read tools instead of `postey://` resources,
+  and connector-only clients (no CLI) use the `transcribe_video` MCP tool for transcription.
+  The machine-readable `routing:` block encodes this as `primary > fallback`.
+- Scheduling is explicitly gated like publishing everywhere: propose times, schedule only after
+  the user approves content and times (a scheduled post publishes itself).
+- MCP tool names now use the lowercase connector slug (`mcp__claude_ai_postey__*`).
+
+### Fixed
+
+- Corrected the media-upload tool name to `upload_media` (docs previously referenced
+  `upload_media_for_post`, which never existed on the server).
+- API key URL corrected to `https://app.postey.ai/?settings=api` (was the stale `postey.com`).
+- Removed references to CLI commands deleted in 1.3.0 (`social-sets:list`, `drafts:list`,
+  `drafts:create`) from the README, routing guide, and skill docs; deleted the stale legacy
+  `skills/SKILLS.md`.
 
 ## [1.3.0]
 
@@ -37,7 +56,10 @@ The format is based on Keep a Changelog.
 - `tags:list` CLI command — no MCP equivalent; removed by request
 - `tags:create` CLI command — no MCP equivalent; removed by request
 
-## [Unreleased]
+## [1.2.0 and earlier]
+
+Entries below predate the 1.3.0 release and shipped across 1.0.x-1.2.0; they were previously
+misfiled under "Unreleased".
 
 ### Added
 

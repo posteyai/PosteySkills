@@ -2,7 +2,7 @@
 
 Part of the `postey` skill. Loaded on demand; see SKILL.md "Content Flows".
 
-## 3. Hook Formulas
+## Hook Formulas
 
 ### The pain + number 3-line formula
 
@@ -40,5 +40,3 @@ The first 2-3 lines of every caption (and every post in a thread) must stand alo
 - **Banned buzzwords:** unlock, unleash, leverage (verb), supercharge, 10x/100x (as modifier), game-changer, revolutionize, disrupt, paradigm shift, next-level, crushing it, move the needle. Replace with concrete language about what actually happens.
 - **No branded mission-statement closers** ("The future of X is Y."). Cut entirely.
 - **No dramatic filler** ("Nobody is talking about this," "This blew my mind"). State the insight directly.
-
-

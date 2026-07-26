@@ -25,8 +25,9 @@ it posted: "post this everywhere," "make a post from this video," "caption this 
    video rather than a Short; some platforms need a smaller encode and may reject oversized files.
 6. **Create one draft.** `create_post` for the primary platform with its caption, then one `update_post` per remaining platform with that platform's caption, same `post_id` throughout (the "Different content per platform" sequence in SKILL.md). Never a separate draft per platform. Status stays DRAFT.
    Attach the media to each platform.
-7. **Verify.** Fetch each platform with `get_specific_post_content`: caption present, media
-   attached, right format. Fix before presenting.
+7. **Verify.** Fetch each platform's content back (read
+   `postey://posts/{id}/content/{platform}`, or call `get_specific_post_content` if your client
+   cannot read resources): caption present, media attached, right format. Fix before presenting.
 8. **Tag and hand over.** Agent tag plus topic tags (reuse existing ones). Reply with the share
    link, the platform list, and any placement flags from step 5.
 

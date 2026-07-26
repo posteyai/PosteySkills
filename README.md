@@ -117,8 +117,10 @@ The CLI requires Node.js 18+ (for built-in `fetch`). Install a recent Node.js ve
 
 ### Drafts not appearing
 
-- Run `./skills/postey/scripts/postey.js social-sets:list` to verify your account ID
-- Check draft status with `./skills/postey/scripts/postey.js drafts:list <social_set_id>`
+- Verify the account: read the `postey://accounts` MCP resource (or call the `get_accounts` tool)
+  and confirm you targeted the right `account_id`
+- List drafts with the `get_posts` MCP tool (`status=DRAFT`), or inspect one directly:
+  `./skills/postey/scripts/postey.js drafts:get <draft_id>`
 
 ## Links
 

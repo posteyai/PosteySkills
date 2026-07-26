@@ -2,7 +2,7 @@
 
 Part of the `postey` skill. Loaded on demand; see SKILL.md "Content Flows".
 
-## 5. Thread Formats (6-15 posts)
+## Thread Formats (6-15 posts)
 
 Classify before writing. If the content fits none of these, it's probably a single post, not a thread.
 
@@ -33,7 +33,7 @@ Classify before writing. If the content fits none of these, it's probably a sing
 
 
 
-## 6. Reel and Carousel Formats (Instagram)
+## Reel and Carousel Formats (Instagram)
 
 **Core principle: optimize for Sends** (people DMing the post to a friend), the highest-signal engagement, ahead of views or likes. Saves are a close second. Every format below is engineered to be worth sending.
 
@@ -61,9 +61,9 @@ Hook line under 10 words (counter-intuitive claim, stat, or question) → 2-4 se
 
 
 
-## 7. Trend-Content Formats (the 5 pillars)
+## Trend-Content Formats (the 5 pillars)
 
-A repeatable daily/weekly mix for accounts covering a fast-moving industry. Every post carries: the agent tag + a category tag + 2 topic tags.
+A repeatable daily/weekly mix for accounts covering a fast-moving industry. Every post carries the agent tag plus 2 or 3 topic tags, with the pillar name as one of the topic tags (the tagging scheme in SKILL.md house rules).
 
 | # | Pillar | Format | Rule of thumb per run |
 |---|---|---|---|
@@ -80,6 +80,4 @@ A repeatable daily/weekly mix for accounts covering a fast-moving industry. Ever
 - **Innovation Showcase:** the video is the hook and the caption explains why it matters. No video available = pick a different innovation; never run this pillar as text.
 - **Leader Stories:** not news, not product demos; timeless lessons through real stories. Before drafting, search the account's own post history for the key phrases; skip any angle already covered.
 
-**Why video-heavy:** video content substantially outperforms text-only on X (see Section 4), which is why the two video pillars anchor the mix. Quality over quantity: don't burn 20 minutes hunting a third clip when the other pillars are ready.
-
-
+**Why video-heavy:** video content substantially outperforms text-only on X (see x-algorithm.md), which is why the two video pillars anchor the mix. Quality over quantity: don't burn 20 minutes hunting a third clip when the other pillars are ready.
