@@ -47,7 +47,19 @@ const OAUTH_SCOPES =
 const OAUTH_CALLBACK_PORT = parseInt(process.env.POSTEY_CLI_CALLBACK_PORT || "9150", 10);
 const OAUTH_TIMEOUT_MS = 120_000; // 2 min for user to complete browser flow
 
-const SOCIAL_PLATFORMS = new Set(["X", "LINKEDIN","TIKTOK","INSTAGRAM","YOUTUBE","THREADS","BLUESKY"]);
+// Must match SKILL.md `platforms:` and the MCP server's PLATFORM_KNOWLEDGE.
+// tests/skill-parity.test.js fails on divergence without needing a backend checkout.
+const SOCIAL_PLATFORMS = new Set([
+  "X",
+  "LINKEDIN",
+  "TIKTOK",
+  "INSTAGRAM",
+  "YOUTUBE",
+  "THREADS",
+  "BLUESKY",
+  "FACEBOOK",
+  "PINTEREST",
+]);
 
 const POST_TYPE_MAP = { X: 0, LINKEDIN: 2, THREADS: 9, FACEBOOK: 4, INSTAGRAM: 5, YOUTUBE: 10, TIKTOK: 7, BLUESKY: 8 };
 

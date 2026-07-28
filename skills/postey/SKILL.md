@@ -1,6 +1,6 @@
 ---
 name: postey
-version: 2.0.0
+version: 2.1.0
 platforms:
   - X
   - LINKEDIN
@@ -9,9 +9,11 @@ platforms:
   - YOUTUBE
   - THREADS
   - BLUESKY
+  - FACEBOOK
+  - PINTEREST
 description: >
   Create, schedule, and manage social media posts via Postey across X, LinkedIn,
-  Instagram, TikTok, YouTube, Threads, and Bluesky. Handles video/reel workflows:
+  Instagram, TikTok, YouTube, Threads, Bluesky, Facebook, and Pinterest. Handles video/reel workflows:
   transcribe any video URL and cross-post, or use `video post` for single-command
   upload with auto cover thumbnail.
 when_to_use: >
@@ -34,32 +36,33 @@ mcp-tools:
     - postey://skill-manifest
   tools:
     # Write operations (prefer CLI in Claude Code; MCP tools available for MCP-only clients)
-    - mcp__claude_ai_postey__create_post
-    - mcp__claude_ai_postey__update_post
-    - mcp__claude_ai_postey__delete_draft
-    - mcp__claude_ai_postey__publish_draft
-    - mcp__claude_ai_postey__schedule_post
-    - mcp__claude_ai_postey__unschedule_post
-    - mcp__claude_ai_postey__update_schedule
-    - mcp__claude_ai_postey__add_tag
-    - mcp__claude_ai_postey__remove_tag
-    - mcp__claude_ai_postey__upload_media
-    - mcp__claude_ai_postey__reply_to_manual_comment
+    - create_post
+    - update_post
+    - delete_draft
+    - publish_draft
+    - schedule_post
+    - unschedule_post
+    - update_schedule
+    - add_tag
+    - remove_tag
+    - upload_media
+    - reply_to_platform_comment
+    - connect_account
     # Read operations (fallback tools when resources unavailable)
-    - mcp__claude_ai_postey__get_accounts
-    - mcp__claude_ai_postey__get_teams
-    - mcp__claude_ai_postey__get_team_info
-    - mcp__claude_ai_postey__get_posts
-    - mcp__claude_ai_postey__get_specific_post_content
-    - mcp__claude_ai_postey__get_post_by_share_link
-    - mcp__claude_ai_postey__get_schedule
-    - mcp__claude_ai_postey__get_manual_comments
+    - get_accounts
+    - get_teams
+    - get_team_info
+    - get_posts
+    - get_specific_post_content
+    - get_post_by_share_link
+    - get_schedule
+    - get_platform_comments
+    - get_internal_comments
     # AI-enhanced operations (no CLI equivalent — always use MCP)
-    - mcp__claude_ai_postey__validate_post_content
-    - mcp__claude_ai_postey__review_post_content_and_add_comments_for_virality
-    - mcp__claude_ai_postey__get_comment_for_specific_post
-    - mcp__claude_ai_postey__convert_post_content
-    - mcp__claude_ai_postey__transcribe_video
+    - validate_post_content
+    - review_post_content_and_add_comments_for_virality
+    - convert_post_content
+    - transcribe_video
   prompts:
     - compose-post
     - review-for-virality
@@ -78,7 +81,7 @@ routing:
   analytics:           mcp-resource  # postey://posts/{id}/analytics
   validation:          mcp-tool      # validate_post_content (no CLI equivalent)
   virality-review:     mcp-tool      # review_post_content_and_add_comments_for_virality
-  comment-read:        mcp-tool      # get_comment_for_specific_post
+  comment-read:        mcp-tool      # get_platform_comments / get_internal_comments
   convert-content:     mcp-tool      # convert_post_content
   write-post:          mcp-tool      # create/update/publish/schedule/delete → MCP tools
   local-file:          cli           # any local path → unconditional CLI (video post)
@@ -136,8 +139,8 @@ Two execution paths exist: the CLI (`postey.js`) and MCP tools/resources. Pick o
 
 ### Anti-Patterns
 
-- **Never** call `mcp__claude_ai_postey__get_accounts` when your client can read MCP resources — read `postey://accounts` instead. Resource-blind clients (many hosted connectors) may use the tool.
-- **Never** call `mcp__claude_ai_postey__upload_media` for a local file — it accepts URLs only.
+- **Never** call `get_accounts` when your client can read MCP resources — read `postey://accounts` instead. Resource-blind clients (many hosted connectors) may use the tool.
+- **Never** call `upload_media` for a local file — it accepts URLs only.
 - **Never** skip `validate_post_content` / `review_post_content_and_add_comments_for_virality` in any MCP-capable session.
 - **Never** use CLI `drafts:create` / `drafts:publish` / `drafts:schedule` — these commands are removed; use MCP tools.
 - **Never** call REST endpoints directly (e.g. `GET /accounts`) — always use MCP resources or tools.
@@ -198,7 +201,7 @@ Before any write operation, Claude **must** know which account to target. Follow
 - Bluesky: `account.bluesky.handle`
 
 **Hard rules:**
-- ✗ Never call `mcp__claude_ai_postey__get_accounts` when your client can read MCP resources —
+- ✗ Never call `get_accounts` when your client can read MCP resources —
   read `postey://accounts` instead. Resource-blind clients may use the tool.
 - ✗ Never invent or assume an `account_id` — always read the accounts (resource or tool) and confirm.
 - ✗ Never call `GET /accounts` or any REST endpoint directly — use MCP only.

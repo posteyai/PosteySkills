@@ -7,7 +7,13 @@ This document is the full routing reference for the Postey skill. The key rules 
 | Path | Entry point | Best for |
 |------|-------------|----------|
 | **CLI** | `${CLAUDE_SKILL_DIR}/scripts/postey.js` | Local files, CI/CD, SDK agents, non-MCP environments; all write operations outside Claude Code |
-| **MCP tools/resources** | `mcp__claude_ai_postey__*` and `postey://` URIs | Write operations in Claude Code sessions; read-only state; content validation; virality review |
+| **MCP tools/resources** | bare tool names (e.g. `create_post`) and `postey://` URIs | Write operations in Claude Code sessions; read-only state; content validation; virality review |
+
+> **Tool names are unprefixed here on purpose.** Most clients namespace MCP tools as
+> `mcp__<server>__<tool>`, where `<server>` is whatever the *user* named the connection — during this
+> skill's own audit the same server appeared under three different names, and none matched what the
+> skill had hardcoded. Match on the bare tool name (`create_post`) and call whatever form your client
+> exposes.
 
 ## Full Decision Tree
 
