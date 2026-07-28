@@ -4,7 +4,8 @@ You are an AI coding agent. Follow these steps in order. After each step, run it
 verification before continuing. If a verification fails, consult that step's error
 table and stop rather than guessing.
 
-Re-running this document is safe. Every step is idempotent.
+Re-running this document is safe. If a step reports that something already
+exists, that is success, not failure — read on and continue.
 
 This document gets you **connected**. Once Step 4 passes, hand off to
 [`skills/postey/bootstrap-prompt.md`](skills/postey/bootstrap-prompt.md), which is
@@ -67,10 +68,13 @@ When merging JSON, **merge — never overwrite**. Preserve every existing entry:
 `type` is required. An entry with a `url` but no `type` is read as a stdio server and
 skipped.
 
-**Verify:** re-run your agent's MCP list command and confirm `postey` appears.
+**Verify:** re-run your agent's MCP list command (Claude Code: `claude mcp list`) and
+confirm `postey` appears. A freshly added server reporting *"Needs authentication"* is
+the expected state — Step 3 resolves it.
 
 | Symptom | Cause | Fix |
 |---|---|---|
+| `already exists`, non-zero exit | The server was registered on an earlier run | **Not an error.** Setup is already done to this point — continue to Step 3 |
 | Command not recognised | Older agent version | Update the agent, or merge the JSON instead |
 | `postey` absent after adding | Written to a different scope or file | Re-run with the scope flag shown above |
 | Other servers disappeared | Config overwritten rather than merged | Restore from your agent's backup, then merge |
@@ -81,7 +85,8 @@ skipped.
 ## Step 3 — Authenticate
 
 If your agent supports MCP OAuth, trigger its MCP login for `postey` and complete the
-browser prompt.
+browser prompt. In Claude Code that is the `/mcp` command; pick `postey`, then
+**Authenticate**.
 
 Otherwise, ask the user to create an API key at
 <https://app.postey.ai/settings> → **AI & Agents** → **Direct connection**, then add it
