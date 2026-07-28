@@ -116,6 +116,40 @@ or errors, setup is **not** complete — do not report success.
 
 ---
 
+## Step 5 — Install the Postey skill (optional)
+
+Steps 0–4 already gave you everything the Postey server can do: reading accounts,
+posts and schedules, and creating, updating, publishing and scheduling them.
+
+The skill adds only what a server cannot reach — your machine:
+
+- uploading a video or image **from local disk**
+- video trimming, inspection and transcription, using local ffmpeg
+- the guided content playbooks (brand voice, video, trends, idea-to-posts)
+
+If you only work with media already on the web, skip this step.
+
+```
+npx skills add posteyai/skills
+```
+
+If `npx` is unavailable: `npm exec skills add posteyai/skills`.
+
+**Verify:** run your agent's skill-list command and confirm `postey` appears.
+
+The division is fixed, not negotiated per task: the server owns all state and every
+change to it; the skill owns local files, video processing, and craft. Never use a
+skill command to reach an effect the server already provides — see
+[`docs/skills-mcp-contract.md`](docs/skills-mcp-contract.md).
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `npx: command not found` | Node not installed | Install Node 20+, then retry |
+| Skill installs but tools are missing | Step 2 incomplete | Redo Step 2, then Step 4 |
+| A skill command reports "Unknown command" | It was removed because the server owns that effect | Use the server tool named in the error, or `CHANGELOG.md` |
+
+---
+
 ## Step 6 — Record usage rules
 
 Write a short Postey section into your agent's instructions file:
