@@ -4,7 +4,7 @@ All notable user-facing changes to the Postey skill and its CLI are documented h
 
 The format is based on Keep a Changelog.
 
-## [Unreleased]
+## [2.0.0]
 
 ### Removed — BREAKING
 
