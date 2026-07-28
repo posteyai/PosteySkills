@@ -483,53 +483,6 @@ function buildFormData(filePath, mimeType, platform) {
 }
 
 // ============================================================================
-// posts:create — create a post from pre-uploaded media URLs
-// ============================================================================
-
-async function cmdPostsCreate(args) {
-  const parsed = parseArgs(args, { "publish-now": "boolean" });
-
-  const accountIdRaw = parsed["account-id"] ?? parsed.account_id ?? parsed._positional[0];
-  const accountId = requireIntId(accountIdRaw, "account_id");
-
-  const platformsCsv = parsed.platforms;
-  if (!platformsCsv || platformsCsv === true) {
-    error("--platforms is required", { hint: "e.g. --platforms INSTAGRAM,TIKTOK" });
-  }
-  const platforms = parsePlatformCsvToEnums(platformsCsv, "--platforms");
-
-  const textVal = parsed.text;
-  if (!textVal || textVal === true) error("--text is required");
-
-  const mediaUrlsCsv = parsed["media-urls"];
-  const mediaUrls = mediaUrlsCsv
-    ? String(mediaUrlsCsv).split(",").map((u) => u.trim()).filter(Boolean)
-    : [];
-  const coverUrl     = parsed["cover-url"]     != null ? coerceFlagValueToString(parsed["cover-url"],     "--cover-url")     : null;
-  const youtubeTitle = parsed["youtube-title"] != null ? coerceFlagValueToString(parsed["youtube-title"], "--youtube-title") : null;
-  const title        = parsed.title            != null ? coerceFlagValueToString(parsed.title,            "--title")         : "Untitled Draft";
-  const publishNow   = !!parsed["publish-now"];
-  const scheduleAt   = !publishNow && parsed.schedule ? coerceFlagValueToString(parsed.schedule, "--schedule") : null;
-
-  const content = { text: String(textVal) };
-  if (mediaUrls.length > 0) content.media_urls = mediaUrls;
-  if (coverUrl)             content.cover_url   = coverUrl;
-  if (youtubeTitle)         content.youtube_title = youtubeTitle;
-
-  const body = {
-    account_id:  accountId,
-    platforms,
-    contents:    [content],
-    publish_now: publishNow,
-    schedule_at: scheduleAt,
-    draft_title: title,
-    tags:        parseTagIds(parsed.tags),
-  };
-
-  const data = await apiRequest("POST", "/posts/raw", body);
-  output(data);
-}
-
 // ============================================================================
 // video subcommand group
 // ============================================================================
@@ -560,7 +513,7 @@ async function _handlePost(argv) {
   const isUrl    = String(argv.video).startsWith("https://");
 
   if (argv.dryRun) {
-    output({ dry_run: true, would_call: "posts:create", payload: { account_id: argv.accountId, platforms, text: argv.text, would_upload_video: hasVideo && !isUrl, would_extract_cover: hasInsta && !argv.coverUrl } });
+    output({ dry_run: true, would_call: "create_post", would_call_via: "mcp", payload: { account_id: argv.accountId, platforms, text: argv.text, would_upload_video: hasVideo && !isUrl, would_extract_cover: hasInsta && !argv.coverUrl } });
     return;
   }
 
@@ -603,20 +556,30 @@ async function _handlePost(argv) {
     }
   }
 
-  const createArgs = ["posts:create",
-    "--account-id", String(argv.accountId),
-    "--platforms",  platforms.join(","),
-    "--text",       argv.text,
-    "--title",      argv.title,
-  ];
-  if (videoUrl)          createArgs.push("--media-urls",    videoUrl);
-  if (coverUrl)          createArgs.push("--cover-url",     coverUrl);
-  if (argv.youtubeTitle) createArgs.push("--youtube-title", argv.youtubeTitle);
-  if (argv.tags)         createArgs.push("--tags",          argv.tags);
-  if (argv.schedule)     createArgs.push("--schedule",      argv.schedule);
-  if (argv.publishNow)   createArgs.push("--publish-now");
+  // The skill's job ends with the upload. Draft creation, scheduling and
+  // publishing are MCP's — see docs/skills-mcp-contract.md. Returning the
+  // uploaded URLs plus the caller's intent lets the agent call create_post
+  // without this command shipping a second write path.
+  if (argv.schedule || argv.publishNow) {
+    error("Scheduling and publishing are MCP operations", {
+      hint: "Upload here, then call the MCP tools schedule_post or publish_draft on the returned draft",
+    });
+  }
 
-  output(_callSelf(...createArgs));
+  output({
+    media_urls: videoUrl ? [videoUrl] : [],
+    cover_url: coverUrl || null,
+    account_id: argv.accountId,
+    platforms,
+    text: argv.text,
+    ...(argv.title        ? { title: argv.title }                 : {}),
+    ...(argv.youtubeTitle ? { youtube_title: argv.youtubeTitle }  : {}),
+    ...(argv.tags         ? { tags: argv.tags }                   : {}),
+    next_step: {
+      tool: "create_post",
+      note: "Postey MCP owns draft creation. Pass these fields to create_post.",
+    },
+  });
 }
 
 function _handleTrim(argv) {
@@ -735,14 +698,15 @@ async function _handleTranscribe(argv) {
   const suggestedCaptions = {};
   for (const p of platforms) suggestedCaptions[p] = _vTruncate(transcript, _VIDEO_CHAR_LIMITS[p] ?? 2200);
 
-  // Create post if --platform provided
-  let postResult = null;
+  // Upload the local media when platforms are named, but stop there: creating
+  // the draft is MCP's create_post. See docs/skills-mcp-contract.md.
+  let draftInputs = null;
   if (platforms.length > 0 && argv.accountId != null) {
     if (argv.dryRun) {
-      postResult = { dry_run: true, would_post: { platforms, text_preview: _vTruncate(transcript, 100), account_id: argv.accountId } };
+      draftInputs = { dry_run: true, would_upload: true, platforms, account_id: argv.accountId };
     } else {
-      const hasInsta      = platforms.includes("INSTAGRAM");
-      const uploadPlat    = hasInsta ? "INSTAGRAM" : (platforms.find((p) => _VIDEO_CAPABLE_PLATFORMS.has(p)) || platforms[0]);
+      const hasInsta   = platforms.includes("INSTAGRAM");
+      const uploadPlat = hasInsta ? "INSTAGRAM" : (platforms.find((p) => _VIDEO_CAPABLE_PLATFORMS.has(p)) || platforms[0]);
       if (process.stderr.isTTY) process.stderr.write("Uploading video...\n");
       const mediaRes = _callSelf("media:upload", "--platform", uploadPlat, "--file", videoFile);
       let coverCdnUrl = null;
@@ -751,12 +715,16 @@ async function _handleTranscribe(argv) {
         const thumbRes = _callSelf("media:upload", "--platform", "INSTAGRAM", "--file", thumbnailFile);
         if (!thumbRes.error) coverCdnUrl = thumbRes.url;
       }
-      const minLimit    = Math.min(...platforms.map((p) => _VIDEO_CHAR_LIMITS[p] ?? 2200));
-      const createArgs  = ["posts:create", "--account-id", String(argv.accountId), "--platforms", platforms.join(","), "--text", _vTruncate(transcript, minLimit)];
-      if (mediaRes?.url) createArgs.push("--media-urls", mediaRes.url);
-      if (coverCdnUrl)   createArgs.push("--cover-url", coverCdnUrl);
-      if (platforms.includes("YOUTUBE") && videoTitle) createArgs.push("--youtube-title", videoTitle);
-      postResult = _callSelf(...createArgs);
+      const minLimit = Math.min(...platforms.map((p) => _VIDEO_CHAR_LIMITS[p] ?? 2200));
+      draftInputs = {
+        account_id: argv.accountId,
+        platforms,
+        text: _vTruncate(transcript, minLimit),
+        media_urls: mediaRes?.url ? [mediaRes.url] : [],
+        cover_url: coverCdnUrl,
+        ...(platforms.includes("YOUTUBE") && videoTitle ? { youtube_title: videoTitle } : {}),
+        next_step: { tool: "create_post", note: "Postey MCP owns draft creation." },
+      };
     }
   }
 
@@ -767,7 +735,7 @@ async function _handleTranscribe(argv) {
     segments,
     duration_seconds: durationSec,
     ...(Object.keys(suggestedCaptions).length > 0 ? { suggested_captions: suggestedCaptions } : {}),
-    ...(postResult ? { post: postResult } : {}),
+    ...(draftInputs ? { draft_inputs: draftInputs } : {}),
   });
 
   if (autoTmp && !argv.keepFiles) { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {} }
@@ -1168,33 +1136,6 @@ function parseTagIds(value) {
   return Array.from(new Set(ids));
 }
 
-function resolveDraftIdOnlyFromParsed(parsed, commandName) {
-  const positional = parsed._positional;
-
-  if (getSocialSetIdFromParsed(parsed)) {
-    error(`${commandName} does not accept social_set_id`, {
-      hint: `Use: postey.js ${commandName} <draft_id>`,
-    });
-  }
-
-  if (parsed["use-default"]) {
-    error(`--use-default is not supported for ${commandName}`, {
-      hint: `Use: postey.js ${commandName} <draft_id>`,
-    });
-  }
-
-  if (positional.length === 0) {
-    error("draft_id is required");
-  }
-
-  if (positional.length > 1) {
-    error(`${commandName} only accepts <draft_id>`, {
-      hint: `Do not pass social_set_id. Use: postey.js ${commandName} <draft_id>`,
-    });
-  }
-
-  return positional[0];
-}
 
 
 // ============================================================================
@@ -1575,16 +1516,6 @@ async function cmdConfigShow() {
   });
 }
 
-async function cmdDraftsGet(args) {
-  const parsed = parseArgs(args, { "use-default": "boolean" });
-  const draftId = resolveDraftIdOnlyFromParsed(parsed, "drafts:get");
-
-  const data = await apiRequest("GET", `/posts/${draftId}`);
-  output(data);
-}
-
-
-
 function showHelp() {
   console.log(`Postey CLI - Manage social media posts via the Postey API
 
@@ -1605,32 +1536,18 @@ SETUP:
   config:show                                Show current config and API key source
 
 COMMANDS:
-  drafts:get <draft_id>                      Get a specific draft
-
   media:upload --platform <platform> --file <path>
                                              Upload a media file (unlinked). Returns CDN URL
 
-  posts:create --account-id <id> --platforms <CSV> --text <caption>
-                                             Create a multi-platform draft via /posts/raw
-    --media-urls <CSV>                       Pre-uploaded CDN URLs to attach
-    --cover-url <url>                        Cover image CDN URL (Instagram)
-    --youtube-title <str>                    YouTube video title
-    --title <str>                            Internal draft title (default: "Untitled Draft")
-    --tags <CSV>                             Comma-separated numeric tag IDs
-    --schedule <iso>                         Schedule at ISO-8601 UTC datetime
-    --publish-now                            Publish immediately after creation
-
 VIDEO SUBCOMMANDS:
   video post --video <path|url> --text <caption> --platforms <CSV> --account-id <id>
-                                             Upload video + create multi-platform draft
+                                             Upload video, return inputs for MCP create_post
                                              INSTAGRAM/TIKTOK/YOUTUBE get video attached
     --cover-time <sec>                       Cover frame extraction offset in seconds (default: 3)
     --cover-url <url>                        Skip auto cover extraction, use this URL
     --youtube-title <str>                    YouTube video title
     --title <str>                            Internal draft title
     --tags <CSV>                             Comma-separated numeric tag IDs
-    --schedule <iso>                         Schedule at ISO-8601 UTC datetime
-    --publish-now                            Publish immediately
     --dry-run                                Validate + show payload without calling API
 
   video trim --file <path> --start <sec> (--end <sec> | --duration <sec>)
@@ -1659,9 +1576,6 @@ EXAMPLES:
 
   # Check current configuration
   ./postey.js config:show
-
-  # Get a specific draft
-  ./postey.js drafts:get 456
 
   # Upload local video → Instagram Reel (with auto cover) + text to LinkedIn and X
   ./postey.js video post --video ./reel.mp4 --text "Caption here" --platforms INSTAGRAM,LINKEDIN,X --account-id 317
@@ -1726,9 +1640,9 @@ const COMMANDS = {
   "auth:login":    cmdAuthLogin,
   "auth:logout":   cmdAuthLogout,
   setup:           cmdSetup,
-  "drafts:get":    cmdDraftsGet,
+  // No drafts:get / posts:create — reading and creating posts are MCP's
+  // (get_specific_post_content, create_post). See docs/skills-mcp-contract.md.
   "media:upload":  cmdMediaUpload,
-  "posts:create":  cmdPostsCreate,
   video:           cmdVideoGroup,
   "config:show":   cmdConfigShow,
   help:            showHelp,

@@ -2,29 +2,17 @@
 
 All commands run via `${CLAUDE_SKILL_DIR}/scripts/postey.js <command> [args]`.
 
-## Drafts
-
-| Command | Description |
-|---------|-------------|
-| `drafts:get <draft_id>` | Get a specific draft with full content |
-
 ## Media
 
 | Command | Description |
 |---------|-------------|
 | `media:upload --platform <platform> --file <path>` | Upload media file (unlinked), returns CDN URL |
 
-## Posts
-
-| Command | Description |
-|---------|-------------|
-| `posts:create --account-id <id> --platforms <CSV> --text <caption>` | Create a multi-platform draft via `/posts/raw`. Optional: `--media-urls`, `--cover-url`, `--youtube-title`, `--title`, `--tags`, `--schedule`, `--publish-now` |
-
 ## Video Subcommands
 
 | Command | Description |
 |---------|-------------|
-| `video post --video <path\|url> --text "..." --platforms <CSV> --account-id <id>` | Upload video + create multi-platform draft. INSTAGRAM/TIKTOK/YOUTUBE get video attached; others get text only. Supports `--dry-run`. |
+| `video post --video <path\|url> --text "..." --platforms <CSV> --account-id <id>` | Upload video (and auto cover) and return the fields for MCP `create_post`. INSTAGRAM/TIKTOK/YOUTUBE get video attached; others get text only. Supports `--dry-run`. |
 | `video trim --file <path> --start <sec> (--end <sec>\|--duration <sec>)` | Trim video clip (stream copy, no re-encode). `--end` and `--duration` are mutually exclusive. |
 | `video info --file <path>` | Inspect video: duration, codec, dimensions, aspect ratio, platform hints via ffprobe. |
 | `video transcribe --input <url\|path> [--platform <CSV> --account-id <id>]` | Transcribe audio via yt-dlp + Whisper. `--input` may also be passed as a bare positional argument (e.g. `video transcribe /path/to/file.mp4`). Returns `transcript` + `suggested_captions` per platform. Optionally creates draft when `--platform` + `--account-id` given. Supports `--dry-run`. |
@@ -46,7 +34,6 @@ All commands run via `${CLAUDE_SKILL_DIR}/scripts/postey.js <command> [args]`.
 ${CLAUDE_SKILL_DIR}/scripts/postey.js config:show
 
 # Get a specific draft
-${CLAUDE_SKILL_DIR}/scripts/postey.js drafts:get 456
 
 # Non-interactive setup (scripts/CI)
 ${CLAUDE_SKILL_DIR}/scripts/postey.js setup --key typ_xxx --location global --default-social-set 123

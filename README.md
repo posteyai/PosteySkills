@@ -119,14 +119,16 @@ The CLI requires Node.js 18+ (for built-in `fetch`). Install a recent Node.js ve
 
 - Verify the account: read the `postey://accounts` MCP resource (or call the `get_accounts` tool)
   and confirm you targeted the right `account_id`
-- List drafts with the `get_posts` MCP tool (`status=DRAFT`), or inspect one directly:
-  `./skills/postey/scripts/postey.js drafts:get <draft_id>`
+- List drafts with the `get_posts` MCP tool (`status=DRAFT`), or read one directly from the
+  `postey://posts/{id}/content/{platform}` resource
 
 ## Links
 
 - [Postey](https://postey.ai)
 - [API Docs](https://postey.ai/docs/api)
 - [Skills Leaderboard](https://skills.sh)
+- [Skills ↔ MCP responsibility contract](docs/skills-mcp-contract.md) — what this skill owns, and
+  what belongs to the MCP server
 
 ## License
 

@@ -70,8 +70,6 @@ resources, writes on one path chosen up front:
 4. mcp publish_draft (post_id=..., platforms=[...])             ← MCP write
 ```
 
-Never mix `mcp__claude_ai_postey__create_post` with `postey.js posts:create` in the same workflow — pick one path for the write step and stay with it.
-
 ## Environment-Specific Guidance
 
 The CLI has no account-listing command — account discovery always needs MCP (resource or

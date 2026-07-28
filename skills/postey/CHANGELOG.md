@@ -4,6 +4,31 @@ All notable user-facing changes to the Postey skill and its CLI are documented h
 
 The format is based on Keep a Changelog.
 
+## [Unreleased]
+
+### Removed — BREAKING
+
+The skill is a strict extension of the Postey MCP server: it may only provide what MCP cannot.
+See [docs/skills-mcp-contract.md](../../docs/skills-mcp-contract.md). These CLI commands duplicated
+MCP and have been removed.
+
+- `drafts:get` — use the `postey://posts/{id}/content/{platform}` resource, or the
+  `get_specific_post_content` tool if your client cannot read MCP resources.
+- `posts:create` — use the `create_post` MCP tool.
+- `video post --schedule` / `--publish-now` — use the `schedule_post` and `publish_draft` MCP tools.
+
+### Changed — BREAKING
+
+- `video post` no longer creates the draft. It uploads the video (and extracts/uploads the cover),
+  then returns `media_urls`, `cover_url`, `account_id`, `platforms` and `text` for you to pass to
+  `create_post`. The video handling stays here because it needs local ffmpeg and the file itself;
+  draft creation does not.
+- `video transcribe --platform ... --account-id ...` likewise returns `draft_inputs` instead of a
+  created `post`.
+
+This continues the migration recorded under 1.2.0, which removed `drafts:list`, `drafts:create`,
+`drafts:publish`, `drafts:delete`, `drafts:schedule` and `drafts:content` for the same reason.
+
 ## [1.4.0]
 
 ### Added
