@@ -1,6 +1,6 @@
 ---
 name: postey
-version: 1.4.0
+version: 2.0.0
 platforms:
   - X
   - LINKEDIN
@@ -131,7 +131,7 @@ Two execution paths exist: the CLI (`postey.js`) and MCP tools/resources. Pick o
 | Validate content before posting | MCP tool | No CLI equivalent |
 | Virality review | MCP tool | No CLI equivalent |
 | Create / update / publish / schedule / delete | MCP tool | `create_post`, `update_post`, `publish_draft`, `schedule_post`, `delete_draft` |
-| Get single draft metadata | CLI (`drafts:get`) | No MCP single-post resource |
+| Get single draft content | MCP | `postey://posts/{id}/content/{platform}`, or `get_specific_post_content` |
 | Cursor, SDK agent, CI/CD environment | CLI only | No MCP server in these contexts |
 
 ### Anti-Patterns
@@ -206,7 +206,7 @@ Before any write operation, Claude **must** know which account to target. Follow
 
 ## Accounts & Defaults
 
-- CLI commands that act on an account take a positional `account_id` (e.g. `video post 123 --video ...`); `drafts:get` takes a `draft_id`. See [command-reference.md](command-reference.md) for the full argument list.
+- CLI commands that act on an account take a positional `account_id` (e.g. `video post 123 --video ...`). See [command-reference.md](command-reference.md) for the full argument list.
 
 ## Common Actions
 

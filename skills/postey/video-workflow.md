@@ -86,12 +86,9 @@ Output includes `transcript` and `suggested_captions` per platform (truncated to
 
 **Step 2** — Generate polished captions from the `transcript` field using the rules in [prompts.md](prompts.md). Apply the rules yourself — never paste the raw transcript as a caption.
 
-**Step 3** — Create draft with the polished captions:
-```bash
-${CLAUDE_SKILL_DIR}/scripts/postey.js posts:create \
-  --account-id 317 \
-  --platforms INSTAGRAM \
-  --text "<instagram_caption>"
+**Step 3** — Create the draft with the polished captions. Draft creation is MCP's:
+```text
+mcp create_post account_id=317 platform=INSTAGRAM contents=[{text: "<instagram_caption>"}]
 # Returns post_id
 
 # Attach additional platforms via MCP update_post:

@@ -235,32 +235,6 @@ test('setup writes local config and .gitignore entry', async () => {
 });
 
 
-test('drafts:get fetches /posts/<id>', async () => {
-  const sandbox = await makeSandbox();
-  const server = createMockServer();
-  const { baseUrl } = await server.listen();
-  const apiKey = 'typ_test_key';
-
-  server.expect('GET', '/posts/101', {
-    assert: authAssertFactory(apiKey),
-    json: { id: 101, title: 'Draft' },
-  });
-
-  try {
-    const result = await runCli(['drafts:get', '101'], {
-      cwd: sandbox.cwd,
-      env: { HOME: sandbox.home, POSTEY_API_BASE: baseUrl, POSTEY_API_KEY: apiKey },
-    });
-    assert.equal(result.code, 0);
-    assert.deepEqual(parseJsonOrNull(result.stdout), { id: 101, title: 'Draft' });
-    server.assertNoPendingExpectations();
-  } finally {
-    await server.close();
-    await sandbox.cleanup();
-  }
-});
-
-
 test('legacy commands not implemented return unknown command', async () => {
   const sandbox = await makeSandbox();
   try {
@@ -296,67 +270,6 @@ test('legacy commands not implemented return unknown command', async () => {
   }
 });
 
-test('posts:create posts to /posts/raw and returns post_id', async () => {
-  const sandbox = await makeSandbox();
-  const server = createMockServer();
-  const { baseUrl } = await server.listen();
-  const apiKey = 'typ_test_key';
-
-  server.expect('POST', '/posts/raw', {
-    assert(req) {
-      assert.equal(req.headers['x-api-key'], apiKey);
-      assert.equal(req.bodyJson.account_id, 317);
-      assert.deepEqual(req.bodyJson.platforms, ['INSTAGRAM']);
-      assert.equal(req.bodyJson.contents[0].text, 'Hello world');
-    },
-    json: { id: 99, status: 'draft' },
-  });
-
-  try {
-    const result = await runCli(
-      ['posts:create', '--account-id', '317', '--platforms', 'INSTAGRAM', '--text', 'Hello world'],
-      { cwd: sandbox.cwd, env: { HOME: sandbox.home, POSTEY_API_BASE: baseUrl, POSTEY_API_KEY: apiKey } }
-    );
-    assert.equal(result.code, 0);
-    const out = parseJsonOrNull(result.stdout);
-    assert.equal(out.id, 99);
-    server.assertNoPendingExpectations();
-  } finally {
-    await server.close();
-    await sandbox.cleanup();
-  }
-});
-
-test('posts:create exits 1 with JSON error when --platforms is missing', async () => {
-  const sandbox = await makeSandbox();
-  try {
-    const result = await runCli(
-      ['posts:create', '--account-id', '317', '--text', 'Hello'],
-      { cwd: sandbox.cwd, env: { HOME: sandbox.home, POSTEY_API_KEY: 'typ_test_key' } }
-    );
-    assert.equal(result.code, 1);
-    assert.ok(parseJsonOrNull(result.stdout)?.error);
-  } finally {
-    await sandbox.cleanup();
-  }
-});
-
-test('posts:create exits 1 with JSON error for invalid platform', async () => {
-  const sandbox = await makeSandbox();
-  try {
-    const result = await runCli(
-      ['posts:create', '--account-id', '317', '--platforms', 'BADPLATFORM', '--text', 'Hi'],
-      { cwd: sandbox.cwd, env: { HOME: sandbox.home, POSTEY_API_KEY: 'typ_test_key' } }
-    );
-    assert.equal(result.code, 1);
-    const out = parseJsonOrNull(result.stdout);
-    assert.ok(out?.error);
-    assert.ok(Array.isArray(out?.allowed));
-  } finally {
-    await sandbox.cleanup();
-  }
-});
-
 test('video subcommand: no subcommand exits 1 with JSON error', async () => {
   const sandbox = await makeSandbox();
   try {
@@ -384,7 +297,9 @@ test('video post --dry-run outputs dry_run:true without network calls', async ()
     assert.equal(result.code, 0);
     const out = parseJsonOrNull(result.stdout);
     assert.equal(out?.dry_run, true);
-    assert.ok(out?.would_call === 'posts:create' || out?.payload !== undefined);
+    // Draft creation is MCP's; the dry run names the tool it hands off to.
+    assert.equal(out?.would_call, 'create_post');
+    assert.equal(out?.would_call_via, 'mcp');
   } finally {
     await sandbox.cleanup();
   }
@@ -417,6 +332,42 @@ test('video trim requires --end or --duration', async () => {
     );
     assert.equal(result.code, 1);
     assert.ok(parseJsonOrNull(result.stdout)?.error);
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
+// The skill is a strict extension of MCP: it must not ship a second path to an
+// effect MCP already owns (docs/skills-mcp-contract.md). These commands were
+// removed for exactly that reason; this asserts they cannot quietly return.
+for (const command of ['drafts:get', 'posts:create']) {
+  test(`${command} is rejected — MCP owns that effect`, async () => {
+    const sandbox = await makeSandbox();
+    try {
+      const result = await runCli([command, '101'], {
+        cwd: sandbox.cwd,
+        env: { HOME: sandbox.home, POSTEY_API_KEY: 'typ_test_key' },
+      });
+      assert.equal(result.code, 1);
+      assert.match(parseJsonOrNull(result.stdout)?.error ?? '', /Unknown command/);
+    } finally {
+      await sandbox.cleanup();
+    }
+  });
+}
+
+test('video post refuses to schedule or publish', async () => {
+  const sandbox = await makeSandbox();
+  const videoPath = path.join(sandbox.cwd, 'clip.mp4');
+  await fs.writeFile(videoPath, Buffer.alloc(16));
+  try {
+    const result = await runCli(
+      ['video', 'post', '--video', videoPath, '--text', 'Caption', '--platforms', 'X',
+       '--account-id', '317', '--publish-now'],
+      { cwd: sandbox.cwd, env: { HOME: sandbox.home, POSTEY_API_KEY: 'typ_test_key' } }
+    );
+    assert.equal(result.code, 1);
+    assert.match(parseJsonOrNull(result.stdout)?.error ?? '', /MCP operations/);
   } finally {
     await sandbox.cleanup();
   }
