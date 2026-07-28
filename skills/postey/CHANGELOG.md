@@ -4,6 +4,32 @@ All notable user-facing changes to the Postey skill and its CLI are documented h
 
 The format is based on Keep a Changelog.
 
+## [2.1.0]
+
+### Added
+
+- **Facebook and Pinterest** — the skill declared 7 platforms while the MCP server supported 9, so
+  all guidance told users these two did not exist. Both now appear in `platforms:`, in the CLI's
+  `SOCIAL_PLATFORMS`, and in `references/platform-archetypes.md` (including Pinterest's
+  title/description model, which is not a caption model).
+- `connect_account`, `get_platform_comments`, `get_internal_comments` to `mcp-tools.tools:`.
+- `tests/skill-parity.test.js` — fails on platform or namespace divergence. `check-platform-sync.js`
+  already compared against the backend, but **skips** when that checkout is absent, which is the
+  normal case in CI and is how the 7-vs-9 drift survived. These tests need no sibling checkout.
+
+### Changed
+
+- **MCP tool names are no longer namespace-prefixed.** Guidance listed
+  `mcp__claude_ai_postey__<tool>`, but the prefix is derived from whatever the *user* named the
+  connection — during the audit the same server appeared under three different names, none matching.
+  Tool names are now bare; match on those and call whichever form your client exposes.
+
+### Fixed
+
+- Removed three tools from `mcp-tools.tools:` that **do not exist** on the server
+  (`reply_to_manual_comment`, `get_manual_comments`, `get_comment_for_specific_post`);
+  `reply_to_platform_comment` and the two comment reads above are their real counterparts.
+
 ## [2.0.0]
 
 ### Removed — BREAKING

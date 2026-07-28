@@ -4,7 +4,7 @@ Index of all skills in this repository.
 
 | Skill | Description | Status | Version |
 |-------|-------------|--------|---------|
-| [postey](postey/) | Draft, schedule, and manage social media posts across X, LinkedIn, Instagram, TikTok, YouTube, Threads, and Bluesky | stable | 2.0.0 |
+| [postey](postey/) | Draft, schedule, and manage social media posts across X, LinkedIn, Instagram, TikTok, YouTube, Threads, and Bluesky | stable | 2.1.0 |
 
 ## Adding a New Skill
 

@@ -57,6 +57,21 @@ the `postey://platform-limits` MCP resource; the numbers here are working target
 - **Hashtags:** typically none; the culture is hashtag-light.
 - **Length:** 300 hard cap; aim ~250. **Media:** video ≤15MB and ≤60s; prepare a dedicated small encode.
 
+### Facebook
+
+- **Archetype:** the story version. Facebook tolerates length that X and Bluesky do not, so let the narrative breathe — but the hook still has to win before the fold.
+- **Structure:** hook → the situation in plain language → what changed → the takeaway → CTA.
+- **Hashtags:** 0-2; they carry little reach here and read as spammy in quantity.
+- **Length:** 63,206 hard cap, but only **~477 characters show before "See more"** — front-load the hook inside that window. **Media:** multiple images; video up to 10GB, 1s-4h.
+
+### Pinterest
+
+- **Not a caption platform — a *title + description* platform.** Treat it as search, not feed: people arrive with intent, so write for what they are looking for rather than for a scroll-stopping hook.
+- **Title:** required, **100 max**, plain text, **no hashtags**. The single highest-leverage field.
+- **Description:** **500 max**; hashtags and @mentions count toward it. The title and the description's first line are what show in-feed.
+- **Structure:** keyword-led title → description that expands the promise and names the outcome → CTA to the linked page.
+- **Also set:** `pinterest_link` (destination URL — a Pin without one wastes the click), `pinterest_board_id` (omit for the default board), `pinterest_alt_text`. **Media:** one image or video, or up to 5 images for a carousel Pin.
+
 ### CTA mapping across platforms
 
 The intent of a CTA carries; the mechanic adapts:
@@ -70,5 +85,7 @@ The intent of a CTA carries; the mechanic adapts:
 | X | Future-moment bookmark close (comment-DM mechanics die here) |
 | TikTok | "Comment 'WORD' for the guide" or skip |
 | Bluesky | "Save this." or omit |
+| Facebook | "Comment 'WORD' and I'll send it over" — comment-DM mechanics work here |
+| Pinterest | No comment CTA; the Pin's destination link IS the CTA |
 
 Never port the Instagram comment-DM mechanic verbatim onto X; it kills the long-form voice.

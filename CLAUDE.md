@@ -117,8 +117,8 @@ There is no build step, no lint config, and no formatter config in this repo.
 4. **SKILL.md body must stay under 500 lines** — move heavy content to supporting files (`command-reference.md`, `video-workflow.md`, `routing-guide.md`).
 5. **Preserve JSON-only stdout** in the CLI — any new output path must go to stderr or be part of the JSON payload.
 6. **Do not remove `last-updated` from SKILL.md** — the field was removed; do not re-add it. Freshness tracking is via CHANGELOG and git history.
-7. **When adding an MCP tool** to `postey-backend/app/core/mcp/tools/*.py`: also add the tool to `SKILL.md mcp-tools.tools:` with the `mcp__claude_ai_postey__` prefix. Run `check-mcp-tool-sync.js` to verify.
-8. **When adding a platform** to `platform_knowledge.py`: also update `SOCIAL_PLATFORMS` in `postey.js` and `platforms:` in `SKILL.md`. Run `check-platform-sync.js` to verify all three agree.
+7. **When adding an MCP tool** to `postey-backend/app/core/mcp/tools/*.py`: also add the tool to `SKILL.md mcp-tools.tools:` as a **bare tool name** (no `mcp__<server>__` prefix — the prefix is derived from whatever the user named the connection, so hardcoding one is wrong for everyone else). Run `check-mcp-tool-sync.js` to verify.
+8. **When adding a platform** to `platform_knowledge.py`: also update `SOCIAL_PLATFORMS` in `postey.js`, `platforms:` in `SKILL.md`, `MCP_PLATFORMS` in `tests/skill-parity.test.js`, and give it a section in `references/platform-archetypes.md`. Run `check-platform-sync.js` (needs the backend checkout) and `node --test` (does not).
 
 ## MCP Integration
 
@@ -163,7 +163,7 @@ in `app/core/mcp/prompts.py`. `check-mcp-tool-sync.js` enforces this alongside t
 ### New Skill MCP Integration Checklist
 When creating a skill that has an MCP server counterpart:
 1. Set `mcp-server-module:` in `SKILL.md` frontmatter (e.g. `app.core.mcp`)
-2. List all MCP tools in `mcp-tools.tools:` with the appropriate `mcp__<service>__` prefix
+2. List all MCP tools in `mcp-tools.tools:` as bare tool names (no server prefix)
 3. List all MCP resources in `mcp-tools.resources:`
 4. List all MCP prompts in `mcp-tools.prompts:` (prompt names, no prefix)
 5. Add `routing:` block with machine-readable routing rules
@@ -180,7 +180,7 @@ When adding a tool to `postey-backend/app/core/mcp/tools/*.py`, do all of these:
 2. **[Backend]** If the tool needs agent guidance (hard rules, ordering, anti-patterns), add
    instructions to `_build_instructions()` in `server.py`.
 
-3. **[skills repo]** Add `mcp__claude_ai_postey__<name>` to `SKILL.md mcp-tools.tools:` for
+3. **[skills repo]** Add the bare `<name>` to `SKILL.md mcp-tools.tools:` for
    any skill that should surface this tool. Comment-annotate its category (write / read / AI).
 
 4. **[skills repo]** Add a `routing:` entry in `SKILL.md` if the tool has a specific CLI vs
