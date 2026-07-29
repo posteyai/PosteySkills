@@ -18,13 +18,18 @@ import { readFileSync } from 'node:fs';
 /** Commands that block on input unless the escape hatch is present. */
 const INTERACTIVE = [
 	{
-		name: 'skills-add-without-agent-and-yes',
-		// The CLI prompts for scope, agent and skill unless both are passed.
+		name: 'skills-add-without-agent-skill-and-yes',
+		// -a and -y stop it prompting. -s stops it installing skills/_template as
+		// a second skill called "skill-name", which it does by default.
 		test: (line) =>
 			/\bskills\s+add\b/.test(line) &&
 			!/--list\b/.test(line) &&
-			!(/(^|\s)(-a|--agent)\s/.test(line) && /(^|\s)(-y|--yes)\s|(-y|--yes)$/.test(line)),
-		why: 'prompts for scope, agent and skill; pass -a <agent> and -y'
+			!(
+				/(^|\s)(-a|--agent)\s/.test(line) &&
+				/(^|\s)(-s|--skill)\s/.test(line) &&
+				/(^|\s)(-y|--yes)(\s|$)/.test(line)
+			),
+		why: 'prompts, or installs the _template skill; pass -a <agent> -s postey -y'
 	},
 	{
 		name: 'plugin-slash-command',

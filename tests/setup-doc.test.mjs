@@ -41,12 +41,21 @@ describe('check-setup-doc', () => {
 
 	test('catches a skills install that would prompt', () => {
 		const doc = validDoc({ body: '```\nnpx -y skills add posteyai/skills\n```' });
-		assert.ok(rules(checkSetupDoc(doc)).includes('skills-add-without-agent-and-yes'));
+		assert.ok(rules(checkSetupDoc(doc)).includes('skills-add-without-agent-skill-and-yes'));
 	});
 
-	test('accepts a skills install that names an agent and passes -y', () => {
-		const doc = validDoc({ body: '```\nnpx -y skills add posteyai/skills -a claude-code -y\n```' });
+	test('accepts a skills install that names agent, skill and -y', () => {
+		const doc = validDoc({
+			body: '```\nnpx -y skills add posteyai/skills -a claude-code -s postey -y\n```'
+		});
 		assert.deepEqual(checkSetupDoc(doc), []);
+	});
+
+	test('catches an install with no -s, which also installs the _template skill', () => {
+		// Verified by running it: without -s the CLI installs postey AND a skill
+		// called skill-name, taken from skills/_template.
+		const doc = validDoc({ body: '```\nnpx -y skills add posteyai/skills -a claude-code -y\n```' });
+		assert.ok(rules(checkSetupDoc(doc)).includes('skills-add-without-agent-skill-and-yes'));
 	});
 
 	test('accepts the --list form, which never prompts', () => {

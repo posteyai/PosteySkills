@@ -364,11 +364,12 @@ claude plugin install postey@postey-skills
 hermes skills install https://raw.githubusercontent.com/posteyai/skills/main/skills/postey/SKILL.md
 ```
 
-**Every other agent.** Name the agent and pass `-y`. Without both, the command waits
-for a keystroke that an autonomous agent cannot send.
+**Every other agent.** All three flags matter. `-a` and `-y` stop the command waiting
+for a keystroke that an autonomous agent cannot send. `-s postey` stops it also
+installing this repository's skill template as a second skill called `skill-name`.
 
 ```
-npx -y skills add posteyai/skills -a <agent> -y
+npx -y skills add posteyai/skills -a <agent> -s postey -y
 ```
 
 Run `npx -y skills add posteyai/skills --list` to see the identifiers. The Hermes

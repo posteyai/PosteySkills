@@ -90,7 +90,7 @@ claude plugin install postey@postey-skills
 Every other agent. Both flags are required — without them the CLI prompts for
 scope, agent and skill, and an unattended run hangs.
 ```
-npx -y skills add posteyai/skills -a <agent> -y
+npx -y skills add posteyai/skills -a <agent> -s postey -y
 ```
 
 The agent id for Hermes is `hermes-agent`. `-a hermes` exits with an error.

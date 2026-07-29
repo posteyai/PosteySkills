@@ -69,12 +69,14 @@ opens an interactive panel, so an agent cannot run it unattended.
 **Cursor / Windsurf / generic agents (npx):**
 
 ```bash
-npx -y skills add posteyai/skills -a <agent> -y
+npx -y skills add posteyai/skills -a <agent> -s postey -y
 ```
 
-Name the agent and pass `-y`. Without both, the CLI prompts for scope, agent and
-skill, so an unattended run hangs. `npx -y skills add posteyai/skills --list` prints
-the ids. Hermes Agent is `hermes-agent`, not `hermes`.
+All three flags matter. `-a` and `-y` stop the CLI prompting for scope, agent and
+skill, which hangs an unattended run. `-s postey` stops it also installing this
+repo's skill template as a second skill called `skill-name`.
+`npx -y skills add posteyai/skills --list` prints the ids. Hermes Agent is
+`hermes-agent`, not `hermes`.
 
 **Manual:**
 
