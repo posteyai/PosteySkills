@@ -8,6 +8,13 @@ The format is based on Keep a Changelog.
 
 ### Added
 
+- **`POSTEY_AUTH_TOKEN`** — a bearer credential the CLI accepts from the environment, ranked
+  directly below `POSTEY_API_KEY` and above the machine's logged-in session. The MCP server sets it
+  when it shells out to this CLI for a caller who authenticated with OAuth. `local_path` uploads and
+  `transcribe_video` previously demanded an `mk_` API key, so every OAuth client was refused before
+  the tool did any work (backend S9.9 / SK-5); the API key was never the requirement, a credential
+  the API accepts was. `config:show` reports it as `bearer (env)`.
+
 - **`references/mcp-workflows.md`** — the craft and workflow half of the MCP server's instruction
   block, relocated here. The server was sending 22,457 characters on **every** request, most of it
   sequencing and judgment: create/validate/tag/publish, partial draft updates, when
