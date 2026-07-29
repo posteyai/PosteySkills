@@ -1,6 +1,6 @@
 ---
 name: postey
-version: 2.2.0
+version: 2.3.0
 # No `platforms:` list. The platform set lives on the server and is mirrored into
 # capability-snapshot.json by scripts/refresh-capability-snapshot.js. A copy here
 # would be a fourth hand-maintained list agreeing with the other three and with
@@ -246,6 +246,11 @@ field name; a missing key means that platform is not connected, not that the han
 3. **Create draft**: MCP `create_post`
 4. **Schedule or publish**: MCP `schedule_post` or `publish_draft`
 
+The full sequences — create/validate/tag/publish, partial draft updates, repurposing, media and
+video path selection, tagging, and the fields you must ask the user for rather than guess — are in
+[references/mcp-workflows.md](references/mcp-workflows.md). That guidance used to be sent by the
+MCP server on every single request; it lives here now, loaded when you need it.
+
 ## Working with Tags
 
 Pass tag IDs via the `tags` field on MCP `create_post`. Use MCP `add_tag` to attach tags to an already-created post.
@@ -376,6 +381,8 @@ whichever the user picks. Two minutes to a share link is the goal.
 
 ## Reference
 
+- MCP workflow sequencing, media/video path choice, tagging, what to ask before you guess:
+  [references/mcp-workflows.md](references/mcp-workflows.md)
 - Full command reference: [command-reference.md](command-reference.md)
 - Video transcription workflow: [video-workflow.md](video-workflow.md)
 - Platform caption templates: [prompts.md](prompts.md)
