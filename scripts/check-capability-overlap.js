@@ -201,4 +201,8 @@ function main() {
   console.log(`✓ ${commands.length} CLI commands, no undeclared overlap with MCP`);
 }
 
-main();
+// `cliCommands` is the one parser of the COMMANDS table; check-doc-commands.js
+// reuses it rather than growing a second copy that could disagree with this one.
+module.exports = { cliCommands };
+
+if (require.main === module) main();

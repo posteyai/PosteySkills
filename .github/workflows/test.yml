@@ -53,6 +53,12 @@ jobs:
       - name: Check skill/MCP capability overlap
         run: node scripts/check-capability-overlap.js
 
+      # F-031 — the guides routed writes to CLI commands S9.1 had already deleted,
+      # and nothing compared the guidance to the COMMANDS table. Offline: parses
+      # the CLI source and SKILL.md's routing map, so it runs on forks.
+      - name: Check docs route to commands that exist
+        run: node scripts/check-doc-commands.js
+
       # Replaces check-platform-sync.js (S9.5). That script compared SKILL.md's
       # `platforms:` against postey.js's SOCIAL_PLATFORMS — two hand-maintained
       # copies agreeing with each other, and it soft-skipped to green when either

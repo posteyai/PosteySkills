@@ -29,7 +29,7 @@ mcp-tools:
     - postey://teams/{team_id}/members
     - postey://skill-manifest
   tools:
-    # Write operations (prefer CLI in Claude Code; MCP tools available for MCP-only clients)
+    # Write operations — MCP only. The CLI has no write command; there is no fallback.
     - create_post
     - update_post
     - delete_draft
@@ -78,11 +78,10 @@ routing:
   virality-review:     mcp-tool      # review_post_content_and_add_comments_for_virality
   comment-read:        mcp-tool      # get_platform_comments / get_internal_comments
   convert-content:     mcp-tool      # convert_post_content
-  write-post:          mcp-tool      # create/update/publish/schedule/delete → MCP tools
-  local-file:          cli           # any local path → unconditional CLI (video post)
+  write-post:          mcp-tool      # create/update/publish/schedule/delete → MCP tools, in EVERY environment
+  local-file:          cli           # any local path → unconditional CLI (video post); the write that follows is still mcp-tool
   video-transcription: cli > mcp-tool  # postey.js video transcribe; connector-only clients use transcribe_video
-  ci-environment:      cli           # no MCP server available in CI/CD
-  fallback:            cli           # unknown operations → CLI
+  fallback:            mcp-tool      # unknown operations → MCP; the CLI only holds local-machine commands
 ---
 
 # Postey Skill
@@ -113,7 +112,10 @@ Read the live resource when you can; the snapshot is a mirror, and a mirror can 
 
 ## Tool Routing — Read Before Any Tool Call
 
-Two execution paths exist: the CLI (`postey.js`) and MCP tools/resources. Pick one path per workflow and stay on it.
+Two surfaces exist — MCP tools/resources and the CLI (`postey.js`) — and they are layers, not
+alternatives. MCP owns every read and **every write**. The CLI owns only what needs the user's
+machine, and it has no write command: its local-file commands upload and hand back the fields for
+an MCP write. A workflow uses whichever surface owns each step.
 
 ### Decision Tree
 
@@ -138,8 +140,9 @@ Two execution paths exist: the CLI (`postey.js`) and MCP tools/resources. Pick o
    → **MCP tools** — `validate_post_content`, `review_post_content_and_add_comments_for_virality` — no CLI equivalent; do not skip these in any MCP-capable session.
 
 5. **All other writes** (create, update, publish, schedule, delete, tag, upload by URL)?
-   → **MCP tools** in Claude Code sessions — `create_post`, `update_post`, `publish_draft`, `schedule_post`, `delete_draft`.
-   → **CLI** in CI/CD, SDK agents, Cursor, Windsurf — no MCP server available.
+   → **MCP tools, in every environment** — `create_post`, `update_post`, `publish_draft`, `schedule_post`, `delete_draft`.
+   → There is no second path. Where no MCP server is reachable the write cannot be done at all —
+   say so and stop; do not reach for a CLI command that does not exist.
 
 ### Routing Table
 
@@ -152,14 +155,14 @@ Two execution paths exist: the CLI (`postey.js`) and MCP tools/resources. Pick o
 | Virality review | MCP tool | No CLI equivalent |
 | Create / update / publish / schedule / delete | MCP tool | `create_post`, `update_post`, `publish_draft`, `schedule_post`, `delete_draft` |
 | Get single draft content | MCP | `postey://posts/{id}/content/{platform}`, or `get_specific_post_content` |
-| Cursor, SDK agent, CI/CD environment | CLI only | No MCP server in these contexts |
+| Cursor, SDK agent, CI/CD environment | Same as above — unchanged | The environment decides whether the CLI is *available*, never who owns the operation |
 
 ### Anti-Patterns
 
 - **Never** call `get_accounts` when your client can read MCP resources — read `postey://accounts` instead. Resource-blind clients (many hosted connectors) may use the tool.
 - **Never** call `upload_media` for a local file — it accepts URLs only.
 - **Never** skip `validate_post_content` / `review_post_content_and_add_comments_for_virality` in any MCP-capable session.
-- **Never** use CLI `drafts:create` / `drafts:publish` / `drafts:schedule` — these commands are removed; use MCP tools.
+- **Never** use CLI `drafts:create` / `drafts:publish` / `drafts:schedule` — these commands are removed; use MCP tools. The same holds in CI/CD, Cursor, Windsurf and SDK agents: without an MCP server there is no write path, not a CLI one.
 - **Never** call REST endpoints directly (e.g. `GET /accounts`) — always use MCP resources or tools.
 - **Never** guess or invent an `account_id` — always read the accounts (`postey://accounts`, or `get_accounts` for resource-blind clients) and confirm with the user.
 - **Never** run `postey.js accounts:list` — that command does not exist; read `postey://accounts` (or call `get_accounts`).
@@ -296,7 +299,10 @@ Resolve the set instead:
 
 ## Direct Video Posting
 
-Use `video post` when you have a caption ready and want to upload video + create a multi-platform draft in one command (no transcription).
+Use `video post` when you have a caption ready and want the video (and its cover) uploaded in one
+command (no transcription). It returns `media_urls`, `cover_url` and the rest of the fields for MCP
+`create_post` — it does not create the draft itself, and it rejects `--publish-now` / `--schedule`
+because publishing and scheduling are MCP's.
 
 **No caption yet?** Run `video transcribe` first — it returns a transcript and `suggested_captions` per platform. Refine those captions (see [prompts.md](prompts.md)) then pass the result to `video post --text` or `create_post`. Never paste a raw transcript as a caption.
 
@@ -309,8 +315,6 @@ ${CLAUDE_SKILL_DIR}/scripts/postey.js video post <account_id> \
   --platforms INSTAGRAM,LINKEDIN,X \
   [--cover-time <seconds>]   # default: 3
   [--title "Draft title"]
-  [--publish-now]
-  [--schedule <iso_datetime>]
 ```
 
 | Platform | Video attached | Cover thumbnail |
@@ -378,10 +382,8 @@ whichever the user picks. Two minutes to a share link is the goal.
 ## Tips
 
 - Thread creation: use `---` on its own line to split into multiple posts
-- Scheduling: ISO 8601 strings for `--schedule` / `--time`
-- Draft titles: `--title` is for internal organization, not posted publicly
-- Read from file: `--file ./post.txt` instead of `--text`
-- Sort drafts: `--sort created_at`, `-created_at`, `scheduled_date`, etc.
+- Scheduling: ISO 8601 UTC strings on MCP `schedule_post` — the CLI has no scheduling flag
+- Draft titles: `--title` on `video post` is for internal organization, not posted publicly
 
 ## Reference
 
