@@ -17,10 +17,10 @@ skills/  (repo: posteyai/skills)
 ├── .claude/
 │   └── settings.json          — extraKnownMarketplaces for team auto-install
 ├── .github/workflows/
-│   └── test.yml               — CI: node --test + check-versions + check-leaks (2 scopes) + check-platform-sync + check-mcp-tool-sync
+│   └── test.yml               — CI: node --test + check-versions + check-leaks (2 scopes) + check-setup-links + check-capability-overlap + check-doc-commands + refresh-capability-snapshot + check-mcp-tool-sync
 ├── scripts/
 │   ├── check-versions.js      — CI: verify SKILL.md version == plugin.json == marketplace == pack.json == REGISTRY.md == README badge
-│   ├── check-platform-sync.js — CI: verify SOCIAL_PLATFORMS in JS == SKILL.md == platform_knowledge.py
+│   ├── check-doc-commands.js  — CI: verify every documented command exists in the CLI COMMANDS table
 │   ├── check-mcp-tool-sync.js — CI: verify SKILL.md mcp-tools.tools: == MCP server registry
 │   ├── check-leaks.js         — CI leak gate: hashed-denylist + secret-pattern scanner (`--hash` mode generates denylist entries)
 │   └── leak-denylist.json     — Committed sha256 hashes (high-entropy terms only) + secret-shape patterns
@@ -63,22 +63,39 @@ skills/  (repo: posteyai/skills)
 - **Single file, zero runtime deps**, CommonJS, Node.js 18+ (uses built-in `fetch`). `package.json` is private — `npm install` is not required.
 - **API base**: `https://srvr.postey.ai/v1`, overridable via `POSTEY_API_BASE` (the test suite uses this to point at a local mock server).
 - **All commands output JSON to stdout**; human-readable chrome (colors, prompts) goes to stderr and is gated on `process.stderr.isTTY`. Don't add stdout logging — tests parse stdout as JSON.
-- **Auth resolution priority** (highest to lowest):
-  1. `POSTEY_API_KEY` env var
-  2. `./.postey/config.json` (project-local)
-  3. `~/.config/postey/config.json` (user-global)
-- **Platform enum** is defined in one place (`SOCIAL_PLATFORMS`). When adding or removing a platform, also update: `SKILL.md` frontmatter `platforms:` list, `skills/postey/SKILL.md` Platform Names table, `.claude-plugin/marketplace.json` plugin description. The CI `check-platform-sync.js` script verifies JS ↔ SKILL.md ↔ `platform_knowledge.py` (MCP server) consistency.
+- **Auth resolution priority** (highest to lowest), per `getAuthHeader()`:
+  1. `POSTEY_API_KEY` env var → `X-API-Key`
+  2. `POSTEY_AUTH_TOKEN` env var → `Authorization: Bearer`. Set by the MCP server when it shells out for an OAuth caller, and the header a `pat_` agent token uses.
+  3. OAuth session in the global config, refreshed when within 60s of expiry
+  4. `./.postey/config.json` (project-local)
+  5. `~/.config/postey/config.json` (user-global)
+
+  `getApiKey()` and `requireApiKey()` resolve only 1, 4 and 5. A caller authenticated by OAuth alone is therefore told to run `setup`, even though `getAuthHeader()` would have authenticated it.
+- **Platform enum** is defined in one place (`SOCIAL_PLATFORMS`). When adding or removing a platform, also update: `SKILL.md` frontmatter `platforms:` list, `skills/postey/SKILL.md` Platform Names table, `.claude-plugin/marketplace.json` plugin description. Platform truth is checked against the server by `refresh-capability-snapshot.js --check`, not against a second hand-kept copy.
 - **MCP tool list** in `SKILL.md mcp-tools.tools:` must match the `@mcp.tool(name="...")` declarations in `postey-backend/app/core/mcp/tools/*.py`. The CI `check-mcp-tool-sync.js` script enforces this. See "MCP Integration" section below.
 
 ## Installation Flow
 
-Users install via:
+`setup.md` is the canonical instruction set, and the app's "Connect your agent"
+prompt points an agent straight at it. Keep every install command here in step
+with it.
+
+Claude Code, in a terminal. Use the shell form, not the slash command: `/plugin`
+opens an interactive panel, so an agent cannot run it.
 ```
-/plugin marketplace add posteyai/skills
-/plugin install postey@postey-skills
+claude plugin marketplace add posteyai/skills
+claude plugin install postey@postey-skills
 ```
 
-Or teams using the committed `.claude/settings.json` get auto-prompted on project trust.
+Every other agent. Both flags are required — without them the CLI prompts for
+scope, agent and skill, and an unattended run hangs.
+```
+npx -y skills add posteyai/skills -a <agent> -s postey -y
+```
+
+The agent id for Hermes is `hermes-agent`. `-a hermes` exits with an error.
+
+Teams using the committed `.claude/settings.json` get auto-prompted on project trust.
 
 ## Common Commands
 
@@ -94,7 +111,7 @@ node --test --test-name-pattern="<substring>" tests/postey-cli.test.js
 
 # Run CI checks manually
 node scripts/check-versions.js
-node scripts/check-platform-sync.js
+node scripts/check-doc-commands.js
 
 # Check MCP tool sync (source-parse mode — no live server needed)
 MCP_TOOLS_DIR=../postey-backend/app/core/mcp/tools node scripts/check-mcp-tool-sync.js
@@ -118,7 +135,7 @@ There is no build step, no lint config, and no formatter config in this repo.
 5. **Preserve JSON-only stdout** in the CLI — any new output path must go to stderr or be part of the JSON payload.
 6. **Do not remove `last-updated` from SKILL.md** — the field was removed; do not re-add it. Freshness tracking is via CHANGELOG and git history.
 7. **When adding an MCP tool** to `postey-backend/app/core/mcp/tools/*.py`: also add the tool to `SKILL.md mcp-tools.tools:` as a **bare tool name** (no `mcp__<server>__` prefix — the prefix is derived from whatever the user named the connection, so hardcoding one is wrong for everyone else). Run `check-mcp-tool-sync.js` to verify.
-8. **When adding a platform** to `platform_knowledge.py`: also update `SOCIAL_PLATFORMS` in `postey.js`, `platforms:` in `SKILL.md`, `MCP_PLATFORMS` in `tests/skill-parity.test.js`, and give it a section in `references/platform-archetypes.md`. Run `check-platform-sync.js` (needs the backend checkout) and `node --test` (does not).
+8. **When adding a platform** to `platform_knowledge.py`: also update `SOCIAL_PLATFORMS` in `postey.js`, `platforms:` in `SKILL.md`, `MCP_PLATFORMS` in `tests/skill-parity.test.js`, and give it a section in `references/platform-archetypes.md`. Run `refresh-capability-snapshot.js --check` (needs a live server) and `node --test` (does not).
 
 ## MCP Integration
 
@@ -141,7 +158,7 @@ CI enforces this via `check-mcp-tool-sync.js`.
 ### 2. Platform Knowledge Single Source
 `platform_knowledge.py` in the MCP server is the authoritative source for platform specs.
 `prompts.md` is a static snapshot for offline use — prefer the `postey://platform-limits`
-MCP resource in Claude Code sessions. `check-platform-sync.js` verifies JS ↔ SKILL.md ↔ `platform_knowledge.py`.
+MCP resource in Claude Code sessions. `refresh-capability-snapshot.js --check` verifies the snapshot against the live server.
 
 ### 3. Routing Contract
 `SKILL.md` frontmatter `routing:` block is the machine-readable version of `routing-guide.md`.

@@ -24,17 +24,33 @@ Nothing here is negotiated at runtime, so your agent never has to work out which
 
 ## Installation
 
+**The one instruction that covers every agent** is [`setup.md`](setup.md). Paste this
+into any agent and it will register the server, authenticate, install the skill and
+verify the connection:
+
+```
+Set up Postey by following instructions: https://raw.githubusercontent.com/posteyai/skills/main/setup.md
+```
+
+That is the same prompt the app hands you under **AI & Agents**. The steps below are
+the pieces it runs, for anyone doing it by hand.
+
 ### Claude Code (recommended)
+
+This path installs the skill and the MCP server together.
 
 **Step 1 — Register the marketplace** (one-time per user):
 ```
-/plugin marketplace add posteyai/skills
+claude plugin marketplace add posteyai/skills
 ```
 
 **Step 2 — Install the skill**:
 ```
-/plugin install postey@postey-skills
+claude plugin install postey@postey-skills
 ```
+
+Use the shell commands above rather than the `/plugin` slash commands. The slash form
+opens an interactive panel, so an agent cannot run it unattended.
 
 **Or for teams** — add this to your project's `.claude/settings.json` and team members get prompted automatically when they trust the folder:
 ```json
@@ -53,12 +69,21 @@ Nothing here is negotiated at runtime, so your agent never has to work out which
 **Cursor / Windsurf / generic agents (npx):**
 
 ```bash
-npx skills add posteyai/skills
+npx -y skills add posteyai/skills -a <agent> -s postey -y
 ```
+
+All three flags matter. `-a` and `-y` stop the CLI prompting for scope, agent and
+skill, which hangs an unattended run. `-s postey` stops it also installing this
+repo's skill template as a second skill called `skill-name`.
+`npx -y skills add posteyai/skills --list` prints the ids. Hermes Agent is
+`hermes-agent`, not `hermes`.
 
 **Manual:**
 
-Clone this repository and copy `skills/postey/` to your project's `.claude/skills/` or equivalent skills directory.
+Clone this repository and copy `skills/postey/` into the directory your agent reads.
+That is `.claude/skills/` for Claude Code and `.agents/skills/` for roughly eighteen
+others, including Cursor, Codex, Gemini CLI, Copilot and opencode. Claude Code does
+not read `.agents/skills/`.
 
 </details>
 
@@ -68,9 +93,18 @@ Whichever install method you use, connect the Postey MCP server at https://app.p
 
 ## Setup
 
-### 1. Get your API key
+### 1. Get a credential
 
-Copy an existing key or create a new one at https://app.postey.ai/?settings=api
+Most agents complete OAuth themselves, and then there is nothing to copy. Trigger
+your agent's MCP login for `postey`.
+
+For an agent that cannot open a browser, such as a CI job or a container, create an
+agent token at https://app.postey.ai/?settings=api. A token belongs to a connected
+agent, expires after 90 days, and dies when you revoke that agent. Pass it as
+`POSTEY_AUTH_TOKEN`.
+
+An API key still works and is set with `POSTEY_API_KEY`. It does not expire, so keep
+it in a secret manager.
 
 ### 2. Run setup
 

@@ -48,6 +48,13 @@ jobs:
       - name: Check setup links resolve
         run: node scripts/check-setup-links.mjs
 
+      # setup.md is executed by an agent, so a command that waits for a keystroke
+      # is a broken document, not a style nit. check-doc-commands.js cannot see
+      # this: it scans skills/ only, and matches postey.js commands only, so no
+      # pattern in it can match `npx` or `claude plugin`. Offline.
+      - name: Check setup doc is agent-executable
+        run: node scripts/check-setup-doc.mjs
+
       # S9.6 — enforcement. The responsibility contract is prose until a build
       # fails on it. Offline: reads the committed snapshot, so it runs on forks.
       - name: Check skill/MCP capability overlap
