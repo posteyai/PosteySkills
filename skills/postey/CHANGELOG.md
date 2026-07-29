@@ -4,9 +4,24 @@ All notable user-facing changes to the Postey skill and its CLI are documented h
 
 The format is based on Keep a Changelog.
 
-## [Unreleased]
+## [2.3.0]
 
 ### Added
+
+- **`references/mcp-workflows.md`** — the craft and workflow half of the MCP server's instruction
+  block, relocated here. The server was sending 22,457 characters on **every** request, most of it
+  sequencing and judgment: create/validate/tag/publish, partial draft updates, when
+  `convert_post_content` is the wrong tool, choosing between `url` / `base64` / `local_path` /
+  `file_manager` for media, the three video paths, tag reuse, and the fields to ask about rather
+  than guess (Instagram `post_type`, YouTube and Pinterest titles). It now loads on demand.
+
+  This is strict extension, not a transfer of responsibility — the server never should have
+  carried judgment. What stayed on the server is what instructions are for: rate limits,
+  permission levels, the response envelope, the post lifecycle and the resource-first rule. What
+  is in neither place is platform truth; limits and media specs live in `postey://platform-limits`
+  and `postey://platforms/{platform}/rules`, and are not copied into this repo.
+
+  Landed with the matching server-side change (mcp-ax S9.7).
 
 - **`scripts/check-capability-overlap.js`** — CI now fails when a CLI command reaches an effect MCP
   owns. Compares *capability* against `capability-snapshot.json`, not spelling: the two surfaces do

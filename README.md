@@ -1,7 +1,7 @@
 # Postey Skills
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.2.0-green.svg)]()
+[![Version](https://img.shields.io/badge/version-2.3.0-green.svg)]()
 [![Postey API](https://img.shields.io/badge/Postey-API-3B9AF8)](https://postey.ai/docs/api)
 
 AI agent skills for drafting, scheduling, and managing social media posts on every platform Postey connects.
