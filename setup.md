@@ -238,9 +238,12 @@ An agent token is the credential for a client that cannot open a browser. The to
 starts with `pat_`. The store holds only a digest of it. It expires after 90 days.
 Revoking the connected app also kills the token.
 
-Stop here and ask the user to create one at <https://app.postey.ai?settings=api>.
-This is the one pause a headless run is allowed. Creating the token needs a signed-in
-browser session, so you cannot do it yourself.
+A token is minted against a connected app, so the user must authorize once through a
+browser before any token exists. Check <https://app.postey.ai?settings=api> for a
+connected app first. Newer builds show this area as **AI & Agents**.
+
+Stop here and ask the user to create the token. This is the one pause a headless run
+is allowed. Minting needs a signed-in browser session, so you cannot do it yourself.
 
 Send it as a bearer token:
 
@@ -264,7 +267,8 @@ expire, because an expired token fails as `401` and looks like a broken setup.
 An API key starts with `mk_`. Prefer an agent token. A key never expires, and the
 database holds it in plain text.
 
-Create one at <https://app.postey.ai?settings=api>, then send it as a header:
+Create one at <https://app.postey.ai?settings=api>. Newer builds show this area as
+**AI & Agents**, under **Direct connection**. Send the key as a header:
 
 ```json
 { "headers": { "X-API-Key": "<the key>" } }
