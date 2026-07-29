@@ -154,6 +154,15 @@ silently. Use the row for your client.
 | Amp | `settings.json` | `amp.mcpServers` | `{"type": "streamableHttp", "url": "https://srvr.postey.ai/mcp"}` |
 | opencode | `opencode.json` | `mcp` | `{"type": "remote", "url": "https://srvr.postey.ai/mcp", "enabled": true}` |
 | Kiro, Junie, LM Studio | the client MCP settings file | `mcpServers` | `{"url": "https://srvr.postey.ai/mcp"}` |
+| Goose | `~/.config/goose/config.yaml` | `extensions` | `type: streamable_http` with `uri`, in YAML |
+| Zed | `settings.json` | `context_servers` | See the note below |
+
+Zed has no verified native remote HTTP entry. Bridge it instead, and treat this as
+unverified until Zed documents one:
+
+```
+npx -y add-mcp https://srvr.postey.ai/mcp -n postey -a zed -y
+```
 
 Four names carry a trap.
 
@@ -428,6 +437,13 @@ CLI, Windsurf, Zed, Amp and Claude Code.
 | Gemini CLI | `GEMINI.md` |
 | Windsurf | `.windsurf/rules/postey.md` |
 | Hermes Agent | `HERMES.md`. Hermes reads the first match of `HERMES.md`, `AGENTS.md`, then `CLAUDE.md` |
+| Codex CLI | `AGENTS.md` |
+| opencode | `AGENTS.md` |
+| Kiro | `.kiro/steering/postey.md` |
+| Cline | `.clinerules`. Cline does not read `AGENTS.md` |
+| Roo Code | `.roorules` |
+| Goose | `.goosehints` |
+| Claude Desktop | None. A hosted client reads no file from your disk. Skip this step |
 
 Keep it to the rules that the tool schemas do not already show:
 
