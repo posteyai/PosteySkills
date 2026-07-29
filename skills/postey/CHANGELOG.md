@@ -4,6 +4,37 @@ All notable user-facing changes to the Postey skill and its CLI are documented h
 
 The format is based on Keep a Changelog.
 
+## [2.2.0]
+
+### Added
+
+- **`capability-snapshot.json`** — the platform/tool/capability set, generated from
+  `postey://skill-manifest` by `scripts/refresh-capability-snapshot.js`. The skill, the CLI and CI
+  all derive from this one file. It carries the server's `capability` / `canonical` /
+  `superseded_by` data, so a client can prefer the canonical provider instead of parsing
+  `[FALLBACK ONLY — READ … INSTEAD]` out of a tool description.
+- **"Capability Comes From the Server, Not From This File"** in `SKILL.md` — teaches reading the
+  live manifest, and the canonical/superseded rule that settles routing on its own.
+- `tests/capability-discovery.test.js` — fails if a literal platform or tool list reappears
+  anywhere, if the description stops advertising a platform the server serves, or if the skill is
+  granted a tool that no longer exists.
+
+### Changed
+
+- **`platforms:` removed from `SKILL.md` frontmatter**, and the "Platform Names" and account-shape
+  tables no longer enumerate platforms. 2.1.0 closed the 7-vs-9 gap by adding two entries to the
+  frontmatter list; the body tables were never touched and still said seven, and every check stayed
+  green because they only compared frontmatter against the CLI. Four hand-maintained copies of one
+  fact could only ever prove they agreed with each other. There is now one generated copy.
+- `postey.js` builds `SOCIAL_PLATFORMS` from the snapshot instead of a literal, and only runs
+  `main()` when invoked as a CLI, so the resulting set is testable.
+
+### Removed
+
+- `scripts/check-platform-sync.js` — it compared two hand-maintained lists and **exited 0 with a
+  warning** when either was absent. Replaced in CI by a live snapshot-drift check that hard-fails
+  when configured.
+
 ## [2.1.0]
 
 ### Added
