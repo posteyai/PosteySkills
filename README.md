@@ -1,12 +1,26 @@
 # Postey Skills
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.3.0-green.svg)]()
+[![Version](https://img.shields.io/badge/version-2.4.0-green.svg)]()
 [![Postey API](https://img.shields.io/badge/Postey-API-3B9AF8)](https://postey.ai/docs/api)
 
-AI agent skills for drafting, scheduling, and managing social media posts across X, LinkedIn, Instagram, TikTok, YouTube, Threads, and Bluesky.
+AI agent skills for drafting, scheduling, and managing social media posts on every platform Postey connects.
 
 One install gives your agent four guided content flows: **Brand voice** (learn a brand's voice from a handle or website), **Video everywhere** (any video URL becomes a per-platform multi-draft), **Trends** (fresh niche content daily), and **Idea to posts** (one idea, every platform, scheduled). No plugin system? Any connected agent can self-install with the one-paste prompt in [`skills/postey/bootstrap-prompt.md`](skills/postey/bootstrap-prompt.md), which fetches [`skills/postey/pack.json`](skills/postey/pack.json).
+
+## The skill and the MCP server are layers, not alternatives
+
+The [Postey MCP server](https://app.postey.ai?settings=integrations) carries the capability. This skill is a **strict extension** of it: it adds only what the server cannot reach, and it never ships a second path to something the server already does. You are not choosing between them — connect the server, then install the skill on top of it.
+
+Which surface owns a capability is decided in advance, by one question (from the [contract](docs/skills-mcp-contract.md)):
+
+> *Does this require access to something only your machine has, or is it judgment rather than contract?*
+
+- **Yes → the skill.** Local files, video processing, chunked upload, local auth config, and the craft calls — brand voice, platform tone, when to thread.
+- **No → the MCP server.** Every state read, every mutation, permissions, and platform capability truth.
+- **Arguable → the MCP server**, because it is the one that can enforce permissions.
+
+Nothing here is negotiated at runtime, so your agent never has to work out which path to take. The full ownership table is in [`docs/skills-mcp-contract.md`](docs/skills-mcp-contract.md); the per-task routing the agent follows is in [`skills/postey/routing-guide.md`](skills/postey/routing-guide.md).
 
 ## Installation
 
@@ -46,11 +60,11 @@ npx skills add posteyai/skills
 
 Clone this repository and copy `skills/postey/` to your project's `.claude/skills/` or equivalent skills directory.
 
-**Alternative — Postey MCP Server** (Claude Code):
-
-For native MCP tool access without a CLI, connect the Postey MCP server directly at https://app.postey.ai?settings=integrations — no skill file needed.
-
 </details>
+
+### Connect the MCP server
+
+Whichever install method you use, connect the Postey MCP server at https://app.postey.ai?settings=integrations. It is the layer underneath — reads, writes and permissions all go through it, so the skill's flows are incomplete without it.
 
 ## Setup
 
@@ -80,17 +94,12 @@ Ask your AI agent things like:
 - "Cross-post this to Instagram, TikTok, and YouTube"
 - "Upload this video and create captions for Instagram"
 
-## Supported Platforms
+## Supported platforms
 
-| Platform | Notes |
-|----------|-------|
-| X (Twitter) | 280 chars |
-| LinkedIn | 3,000 chars |
-| Instagram | Reels + feed posts |
-| TikTok | |
-| YouTube | Title required |
-| Threads | 500 chars |
-| Bluesky | 300 chars |
+Platform capability truth — which platforms exist, their character limits and their rules — belongs to the MCP server, and this repo reads it rather than restating it. A hand-kept copy here would go stale the day the server adds a platform, which is exactly what happened before.
+
+- Current platform set, tools and resources: [`skills/postey/capability-snapshot.json`](skills/postey/capability-snapshot.json), generated from the server's `postey://skill-manifest` and checked against a live server in CI
+- Per-platform limits at runtime: the `postey://platform-limits` and `postey://platforms/{platform}/rules` resources
 
 ## Troubleshooting
 
