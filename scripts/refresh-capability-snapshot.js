@@ -63,10 +63,14 @@ async function readManifest() {
   if (!res.ok) throw new Error(`server returned ${res.status} ${res.statusText}`);
 
   const body = await res.text();
-  // The transport may answer as SSE even for a single response.
-  const payload = body.startsWith('data:')
-    ? JSON.parse(body.split('\n').find((l) => l.startsWith('data:')).slice(5).trim())
-    : JSON.parse(body);
+  // The transport answers as SSE even for a single response, and the stream opens
+  // with an `event:` line — so the body does NOT start with `data:`. Scan for the
+  // data line wherever it is. The original check tested `body.startsWith('data:')`
+  // and fell through to JSON.parse on `event: message...`; it was never caught
+  // because CI soft-skips this script whenever MCP_SERVER_URL is unset, which is
+  // every run. A path that only executes outside CI is a path CI does not test.
+  const dataLine = body.split('\n').find((l) => l.startsWith('data:'));
+  const payload = JSON.parse(dataLine ? dataLine.slice(5).trim() : body);
 
   if (payload.error) throw new Error(`manifest read failed: ${payload.error.message}`);
   return JSON.parse(payload.result.contents[0].text);

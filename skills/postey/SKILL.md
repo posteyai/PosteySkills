@@ -1,6 +1,6 @@
 ---
 name: postey
-version: 2.4.0
+version: 2.5.0
 # No `platforms:` list. The platform set lives on the server and is mirrored into
 # capability-snapshot.json by scripts/refresh-capability-snapshot.js. A copy here
 # would be a fourth hand-maintained list agreeing with the other three and with
@@ -42,6 +42,7 @@ mcp-tools:
     - upload_media
     - reply_to_platform_comment
     - connect_account
+    - configure_auto_dm
     # Read operations (fallback tools when resources unavailable)
     - get_accounts
     - get_teams
