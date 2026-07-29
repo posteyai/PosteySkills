@@ -30,6 +30,20 @@ const POSTEY_API_KEY = process.env.POSTEY_API_KEY;
 const MCP_PROMPTS_FILE = process.env.MCP_PROMPTS_FILE ||
   (MCP_TOOLS_DIR ? path.join(path.dirname(MCP_TOOLS_DIR), 'prompts.py') : null);
 
+/**
+ * Tools deliberately NOT granted in SKILL.md `mcp-tools.tools:`.
+ *
+ * A tool absent from that key is a tool the skill cannot call, so silence is not
+ * a safe default — `configure_auto_dm` was missing for an unknown length of time
+ * and this script reported it as a warning and exited 0. Omission must now be
+ * declared with a reason, exactly as S9.6 does for capability overlap.
+ */
+const INTENTIONALLY_UNGRANTED = {
+  file_manager: 'Hosted-server upload widget — the skill uploads from disk via the CLI.',
+  list_files: 'Hosted-server session file list; no meaning for a local CLI run.',
+  read_file: 'Hosted-server session file metadata; no meaning for a local CLI run.',
+};
+
 let errors = 0;
 let warnings = 0;
 
@@ -145,46 +159,38 @@ function httpGet(url, headers) {
 }
 
 async function fetchManifestFromServer(serverUrl, apiKey) {
-  // The skill manifest is an MCP resource; the easiest way to read it without
-  // a full MCP client is via the MCP HTTP SSE endpoint or a minimal tools/read
-  // call. We POST to /mcp/resources/read (FastMCP HTTP transport).
-  const url = `${serverUrl.replace(/\/$/, '')}/mcp/resources/read`;
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-  };
-  const body = JSON.stringify({ uri: 'postey://skill-manifest' });
-
-  return new Promise((resolve, reject) => {
-    const lib = url.startsWith('https') ? https : http;
-    const parsedUrl = new URL(url);
-    const opts = {
-      hostname: parsedUrl.hostname,
-      port: parsedUrl.port,
-      path: parsedUrl.pathname + parsedUrl.search,
-      method: 'POST',
-      headers: { ...headers, 'Content-Length': Buffer.byteLength(body) },
-    };
-    const req = lib.request(opts, res => {
-      const chunks = [];
-      res.on('data', c => chunks.push(c));
-      res.on('end', () => {
-        const raw = Buffer.concat(chunks).toString();
-        if (res.statusCode !== 200) {
-          reject(new Error(`HTTP ${res.statusCode}: ${raw.slice(0, 200)}`));
-        } else {
-          try {
-            resolve(JSON.parse(raw));
-          } catch {
-            reject(new Error(`Invalid JSON from server: ${raw.slice(0, 200)}`));
-          }
-        }
-      });
-    });
-    req.on('error', reject);
-    req.write(body);
-    req.end();
+  // Read the manifest the way the server actually serves it: a JSON-RPC
+  // `resources/read` POSTed to /mcp, answered as SSE.
+  //
+  // The previous implementation POSTed a bespoke body to `/mcp/resources/read`,
+  // an endpoint that does not exist — it returned 404 against a live server, so
+  // runtime mode had never once worked. It went unnoticed because CI only ever
+  // runs source-parse mode, which soft-skips without a sibling backend checkout.
+  // Between the two, this script has been incapable of checking anything in CI.
+  const res = await fetch(new URL('/mcp', serverUrl), {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      accept: 'application/json, text/event-stream',
+      ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),
+    },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'resources/read',
+      params: { uri: 'postey://skill-manifest' },
+    }),
   });
+
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+  const body = await res.text();
+  // SSE opens with an `event:` line, so the body does not start with `data:`.
+  const dataLine = body.split('\n').find((l) => l.startsWith('data:'));
+  const payload = JSON.parse(dataLine ? dataLine.slice(5).trim() : body);
+  if (payload.error) throw new Error(`manifest read failed: ${payload.error.message}`);
+
+  return JSON.parse(payload.result.contents[0].text);
 }
 
 // --- Main ---
@@ -258,7 +264,15 @@ async function fetchManifestFromServer(serverUrl, apiKey) {
   // Server has a tool not listed in SKILL.md → warning (intentional omissions allowed)
   for (const name of mcpRawNames) {
     if (!skillRawNames.has(name)) {
-      warn(`'${name}' registered in MCP server but missing from SKILL.md mcp-tools.tools:`);
+      // A missing grant means the skill CANNOT CALL the tool. That is an error,
+      // not an observation — unless the omission is declared on purpose.
+      if (INTENTIONALLY_UNGRANTED[name]) {
+        console.log(`  · '${name}' ungranted on purpose: ${INTENTIONALLY_UNGRANTED[name]}`);
+      } else {
+        fail(`'${name}' is registered on the MCP server but missing from SKILL.md ` +
+             `mcp-tools.tools: — the skill cannot call it. Grant it, or declare the ` +
+             `omission in INTENTIONALLY_UNGRANTED with a reason.`);
+      }
     }
   }
 

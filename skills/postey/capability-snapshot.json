@@ -47,6 +47,9 @@
   "resources": [
     "postey://accounts",
     "postey://accounts/{account_id}",
+    "postey://accounts/{account_id}/analytics",
+    "postey://accounts/{account_id}/analytics/posts",
+    "postey://accounts/{account_id}/automations",
     "postey://accounts/{account_id}/tags",
     "postey://notifications",
     "postey://platform-limits",
@@ -55,6 +58,7 @@
     "postey://posts/{post_id}/comments/{platform}",
     "postey://posts/{post_id}/content/{platform}",
     "postey://posts/{post_id}/publish-status",
+    "postey://setup",
     "postey://skill-manifest",
     "postey://teams",
     "postey://teams/{team_id}/members"
@@ -73,6 +77,9 @@
     "account.list": "postey://accounts",
     "account.read": "postey://accounts/{account_id}",
     "account.tags": "postey://accounts/{account_id}/tags",
+    "analytics.overview": "postey://accounts/{account_id}/analytics",
+    "analytics.top_posts": "postey://accounts/{account_id}/analytics/posts",
+    "automation.list": "postey://accounts/{account_id}/automations",
     "comment.internal.list": "postey://posts/{post_id}/comments/{platform}",
     "comment.platform.list": "get_platform_comments",
     "comment.platform.reply": "reply_to_platform_comment",
@@ -91,6 +98,7 @@
     "post.list": "get_posts",
     "post.publish_status": "postey://posts/{post_id}/publish-status",
     "post.read": "postey://posts/{post_id}/content/{platform}",
+    "post.resolve": "get_post_by_share_link",
     "post.review": "review_post_content_and_add_comments_for_virality",
     "post.tag.add": "add_tag",
     "post.tag.remove": "remove_tag",
@@ -103,6 +111,7 @@
     "schedule.read": "get_schedule",
     "schedule.update": "update_schedule",
     "server.manifest": "postey://skill-manifest",
+    "setup.read": "postey://setup",
     "team.info": "get_team_info",
     "team.list": "postey://teams",
     "team.read": "postey://teams/{team_id}/members"
@@ -110,7 +119,6 @@
   "superseded_by": {
     "get_accounts": "postey://accounts",
     "get_internal_comments": "postey://posts/{post_id}/comments/{platform}",
-    "get_post_by_share_link": "postey://posts/{post_id}/content/{platform}",
     "get_specific_post_content": "postey://posts/{post_id}/content/{platform}",
     "get_teams": "postey://teams"
   }
