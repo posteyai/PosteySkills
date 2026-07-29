@@ -4,6 +4,23 @@ All notable user-facing changes to the Postey skill and its CLI are documented h
 
 The format is based on Keep a Changelog.
 
+## [Unreleased]
+
+### Added
+
+- **`scripts/check-capability-overlap.js`** — CI now fails when a CLI command reaches an effect MCP
+  owns. Compares *capability* against `capability-snapshot.json`, not spelling: the two surfaces do
+  not share a naming convention (`media:upload` vs `upload_media`), so a literal name intersection is
+  empty today and would stay empty even if someone re-added a `posts:create` duplicating
+  `create_post` — the exact violation (V-1) this repo already had to fix once.
+- Group subcommands (`video transcribe`) are expanded and checked, not just the group name.
+- Legitimate layering is declared in `SKILL_OWNED` with the contract row that grants it, and both
+  halves are self-checking: an exemption for a deleted command, or one naming a capability the server
+  dropped, fails the build rather than lingering as silent cover.
+- `tests/capability-overlap.test.js` — 7 tests, five of which introduce a real violation into a
+  scratch copy and assert a **non-zero exit**. A check that only ever passes is decoration, and this
+  repo has shipped two of those already.
+
 ## [2.2.0]
 
 ### Added
