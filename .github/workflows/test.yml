@@ -42,6 +42,11 @@ jobs:
         env:
           LEAK_EXTRA_TERMS: ${{ secrets.LEAK_EXTRA_TERMS }}
 
+      # S9.6 — enforcement. The responsibility contract is prose until a build
+      # fails on it. Offline: reads the committed snapshot, so it runs on forks.
+      - name: Check skill/MCP capability overlap
+        run: node scripts/check-capability-overlap.js
+
       # Replaces check-platform-sync.js (S9.5). That script compared SKILL.md's
       # `platforms:` against postey.js's SOCIAL_PLATFORMS — two hand-maintained
       # copies agreeing with each other, and it soft-skipped to green when either
