@@ -4,6 +4,27 @@ All notable user-facing changes to the Postey skill and its CLI are documented h
 
 The format is based on Keep a Changelog.
 
+## [Unreleased]
+
+### Fixed
+
+- **Routing no longer sends writes to a CLI that has no write commands.** `routing-guide.md` (steps
+  3 and 6, and the environment table) and `SKILL.md` both told CI/CD, shell scripts, Cursor, Windsurf
+  and SDK agents to create / update / publish / schedule via the CLI. Those commands were removed —
+  the guidance pointed at a path that does not exist. Writes are MCP's in **every** environment; where
+  no MCP server is reachable the honest answer is that the write cannot be performed, not that the CLI
+  will do it. `video post` / `video transcribe` are now documented for what they actually do: upload,
+  and hand back the fields for `create_post`.
+
+### Added
+
+- **`scripts/check-doc-commands.js`** — CI now fails when shipped guidance names a CLI command that is
+  not in the COMMANDS table, or routes an MCP-owned operation to the CLI in `SKILL.md`'s `routing:`
+  map. It reuses the COMMANDS parser from `check-capability-overlap.js` rather than growing a second
+  copy. `tests/doc-commands.test.js` — 12 tests, ten of which inject a real violation and assert a
+  non-zero exit; the check also fails on the pre-fix tree, which is what proves it would have caught
+  this.
+
 ## [2.3.0]
 
 ### Added
