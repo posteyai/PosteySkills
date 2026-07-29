@@ -13,7 +13,7 @@
       "name": "postey",
       "source": "./skills/postey",
       "description": "Draft, schedule, and manage social media posts across X, LinkedIn, Instagram, TikTok, YouTube, Threads, and Bluesky",
-      "version": "2.2.0",
+      "version": "2.3.0",
       "author": {
         "name": "Postey",
         "url": "https://postey.ai"

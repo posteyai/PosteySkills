@@ -215,11 +215,21 @@ async function registerOAuthClient(redirectUri) {
 }
 
 // Returns the Authorization header value for the current session.
-// Priority: env API key → OAuth token (auto-refresh) → config API key.
+// Priority: env API key → env bearer token → OAuth token (auto-refresh) → config API key.
 async function getAuthHeader() {
   // 1. Env override (API key) — skip OAuth entirely
   if (process.env.POSTEY_API_KEY) {
     return { header: "X-API-Key", value: process.env.POSTEY_API_KEY };
+  }
+
+  // 1b. Env override (bearer). The MCP server sets this when it shells out to
+  // this CLI on behalf of a caller who authenticated with OAuth rather than an
+  // mk_ key (backend S9.9 / SK-5): local_path uploads and transcribe_video used
+  // to demand an API key, which locked out every OAuth client. Ranked above the
+  // config session on purpose — an explicit caller identity must win over
+  // whoever happens to be logged in on this machine.
+  if (process.env.POSTEY_AUTH_TOKEN) {
+    return { header: "Authorization", value: `Bearer ${process.env.POSTEY_AUTH_TOKEN}` };
   }
 
   // 2. OAuth tokens in global config
@@ -1477,6 +1487,9 @@ async function cmdConfigShow() {
   if (process.env.POSTEY_API_KEY) {
     authMethod  = "api_key (env)";
     authPreview = process.env.POSTEY_API_KEY.slice(0, 8) + "...";
+  } else if (process.env.POSTEY_AUTH_TOKEN) {
+    authMethod  = "bearer (env)";
+    authPreview = decodeJwtPayload(process.env.POSTEY_AUTH_TOKEN)?.sub || "unknown";
   } else if (oauth?.access_token) {
     const payload   = decodeJwtPayload(oauth.access_token);
     const expiresAt = payload?.exp ?? oauth.expires_at ?? 0;
@@ -1601,8 +1614,11 @@ EXAMPLES:
 
 CONFIG PRIORITY:
   1. POSTEY_API_KEY environment variable (highest)
-  2. ./.postey/config.json (project-local)
-  3. ~/.config/postey/config.json (user-global, lowest)
+  2. POSTEY_AUTH_TOKEN environment variable (bearer; set by the MCP server
+     when it runs this CLI for an OAuth-authenticated caller)
+  3. OAuth session from auth:login
+  4. ./.postey/config.json (project-local)
+  5. ~/.config/postey/config.json (user-global, lowest)
 
 GET YOUR API KEY:
   ${API_KEY_URL}

@@ -1,6 +1,6 @@
 ---
 name: postey
-version: 2.2.0
+version: 2.3.0
 # No `platforms:` list. The platform set lives on the server and is mirrored into
 # capability-snapshot.json by scripts/refresh-capability-snapshot.js. A copy here
 # would be a fourth hand-maintained list agreeing with the other three and with
@@ -177,8 +177,11 @@ Two execution paths exist: the CLI (`postey.js`) and MCP tools/resources. Pick o
 
 **Config priority** (highest to lowest):
 1. `POSTEY_API_KEY` environment variable
-2. `./.postey/config.json` (project-local)
-3. `~/.config/postey/config.json` (user-global)
+2. `POSTEY_AUTH_TOKEN` environment variable — a bearer token the MCP server sets when it runs this
+   CLI for an OAuth-authenticated caller. Not something you set by hand.
+3. OAuth session from `postey.js auth:login`
+4. `./.postey/config.json` (project-local)
+5. `~/.config/postey/config.json` (user-global)
 
 ### When "API key not found" appears
 
