@@ -1,16 +1,10 @@
 ---
 name: postey
-version: 2.1.0
-platforms:
-  - X
-  - LINKEDIN
-  - INSTAGRAM
-  - TIKTOK
-  - YOUTUBE
-  - THREADS
-  - BLUESKY
-  - FACEBOOK
-  - PINTEREST
+version: 2.2.0
+# No `platforms:` list. The platform set lives on the server and is mirrored into
+# capability-snapshot.json by scripts/refresh-capability-snapshot.js. A copy here
+# would be a fourth hand-maintained list agreeing with the other three and with
+# nothing that ships (S9.5).
 description: >
   Create, schedule, and manage social media posts via Postey across X, LinkedIn,
   Instagram, TikTok, YouTube, Threads, Bluesky, Facebook, and Pinterest. Handles video/reel workflows:
@@ -93,6 +87,28 @@ routing:
 # Postey Skill
 
 Create, schedule, and publish social media content across multiple platforms using [Postey](https://postey.ai).
+
+## Capability Comes From the Server, Not From This File
+
+`postey://skill-manifest` describes the live surface — every tool, resource, prompt and platform
+the server actually serves. **When what you need is not obvious, read it rather than guessing from
+this document.** Each tool entry carries three fields that settle routing on their own:
+
+| Field | Meaning |
+|-------|---------|
+| `capability` | What the tool is *for*, as `noun.verb` (`post.create`, `account.list`) |
+| `canonical` | `true` = the intended way to reach that capability |
+| `superseded_by` | On a non-canonical tool, the URI or tool you should call instead |
+
+**The rule: reach a capability through its canonical provider.** If `superseded_by` is set, follow
+it — that field is why you do not need to parse `[FALLBACK ONLY — READ … INSTEAD]` out of a
+description. Where a resource and a tool serve one capability, the resource is canonical.
+
+The one exception is a client that cannot read MCP resources. Then the superseded tool is correct
+precisely because the canonical provider is unreachable — that is what the fallbacks are for.
+
+`capability-snapshot.json` in this directory is the same data, captured offline for the CLI and CI.
+Read the live resource when you can; the snapshot is a mirror, and a mirror can be one deploy stale.
 
 ## Tool Routing — Read Before Any Tool Call
 
@@ -184,21 +200,17 @@ Before any write operation, Claude **must** know which account to target. Follow
 |-------|------|-------|
 | `account_id` | int | Required by all write tools |
 | `account_name` | str \| null | Human-readable label |
-| `twitter` | object \| null | Non-null = X is connected |
-| `linkedin` | object \| null | Non-null = LinkedIn is connected |
-| `instagram` | object \| null | Non-null = Instagram is connected |
-| `threads` | object \| null | Non-null = Threads is connected |
-| `tiktok` | object \| null | Non-null = TikTok is connected |
-| `bluesky` | object \| null | Non-null = Bluesky is connected |
-| `youtube` | object \| null | Non-null = YouTube is connected |
 | `teams` | list[int] \| null | Team IDs this account belongs to |
+| *one key per platform* | object \| null | Non-null = that platform is connected |
 
-**Deriving a display handle** (for showing to the user):
-- X: `account.twitter.username`
-- Instagram / Threads: `account.instagram.username` / `account.threads.username`
-- TikTok: `account.tiktok.username`
-- LinkedIn: `account.linkedin.vanity_name`
-- Bluesky: `account.bluesky.handle`
+The per-platform keys are lowercase slugs (`twitter` for X; otherwise the platform's own name).
+**Read them from the payload — do not assume the set.** This table listed seven and the server
+served nine, so two connected platforms were invisible to the skill.
+
+**Deriving a display handle** (for showing to the user): each connected platform object carries
+its own identifier field — usually `username`, sometimes a platform-specific one (`vanity_name`
+on LinkedIn, `handle` on Bluesky). Read the object and use what is there rather than assuming a
+field name; a missing key means that platform is not connected, not that the handle is blank.
 
 **Hard rules:**
 - ✗ Never call `get_accounts` when your client can read MCP resources —
@@ -260,20 +272,18 @@ mcp update_post post_id=1234 platform=X contents=[{text: "<twitter_caption>"}]
 
 ## Platform Names
 
-Use these exact values for `--platform`:
+`--platform` takes the server's uppercase slug. **Do not work from a list in this file** — this
+table used to exist and silently drifted to seven entries while the server served nine, so the
+skill told users Facebook and Pinterest did not exist.
 
-| Platform | Notes |
-|----------|-------|
-| `X` | 280-char limit |
-| `LINKEDIN` | 3,000-char limit |
-| `INSTAGRAM` | Reels and feed posts |
-| `TIKTOK` | |
-| `YOUTUBE` | Requires `--youtube-title` |
-| `THREADS` | 500-char limit |
-| `BLUESKY` | 300-char limit |
+Resolve the set instead:
 
-Check connected platforms first via `postey://accounts` (or `get_accounts`) — a platform only
-works if that account is connected in Postey.
+- **Which platforms exist** — `postey://platform-limits`, or `capability-snapshot.json` in this
+  skill directory (generated from the server; the CLI reads the same file).
+- **Per-platform rules** — `postey://platforms/{platform}/rules` for character limits, counting
+  rules, threading and banned words. Never hardcode a limit; they change per platform.
+- **Which platforms this account can actually post to** — read `postey://accounts` and use the
+  connection status. A platform existing on the server does not mean it is connected here.
 
 ## Direct Video Posting
 

@@ -47,19 +47,14 @@ const OAUTH_SCOPES =
 const OAUTH_CALLBACK_PORT = parseInt(process.env.POSTEY_CLI_CALLBACK_PORT || "9150", 10);
 const OAUTH_TIMEOUT_MS = 120_000; // 2 min for user to complete browser flow
 
-// Must match SKILL.md `platforms:` and the MCP server's PLATFORM_KNOWLEDGE.
-// tests/skill-parity.test.js fails on divergence without needing a backend checkout.
-const SOCIAL_PLATFORMS = new Set([
-  "X",
-  "LINKEDIN",
-  "TIKTOK",
-  "INSTAGRAM",
-  "YOUTUBE",
-  "THREADS",
-  "BLUESKY",
-  "FACEBOOK",
-  "PINTEREST",
-]);
+// Derived from capability-snapshot.json, which scripts/refresh-capability-snapshot.js
+// mirrors out of postey://skill-manifest. This was a literal that had to "match
+// SKILL.md `platforms:`" by hand — three copies of one fact, which is how the skill
+// came to advertise seven platforms against a server serving nine (S9.5).
+// Read at require-time from disk, so the CLI still validates args with no network.
+const SOCIAL_PLATFORMS = new Set(
+  require("../capability-snapshot.json").platforms,
+);
 
 const POST_TYPE_MAP = { X: 0, LINKEDIN: 2, THREADS: 9, FACEBOOK: 4, INSTAGRAM: 5, YOUTUBE: 10, TIKTOK: 7, BLUESKY: 8 };
 
@@ -1683,4 +1678,10 @@ async function main() {
   }
 }
 
-main();
+// Only run the CLI when invoked as one. Requiring this file (tests/capability-discovery
+// .test.js) must not execute a command.
+if (require.main === module) {
+  main();
+}
+
+module.exports = { SOCIAL_PLATFORMS };

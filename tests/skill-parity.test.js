@@ -6,66 +6,14 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..', 'skills', 'postey');
 
-// The nine platforms the MCP server actually supports (Support_Mcp_Socials_Enum
-// / PLATFORM_KNOWLEDGE in MarqetiveBackendV2). `check-platform-sync.js` compares
-// against that file directly, but it SKIPS when the backend checkout is absent —
-// which is the normal case in CI, and is why the skill drifted to seven
-// unnoticed. These tests need no sibling checkout, so divergence always fails.
-const MCP_PLATFORMS = [
-  'X',
-  'LINKEDIN',
-  'INSTAGRAM',
-  'TIKTOK',
-  'YOUTUBE',
-  'THREADS',
-  'BLUESKY',
-  'FACEBOOK',
-  'PINTEREST'
-];
-
-function skillMd() {
-  return fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf8');
-}
-
-function frontmatterPlatforms(md) {
-  const block = md.match(/^platforms:\s*\n((?:\s+-\s+\S+\n?)+)/m);
-  assert.ok(block, 'SKILL.md must declare a platforms: list');
-  return block[1]
-    .split('\n')
-    .map((l) => l.replace(/^\s*-\s*/, '').trim())
-    .filter(Boolean);
-}
-
-test('SKILL.md declares every platform the MCP server supports', () => {
-  const declared = frontmatterPlatforms(skillMd());
-  const missing = MCP_PLATFORMS.filter((p) => !declared.includes(p));
-  assert.deepStrictEqual(
-    missing,
-    [],
-    `platforms: is missing ${missing.join(', ')} — the skill would tell users these do not exist`
-  );
-});
-
-test('SKILL.md declares no platform the MCP server does not support', () => {
-  const declared = frontmatterPlatforms(skillMd());
-  const extra = declared.filter((p) => !MCP_PLATFORMS.includes(p));
-  assert.deepStrictEqual(extra, [], `platforms: declares unsupported ${extra.join(', ')}`);
-});
-
-test('postey.js SOCIAL_PLATFORMS matches the declared platforms', () => {
-  const js = fs.readFileSync(path.join(ROOT, 'scripts', 'postey.js'), 'utf8');
-  const match = js.match(/SOCIAL_PLATFORMS\s*=\s*new Set\(\[([^\]]+)\]\)/);
-  assert.ok(match, 'postey.js must define SOCIAL_PLATFORMS');
-  const inJs = match[1]
-    .split(',')
-    .map((s) => s.trim().replace(/^["']|["']$/g, ''))
-    .filter(Boolean);
-  assert.deepStrictEqual(
-    [...inJs].sort(),
-    [...MCP_PLATFORMS].sort(),
-    'the CLI would reject a platform the skill advertises (or vice versa)'
-  );
-});
+// Platform parity moved to tests/capability-discovery.test.js (S9.5). It used to
+// live here as MCP_PLATFORMS — a hardcoded nine-entry array, which made this file
+// the *fourth* hand-maintained copy of the server's platform set. Copies can only
+// prove they agree with each other; that is how SKILL.md's body tables drifted to
+// seven while every check here stayed green. The set now derives from
+// capability-snapshot.json, generated out of postey://skill-manifest.
+//
+// What remains here is the namespace rule (V-5), which has no discovery source.
 
 // V-5. MCP tool names are derived from whatever the USER named the server, so a
 // hardcoded connector slug is wrong for everyone who named it differently. The

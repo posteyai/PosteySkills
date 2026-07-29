@@ -42,8 +42,16 @@ jobs:
         env:
           LEAK_EXTRA_TERMS: ${{ secrets.LEAK_EXTRA_TERMS }}
 
-      - name: Check platform sync
-        run: node scripts/check-platform-sync.js
+      # Replaces check-platform-sync.js (S9.5). That script compared SKILL.md's
+      # `platforms:` against postey.js's SOCIAL_PLATFORMS — two hand-maintained
+      # copies agreeing with each other, and it soft-skipped to green when either
+      # was absent. Both now derive from capability-snapshot.json; the offline
+      # tests hold the repo consistent, this step holds it against the server.
+      - name: Check capability snapshot is current
+        run: node scripts/refresh-capability-snapshot.js --check
+        env:
+          MCP_SERVER_URL: ${{ secrets.MCP_STAGING_URL }}
+          POSTEY_API_KEY: ${{ secrets.MCP_STAGING_API_KEY }}
 
       # Source-parse mode soft-skips here (no sibling backend checkout in CI).
       # Setting the MCP_STAGING_URL + MCP_STAGING_API_KEY secrets switches on
