@@ -72,6 +72,29 @@ const RULES = [...INTERACTIVE, ...PROXIED];
 
 const FENCE = /^\s*```/;
 
+/**
+ * The load section holds shell actions by definition. A slash command there is a
+ * chat command, and an agent that runs one gets `exit 127` — observed with
+ * `/reload-mcp`. Scoping to the section keeps Step 3's legal `/mcp` mention.
+ */
+function chatCommandInLoadSection(markdown) {
+	const problems = [];
+	let inSection = false;
+	markdown.split('\n').forEach((line, i) => {
+		if (/^###\s/.test(line)) inSection = /^###\s+Load the server\b/.test(line);
+		if (!inSection) return;
+		if (/`\/[a-z][a-z0-9-]*`/.test(line)) {
+			problems.push({
+				rule: 'chat-command-in-load-section',
+				line: i + 1,
+				why: 'a slash command is a chat command, not a shell command',
+				text: line.trim()
+			});
+		}
+	});
+	return problems;
+}
+
 function commandLines(markdown) {
 	const out = [];
 	let inFence = false;
@@ -125,6 +148,8 @@ export function checkSetupDoc(markdown) {
 			}
 		}
 	}
+
+	problems.push(...chatCommandInLoadSection(markdown));
 
 	const agents = agentsNamedInStep0(markdown);
 	const bySection = sections(markdown);

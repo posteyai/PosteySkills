@@ -50,7 +50,7 @@ Reporting success without the steps that do apply is not.
 | B, web | 1, 2B, 3, 4, 6, 7 | OAuth through the connector | No. See Step 5 |
 | C, headless | 1 to 7 | Agent token | Yes, with `-y` |
 
-Three rules bind every track.
+Four rules bind every track.
 
 1. Never block. If a command waits for a keystroke, you passed the wrong flags. Fix
    the flags. Do not wait.
@@ -58,6 +58,8 @@ Three rules bind every track.
 3. Never proxy. Register the address `https://srvr.postey.ai/mcp` in your own client's
    remote-server configuration. Never wrap it in a local process, and never route it
    through another agent. Step 2 says what that rules out.
+4. Never fake. If the Postey tools are absent from this session, stop and say so. A local file,
+   another agent and the REST API are all evidence about something else.
 
 Track C has one rule of its own. Stop once, at Step 3, to ask the user for an agent
 token. No other step may pause. A headless run cannot complete OAuth, and no flag
@@ -266,9 +268,16 @@ Registering a server does not load it into a running session. Reload before Step
 
 | Agent | Action |
 |---|---|
-| Hermes Agent | Run `/reload-mcp` |
+| Hermes Agent | None. It reloads when the config changes. The tools arrive in your next turn |
 | Claude Code | Restart the session |
 | Everything else | Restart the agent |
+
+If your client loads MCP at a turn boundary, Step 2 ends your turn. Tell the user that
+registration is done, and that you continue at Step 4 when they reply. Do not run Step 4 in the
+same turn. The tools are not there yet, and no command brings them forward.
+
+This is measured, not assumed. On Hermes, `hermes config set` returns success, and a tool search
+in that same turn still finds nothing. The server appears in the next turn.
 
 **Verify:** run your agent's MCP list command. In Claude Code that is
 `claude mcp list`. Confirm that `postey` appears. A new server that reports

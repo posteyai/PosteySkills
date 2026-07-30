@@ -125,4 +125,27 @@ describe('check-setup-doc', () => {
 		const doc = validDoc({ body: 'Never register Postey through mcp-remote or supergateway.' });
 		assert.deepEqual(checkSetupDoc(doc), []);
 	});
+
+	test('catches a chat command in the load section, which no shell can run', () => {
+		// Verified: an agent ran `/reload-mcp` as a shell command and got exit 127.
+		const doc = validDoc({
+			body: '### Load the server\n\n| Agent | Action |\n|---|---|\n| Hermes Agent | Run `/reload-mcp` |'
+		});
+		assert.ok(rules(checkSetupDoc(doc)).includes('chat-command-in-load-section'));
+	});
+
+	test('accepts a load section that describes an automatic reload', () => {
+		const doc = validDoc({
+			body: '### Load the server\n\n| Agent | Action |\n|---|---|\n| Hermes Agent | None. It reloads on config change |'
+		});
+		assert.deepEqual(checkSetupDoc(doc), []);
+	});
+
+	test('leaves a slash command alone outside the load section', () => {
+		// Step 3 legitimately names Claude Code's `/mcp` panel.
+		const doc = validDoc({
+			body: '### Authenticate\n\n| Agent | Command |\n|---|---|\n| Claude Code | the `/mcp` command |'
+		});
+		assert.deepEqual(checkSetupDoc(doc), []);
+	});
 });
