@@ -128,6 +128,20 @@ describe('check-setup-doc', () => {
 		assert.deepEqual(checkSetupDoc(doc), []);
 	});
 
+	test('catches a nested agent invocation used as a tool call', () => {
+		// One run tried six of these. The nested run has no terminal, so it hung
+		// to exit 124, and a tool call there proves nothing about this session.
+		const doc = validDoc({ body: '```\necho "list my accounts" | hermes chat --cli\n```' });
+		assert.ok(rules(checkSetupDoc(doc)).includes('agent-self-invocation'));
+	});
+
+	test('catches driving a second client headlessly', () => {
+		const doc = validDoc({
+			body: '| Agent | Command |\n|---|---|\n| X | `claude -p "read postey://setup"` |'
+		});
+		assert.ok(rules(checkSetupDoc(doc)).includes('agent-self-invocation'));
+	});
+
 	test('catches hermes mcp add, which cannot write skip_preflight', () => {
 		// Verified against `hermes mcp add --help` on v0.19.0: the options are
 		// --url, --command, --args, --auth, --preset, --connect-timeout, --env.

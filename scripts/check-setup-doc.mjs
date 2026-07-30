@@ -60,6 +60,18 @@ const PROXIED = [
 		why: 'wraps the remote server in a local process; register the address natively'
 	},
 	{
+		name: 'agent-self-invocation',
+		// A nested agent is a conduit even when it is the same agent. The nested
+		// run has no terminal, so it hangs, and a tool call there says nothing
+		// about this session.
+		test: (line) =>
+			/\bhermes\s+(chat|--resume)\b/.test(line) ||
+			/\bclaude\s+-p\b/.test(line) ||
+			/\bcodex\s+exec\b/.test(line) ||
+			/\bgemini\s+-p\b/.test(line),
+		why: 'drives another agent session; the tools must resolve in this session'
+	},
+	{
 		name: 'hermes-mcp-add',
 		// Verified on v0.19.0: `hermes mcp add --help` offers --url, --command,
 		// --args, --auth, --preset, --connect-timeout and --env. None writes

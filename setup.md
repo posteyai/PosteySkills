@@ -382,7 +382,28 @@ file.
 
 ## Step 4 — Verify the connection
 
-Read the MCP resource `postey://setup`. It answers the readiness question directly.
+Read your own tool list first. It separates two failures that look the same.
+
+| Your tool list | Meaning | Action |
+|---|---|---|
+| Postey tools are listed and callable | The transport works. Your call was wrong | Fix the call. Read the tool schema again |
+| Listed by a search, and a direct call says the tool does not exist | Your client dispatches MCP through a meta-tool | Call it the way your client requires. On Hermes that is `tool_call` |
+| Postey tools are absent | The server is registered and not yet loaded | Stop. Say so. Continue here next turn |
+
+Never infer either state from a failed call. A rejected call is not proof that the server is
+absent, and a reachable server is not proof that your call is right.
+
+When the tools are absent, these are all wrong, and a real run tried every one:
+
+- a nested session of your own agent, headless, such as `hermes chat` piped from `echo`
+- another agent driven headlessly, such as `claude -p` or `codex exec`
+- opening a new interactive session. If you are already interactive, you gain nothing
+- reading a local file, such as the skill capability snapshot, and calling it proof
+- the REST API. See Step 3
+
+Stopping is the only correct action. A false `complete` costs the user more than a stop does.
+
+Now read the MCP resource `postey://setup`. It answers the readiness question directly.
 It returns `ready`, an account count, and a `blockers` array. Each blocker carries a
 code, the account and platform it concerns, and the call that fixes it.
 
