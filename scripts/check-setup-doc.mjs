@@ -1,13 +1,16 @@
-// setup.md is executed by an agent, not read by a person. Two failure modes
-// follow from that, and neither is visible to any other check in this repo:
+// setup.md is executed by an agent, not read by a person. Three failure modes
+// follow from that, and none is visible to any other check in this repo:
 //
 //   1. A command that waits for a keystroke. An unattended run hangs forever.
 //      This is not a style problem — it is the difference between the document
 //      working and not working.
 //   2. An agent named in Step 0 with no row in the steps that act on it. The
 //      agent identifies itself, then finds no instruction for its own case.
+//   3. A registration that goes through a local bridge. Postey is remote and
+//      authorizes with OAuth, so a bridge breaks the browser flow, keeps the
+//      credential out of the client keychain, and pins an old protocol revision.
 //
-// check-doc-commands.js cannot catch either: it scans skills/ only, and matches
+// check-doc-commands.js cannot catch any of them: it scans skills/ only, and matches
 // postey.js commands only, so no regular expression in it can match `npx` or
 // `claude plugin`. check-setup-links.mjs checks that URLs resolve.
 //
@@ -46,7 +49,87 @@ const INTERACTIVE = [
 	}
 ];
 
+/**
+ * Registrations that route Postey through a local process instead of the address.
+ * Prose is not scanned, so naming a bridge in order to forbid it stays legal.
+ */
+const PROXIED = [
+	{
+		name: 'bridge-wrapper',
+		test: (line) => /\b(mcp-remote|mcp-proxy|supergateway|mcpo|mcp-hub)\b/.test(line),
+		why: 'wraps the remote server in a local process; register the address natively'
+	},
+	{
+		name: 'hardcoded-tool-prefix',
+		// The prefix is built from the name the user gave the connection, and the
+		// separator varies by client. S9.3 removed these literals from the skill
+		// for the same reason.
+		test: (line) => /\bmcp_+postey_+/i.test(line),
+		why: 'the tool prefix follows the connection name; tell the agent to read its own tool list'
+	},
+	{
+		name: 'rest-api-fallback',
+		// The REST base is a different product surface. Reaching it with a
+		// credential meant for MCP hides the setup failure it stands in for.
+		test: (line) => /srvr\.postey\.ai\/v1\b/.test(line),
+		why: 'calls the REST API instead of MCP; setup is not proven by another surface'
+	},
+	{
+		name: 'agent-self-invocation',
+		// A nested agent is a conduit even when it is the same agent. The nested
+		// run has no terminal, so it hangs, and a tool call there says nothing
+		// about this session.
+		test: (line) =>
+			/\bhermes\s+(chat|--resume)\b/.test(line) ||
+			/\bclaude\s+-p\b/.test(line) ||
+			/\bcodex\s+exec\b/.test(line) ||
+			/\bgemini\s+-p\b/.test(line),
+		why: 'drives another agent session; the tools must resolve in this session'
+	},
+	{
+		name: 'hermes-mcp-add',
+		// Verified on v0.19.0: `hermes mcp add --help` offers --url, --command,
+		// --args, --auth, --preset, --connect-timeout and --env. None writes
+		// skip_preflight, which Postey needs, and --skip-preflight exits 2.
+		// `hermes config set` writes all three keys and never blocks.
+		test: (line) => /\bhermes\s+mcp\s+add\b/.test(line),
+		why: 'no hermes mcp add option writes skip_preflight; use hermes config set'
+	},
+	{
+		name: 'mcp-add-with-command',
+		// `hermes mcp add <name> --command <cmd>` and its equivalents. The flag is
+		// correct for a server that runs locally. Postey does not.
+		test: (line) => /\bmcp\s+add\b/.test(line) && /--command\b/.test(line),
+		why: 'registers a command instead of the address; pass --url'
+	}
+];
+
+const RULES = [...INTERACTIVE, ...PROXIED];
+
 const FENCE = /^\s*```/;
+
+/**
+ * The load section holds shell actions by definition. A slash command there is a
+ * chat command, and an agent that runs one gets `exit 127` — observed with
+ * `/reload-mcp`. Scoping to the section keeps Step 3's legal `/mcp` mention.
+ */
+function chatCommandInLoadSection(markdown) {
+	const problems = [];
+	let inSection = false;
+	markdown.split('\n').forEach((line, i) => {
+		if (/^###\s/.test(line)) inSection = /^###\s+Load the server\b/.test(line);
+		if (!inSection) return;
+		if (/`\/[a-z][a-z0-9-]*`/.test(line)) {
+			problems.push({
+				rule: 'chat-command-in-load-section',
+				line: i + 1,
+				why: 'a slash command is a chat command, not a shell command',
+				text: line.trim()
+			});
+		}
+	});
+	return problems;
+}
 
 function commandLines(markdown) {
 	const out = [];
@@ -95,12 +178,14 @@ export function checkSetupDoc(markdown) {
 	const problems = [];
 
 	for (const { line, n } of commandLines(markdown)) {
-		for (const rule of INTERACTIVE) {
+		for (const rule of RULES) {
 			if (rule.test(line)) {
 				problems.push({ rule: rule.name, line: n, why: rule.why, text: line.trim() });
 			}
 		}
 	}
+
+	problems.push(...chatCommandInLoadSection(markdown));
 
 	const agents = agentsNamedInStep0(markdown);
 	const bySection = sections(markdown);

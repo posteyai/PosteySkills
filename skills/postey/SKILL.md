@@ -117,6 +117,10 @@ alternatives. MCP owns every read and **every write**. The CLI owns only what ne
 machine, and it has no write command: its local-file commands upload and hand back the fields for
 an MCP write. A workflow uses whichever surface owns each step.
 
+An installed skill is not a working setup. This file loads from disk whether or not the server is
+reachable. If the Postey tools are absent from your session, stop and say so. There is no command
+here that reaches Postey state, so looking for one wastes the user's time.
+
 ### Decision Tree
 
 1. **Local file path involved** (`~/video.mp4`, `./cover.jpg`)?

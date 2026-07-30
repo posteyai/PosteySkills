@@ -50,11 +50,16 @@ Reporting success without the steps that do apply is not.
 | B, web | 1, 2B, 3, 4, 6, 7 | OAuth through the connector | No. See Step 5 |
 | C, headless | 1 to 7 | Agent token | Yes, with `-y` |
 
-Two rules bind every track.
+Four rules bind every track.
 
 1. Never block. If a command waits for a keystroke, you passed the wrong flags. Fix
    the flags. Do not wait.
 2. Never assume. Every step ends in a verification. Run it.
+3. Never proxy. Register the address `https://srvr.postey.ai/mcp` in your own client's
+   remote-server configuration. Never wrap it in a local process, and never route it
+   through another agent. Step 2 says what that rules out.
+4. Never fake. If the Postey tools are absent from this session, stop and say so. A local file,
+   another agent and the REST API are all evidence about something else.
 
 Track C has one rule of its own. Stop once, at Step 3, to ask the user for an agent
 token. No other step may pause. A headless run cannot complete OAuth, and no flag
@@ -107,6 +112,56 @@ Track B cannot install the skill. Step 5 says what to do instead.
 
 The rest of Step 2 covers tracks A and C.
 
+### Native registration only
+
+Register the address. Never wrap it in a local process.
+
+Postey is a remote server. It speaks streamable HTTP and it authorizes with OAuth.
+Every client named in this document can reach it directly, so a bridge is never the
+answer here, whatever your own help text offers.
+
+These are all wrong:
+
+- `mcp-remote`, `mcp-proxy`, `supergateway`, `mcpo`, `mcp-hub`, or any other local
+  wrapper around the address
+- an entry that carries a command and arguments instead of a URL, which is what
+  `hermes mcp add postey --command ...` writes. That form exists for a server that
+  runs on the machine. Postey does not
+- a third-party hosted gateway that re-exposes Postey under an address of its own
+
+A bridge costs four things:
+
+1. OAuth. The browser flow belongs to the client. A bridge that holds the session
+   instead re-prompts every session, or fails outright.
+2. The credential. It lands in the bridge's own store rather than the client
+   keychain, so the user cannot revoke what the user cannot see.
+3. Diagnosis. Every failure in Steps 3, 4 and 7 arrives one layer removed, and the
+   tables in this document then name the wrong cause.
+4. The protocol revision. A bridge pins the revision it shipped with. Postey follows
+   the current one. The `405` in Step 1 is the first thing this breaks.
+
+If a client truly cannot register a remote server, stop and tell the user. Do not
+bridge it, and do not report success.
+
+### Your own client, and no other
+
+You are connecting yourself. Another agent is not a route to Postey.
+
+The table below lists one command per agent. Run the row for the agent you are, and
+only that row. Running another agent's command writes to another agent's file:
+`claude mcp add` writes `~/.claude.json`, which Hermes never reads. The command
+succeeds, `claude mcp list` shows `postey`, and your own session still has no tools.
+That is a false pass, and Step 4 exists to catch it.
+
+The same holds for calls. Never reach Postey by driving another agent — not
+`claude -p`, not `codex exec`, not any headless invocation of a second client, and
+not by asking the user to run it there. The tools must resolve in your own session,
+under your own credential.
+
+One case is not this. When the user asks you to set up a *different* agent, you are
+editing that agent's config on purpose. Say which agent you configured, and say that
+your own session is unconnected if it is.
+
 ### The one-line path
 
 This command writes native configuration for 16 clients. Try it first.
@@ -120,6 +175,10 @@ Replace `<agent>` with your identifier: `claude-code`, `claude-desktop`, `cursor
 `antigravity`, `grok-build`, `github-copilot-cli` or `mcporter`. Run
 `npx -y add-mcp list-agents` to see the current list.
 
+`add-mcp` writes a native entry. Open the file it wrote and confirm that. If the
+entry names a command rather than a URL, delete it and write the row from the table
+below by hand.
+
 `add-mcp` does not support Hermes Agent. Use the native command below.
 
 ### Native commands
@@ -129,12 +188,16 @@ Replace `<agent>` with your identifier: `claude-code`, `claude-desktop`, `cursor
 | Claude Code | `claude mcp add --transport http postey https://srvr.postey.ai/mcp --scope user` |
 | Codex CLI | `codex mcp add postey --url https://srvr.postey.ai/mcp` |
 | Gemini CLI | `gemini mcp add --transport http postey https://srvr.postey.ai/mcp` |
-| Hermes Agent | `hermes mcp add postey --url https://srvr.postey.ai/mcp --auth oauth` |
+| Hermes Agent | See the three `hermes config set` calls below. No `mcp add` option writes `skip_preflight` |
 | VS Code | `code --add-mcp '{"name":"postey","type":"http","url":"https://srvr.postey.ai/mcp"}'` |
 | Amp | `amp mcp add postey https://srvr.postey.ai/mcp` |
 
 `claude mcp add` is not idempotent. A second run fails with `already exists`. Treat
 that message as success. `codex mcp add` updates in place and is safe to repeat.
+
+Every command above passes the address. Each of these agents also offers a form that
+takes a command to execute, and Hermes offers it first when it finds no server
+registered. Ignore it. Pass the address.
 
 ### Editing a config file
 
@@ -155,13 +218,19 @@ silently. Use the row for your client.
 | opencode | `opencode.json` | `mcp` | `{"type": "remote", "url": "https://srvr.postey.ai/mcp", "enabled": true}` |
 | Kiro, Junie, LM Studio | the client MCP settings file | `mcpServers` | `{"url": "https://srvr.postey.ai/mcp"}` |
 | Goose | `~/.config/goose/config.yaml` | `extensions` | `type: streamable_http` with `uri`, in YAML |
-| Zed | `settings.json` | `context_servers` | See the note below |
+| Zed | `settings.json` | `context_servers` | `{"url": "https://srvr.postey.ai/mcp"}` |
 
-Zed has no verified native remote HTTP entry. Bridge it instead, and treat this as
-unverified until Zed documents one:
+Zed takes a remote entry under `context_servers`: a `url`, and no command. With no
+`Authorization` header set, it runs the standard MCP OAuth flow and asks the user to
+sign in, which is what track A wants. Track C has no browser, so it sets the header:
 
-```
-npx -y add-mcp https://srvr.postey.ai/mcp -n postey -a zed -y
+```json
+"context_servers": {
+  "postey": {
+    "url": "https://srvr.postey.ai/mcp",
+    "headers": { "Authorization": "Bearer <the token>" }
+  }
+}
 ```
 
 Four names carry a trap.
@@ -179,19 +248,23 @@ Codex CLI uses TOML, not JSON. Write this into `~/.codex/config.toml`:
 url = "https://srvr.postey.ai/mcp"
 ```
 
-Hermes Agent uses YAML. Write this into `~/.hermes/config.yaml`:
+Hermes Agent keeps its servers in `~/.hermes/config.yaml` and refuses a direct write to that
+file. A patch returns `Refusing to write to Hermes config file`. Set the three keys instead:
 
-```yaml
-mcp_servers:
-  postey:
-    url: "https://srvr.postey.ai/mcp"
-    auth: oauth
-    skip_preflight: true
+```
+hermes config set mcp_servers.postey.url https://srvr.postey.ai/mcp
+hermes config set mcp_servers.postey.auth oauth
+hermes config set mcp_servers.postey.skip_preflight true
 ```
 
 `skip_preflight` is required. Hermes probes the endpoint and expects
 `application/json` or `text/event-stream`. Postey answers `text/plain` on that probe,
-so Hermes rejects the server without this line.
+so Hermes rejects the server without this key. No `hermes mcp add` option writes it, which is
+why these three calls are the only path. To undo one, use `hermes config unset`.
+`hermes config delete` exits 2.
+
+Confirm the result with `hermes config get mcp_servers.postey`. It prints `url`, `auth` and
+`skip_preflight`.
 
 ### Load the server
 
@@ -199,13 +272,24 @@ Registering a server does not load it into a running session. Reload before Step
 
 | Agent | Action |
 |---|---|
-| Hermes Agent | Run `/reload-mcp` |
+| Hermes Agent | None. It reloads when the config changes. The tools arrive in your next turn |
 | Claude Code | Restart the session |
 | Everything else | Restart the agent |
+
+If your client loads MCP at a turn boundary, Step 2 ends your turn. Tell the user that
+registration is done, and that you continue at Step 4 when they reply. Do not run Step 4 in the
+same turn. The tools are not there yet, and no command brings them forward.
+
+This is measured, not assumed. On Hermes, `hermes config set` returns success, and a tool search
+in that same turn still finds nothing. The server appears in the next turn.
 
 **Verify:** run your agent's MCP list command. In Claude Code that is
 `claude mcp list`. Confirm that `postey` appears. A new server that reports
 `Needs authentication` is the expected state. Step 3 resolves it.
+
+Run your own agent's list command, not another agent's. Then read the entry back out
+of the config file your agent reads, and confirm that it carries the address. An entry
+that names a local command is wrong even when the server lists correctly.
 
 | Symptom | Cause | Fix |
 |---|---|---|
@@ -214,7 +298,10 @@ Registering a server does not load it into a running session. Reload before Step
 | `postey` is absent after adding | It went to a different scope or file | Re-run with the scope flag above |
 | Other servers disappeared | The config was overwritten, not merged | Restore from backup, then merge |
 | `"url" but no "type"` error | `type` is missing | Add `"type": "http"` |
-| Hermes reports an invalid endpoint | The preflight probe failed | Add `skip_preflight: true` |
+| Hermes reports an invalid endpoint | The preflight probe failed | Set `mcp_servers.postey.skip_preflight` to `true` |
+| The registered entry runs a command | A local wrapper was registered, not the server | Delete the entry. Write the row above, which carries the address |
+| The OAuth prompt returns every session | A wrapper holds the session, not the client | Register the address natively, then redo Step 3 |
+| Another agent lists `postey` and you still have no tools | You ran another agent's command and wrote to its config | Run the row for the agent you are |
 
 ---
 
@@ -238,8 +325,10 @@ Trigger your agent's MCP login for `postey` and complete the browser prompt.
 | Codex CLI | `codex mcp login postey` |
 | Hermes Agent | `hermes mcp login postey` |
 
-On Hermes, run the login in a new terminal. The automatic config reload times out
-after 30 seconds and can interrupt the flow.
+On Hermes, register the server before you log in. `hermes mcp login postey` fails while the
+server is absent from the config. Run the login in a new terminal, because the automatic config
+reload times out after 30 seconds and can interrupt the flow. The command waits for the browser
+and takes about 40 seconds. That wait is expected.
 
 ### Agent token, track C
 
@@ -287,7 +376,16 @@ An API key on the free plan fails on every MCP call, including the handshake. Th
 server answers `402`. OAuth and agent tokens do not carry that limit.
 
 Never print a credential back to the user. Never write it anywhere except the config
-file.
+file this document names for your client.
+
+Three more rules bind the credential.
+
+1. Never read one out of a config file, a keychain or a process environment in order to call
+   Postey yourself. The client sends it. You do not handle it.
+2. Never call the REST API at `srvr.postey.ai/v1`. It is a different surface. A result from it
+   says nothing about whether MCP works.
+3. A credential that reads and cannot write is a real state, and Step 7 names it. Do not treat a
+   read as proof of a write.
 
 **Verify:** continue to Step 4. That is the real check.
 
@@ -295,7 +393,28 @@ file.
 
 ## Step 4 — Verify the connection
 
-Read the MCP resource `postey://setup`. It answers the readiness question directly.
+Read your own tool list first. It separates two failures that look the same.
+
+| Your tool list | Meaning | Action |
+|---|---|---|
+| Postey tools are listed and callable | The transport works. Your call was wrong | Fix the call. Read the tool schema again |
+| Listed by a search, and a direct call says the tool does not exist | Your client dispatches MCP through a meta-tool | Call it the way your client requires. On Hermes that is `tool_call` |
+| Postey tools are absent | The server is registered and not yet loaded | Stop. Say so. Continue here next turn |
+
+Never infer either state from a failed call. A rejected call is not proof that the server is
+absent, and a reachable server is not proof that your call is right.
+
+When the tools are absent, these are all wrong, and a real run tried every one:
+
+- a nested session of your own agent, headless, such as `hermes chat` piped from `echo`
+- another agent driven headlessly, such as `claude -p` or `codex exec`
+- opening a new interactive session. If you are already interactive, you gain nothing
+- reading a local file, such as the skill capability snapshot, and calling it proof
+- the REST API. See Step 3
+
+Stopping is the only correct action. A false `complete` costs the user more than a stop does.
+
+Now read the MCP resource `postey://setup`. It answers the readiness question directly.
 It returns `ready`, an account count, and a `blockers` array. Each blocker carries a
 code, the account and platform it concerns, and the call that fixes it.
 
@@ -304,11 +423,17 @@ Then read `postey://accounts` for the account name and its platforms.
 If your client cannot read MCP resources, call the `get_accounts` tool. Prefer the
 resource wherever both work.
 
-Hermes Agent renames every tool. Call `mcp_postey_get_accounts` there.
+Tool names vary by client and by version. Some clients add a prefix built from the name you gave
+the connection. A server added as `postey` appears on Hermes v0.19.0 as
+`mcp__postey__get_accounts`, and on another client as `get_accounts`. Read your own tool list and
+use the name you find there.
 
 **Verify:** print `ready`, the account name, and the connected platforms. Print any
 blocker. If this returns nothing or errors, setup is not complete. Do not report
 success.
+
+Read it in your own session. A result you obtained by driving another agent proves
+that agent is connected, and says nothing about you.
 
 | Symptom | Cause | Fix |
 |---|---|---|
@@ -426,6 +551,9 @@ a skill command to reach an effect the server already provides. See
 
 Write a short Postey section into your agent's instructions file.
 
+Write the file in the project directory you work in. Never write it into the home directory. A
+file at `~/AGENTS.md` or `~/HERMES.md` applies to every project the user opens.
+
 Prefer `AGENTS.md`. About 25 tools read it, including Codex, Cursor, Copilot, Gemini
 CLI, Windsurf, Zed, Amp and Claude Code.
 
@@ -452,6 +580,8 @@ Keep it to the rules that the tool schemas do not already show:
 - Everything stays a draft until the user says publish.
 - Scheduling counts as publishing, so it also waits for approval.
 - Every platform gets its own caption.
+- Postey is a remote MCP server. Register it by address, in this agent's own config.
+  Never through a local wrapper, and never through another agent.
 
 **Verify:** confirm that the file exists and holds the section.
 
@@ -464,6 +594,10 @@ Step 4 proved that you can read. Prove that you can write.
 1. Create a draft post for one connected platform.
 2. Read it back and confirm the text matches.
 3. Delete the draft.
+
+The three calls are `create_post`, the post-content read, and `delete_draft`. Search for each
+name. A search for `postey` alone can return a capped list that holds no write tool at all. On
+Hermes, a search for `postey` returned 20 names, and `create_post` was not among them.
 
 Publish nothing. Schedule nothing. This check must leave no trace.
 
