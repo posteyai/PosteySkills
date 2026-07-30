@@ -18,7 +18,11 @@ strict extension on top of it: playbooks, craft and judgment, plus the few
 things that need my machine (local files, video processing). If MCP can do
 it, use MCP. Never reach for a skill command to reach an effect MCP owns.
 
-1. Verify the connection: read the MCP resource postey://accounts.
+1. Verify the connection: check your own tool list first. If the Postey
+   tools are absent from this session, stop and tell me. Do not drive
+   another agent, read a local file, or call the REST API to answer
+   around it. Having this skill loaded is not the same as being
+   connected. Then read the MCP resource postey://accounts.
    If your client cannot read MCP resources, call the get_accounts tool
    instead - prefer the resource wherever both work. If neither returns,
    tell me the Postey connector isn't set up and stop.
