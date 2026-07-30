@@ -374,7 +374,16 @@ An API key on the free plan fails on every MCP call, including the handshake. Th
 server answers `402`. OAuth and agent tokens do not carry that limit.
 
 Never print a credential back to the user. Never write it anywhere except the config
-file.
+file this document names for your client.
+
+Three more rules bind the credential.
+
+1. Never read one out of a config file, a keychain or a process environment in order to call
+   Postey yourself. The client sends it. You do not handle it.
+2. Never call the REST API at `srvr.postey.ai/v1`. It is a different surface. A result from it
+   says nothing about whether MCP works.
+3. A credential that reads and cannot write is a real state, and Step 7 names it. Do not treat a
+   read as proof of a write.
 
 **Verify:** continue to Step 4. That is the real check.
 

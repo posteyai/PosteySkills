@@ -128,6 +128,19 @@ describe('check-setup-doc', () => {
 		assert.deepEqual(checkSetupDoc(doc), []);
 	});
 
+	test('catches a REST call standing in for an MCP call', () => {
+		// One run grepped the API key out of local config and called /v1 with it.
+		const doc = validDoc({
+			body: '```\ncurl -H "X-API-Key: $KEY" https://srvr.postey.ai/v1/accounts\n```'
+		});
+		assert.ok(rules(checkSetupDoc(doc)).includes('rest-api-fallback'));
+	});
+
+	test('accepts the Step 1 health check against the MCP endpoint', () => {
+		const doc = validDoc({ body: '```\ncurl -X POST https://srvr.postey.ai/mcp\n```' });
+		assert.deepEqual(checkSetupDoc(doc), []);
+	});
+
 	test('catches a nested agent invocation used as a tool call', () => {
 		// One run tried six of these. The nested run has no terminal, so it hung
 		// to exit 124, and a tool call there proves nothing about this session.

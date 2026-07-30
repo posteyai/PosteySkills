@@ -60,6 +60,13 @@ const PROXIED = [
 		why: 'wraps the remote server in a local process; register the address natively'
 	},
 	{
+		name: 'rest-api-fallback',
+		// The REST base is a different product surface. Reaching it with a
+		// credential meant for MCP hides the setup failure it stands in for.
+		test: (line) => /srvr\.postey\.ai\/v1\b/.test(line),
+		why: 'calls the REST API instead of MCP; setup is not proven by another surface'
+	},
+	{
 		name: 'agent-self-invocation',
 		// A nested agent is a conduit even when it is the same agent. The nested
 		// run has no terminal, so it hangs, and a tool call there says nothing
