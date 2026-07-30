@@ -50,11 +50,14 @@ Reporting success without the steps that do apply is not.
 | B, web | 1, 2B, 3, 4, 6, 7 | OAuth through the connector | No. See Step 5 |
 | C, headless | 1 to 7 | Agent token | Yes, with `-y` |
 
-Two rules bind every track.
+Three rules bind every track.
 
 1. Never block. If a command waits for a keystroke, you passed the wrong flags. Fix
    the flags. Do not wait.
 2. Never assume. Every step ends in a verification. Run it.
+3. Never proxy. Register the address `https://srvr.postey.ai/mcp` in your own client's
+   remote-server configuration. Never wrap it in a local process, and never route it
+   through another agent. Step 2 says what that rules out.
 
 Track C has one rule of its own. Stop once, at Step 3, to ask the user for an agent
 token. No other step may pause. A headless run cannot complete OAuth, and no flag
@@ -107,6 +110,56 @@ Track B cannot install the skill. Step 5 says what to do instead.
 
 The rest of Step 2 covers tracks A and C.
 
+### Native registration only
+
+Register the address. Never wrap it in a local process.
+
+Postey is a remote server. It speaks streamable HTTP and it authorizes with OAuth.
+Every client named in this document can reach it directly, so a bridge is never the
+answer here, whatever your own help text offers.
+
+These are all wrong:
+
+- `mcp-remote`, `mcp-proxy`, `supergateway`, `mcpo`, `mcp-hub`, or any other local
+  wrapper around the address
+- an entry that carries a command and arguments instead of a URL, which is what
+  `hermes mcp add postey --command ...` writes. That form exists for a server that
+  runs on the machine. Postey does not
+- a third-party hosted gateway that re-exposes Postey under an address of its own
+
+A bridge costs four things:
+
+1. OAuth. The browser flow belongs to the client. A bridge that holds the session
+   instead re-prompts every session, or fails outright.
+2. The credential. It lands in the bridge's own store rather than the client
+   keychain, so the user cannot revoke what the user cannot see.
+3. Diagnosis. Every failure in Steps 3, 4 and 7 arrives one layer removed, and the
+   tables in this document then name the wrong cause.
+4. The protocol revision. A bridge pins the revision it shipped with. Postey follows
+   the current one. The `405` in Step 1 is the first thing this breaks.
+
+If a client truly cannot register a remote server, stop and tell the user. Do not
+bridge it, and do not report success.
+
+### Your own client, and no other
+
+You are connecting yourself. Another agent is not a route to Postey.
+
+The table below lists one command per agent. Run the row for the agent you are, and
+only that row. Running another agent's command writes to another agent's file:
+`claude mcp add` writes `~/.claude.json`, which Hermes never reads. The command
+succeeds, `claude mcp list` shows `postey`, and your own session still has no tools.
+That is a false pass, and Step 4 exists to catch it.
+
+The same holds for calls. Never reach Postey by driving another agent — not
+`claude -p`, not `codex exec`, not any headless invocation of a second client, and
+not by asking the user to run it there. The tools must resolve in your own session,
+under your own credential.
+
+One case is not this. When the user asks you to set up a *different* agent, you are
+editing that agent's config on purpose. Say which agent you configured, and say that
+your own session is unconnected if it is.
+
 ### The one-line path
 
 This command writes native configuration for 16 clients. Try it first.
@@ -119,6 +172,10 @@ Replace `<agent>` with your identifier: `claude-code`, `claude-desktop`, `cursor
 `codex`, `gemini-cli`, `vscode`, `windsurf`, `zed`, `cline`, `goose`, `opencode`,
 `antigravity`, `grok-build`, `github-copilot-cli` or `mcporter`. Run
 `npx -y add-mcp list-agents` to see the current list.
+
+`add-mcp` writes a native entry. Open the file it wrote and confirm that. If the
+entry names a command rather than a URL, delete it and write the row from the table
+below by hand.
 
 `add-mcp` does not support Hermes Agent. Use the native command below.
 
@@ -135,6 +192,10 @@ Replace `<agent>` with your identifier: `claude-code`, `claude-desktop`, `cursor
 
 `claude mcp add` is not idempotent. A second run fails with `already exists`. Treat
 that message as success. `codex mcp add` updates in place and is safe to repeat.
+
+Every command above passes the address. Each of these agents also offers a form that
+takes a command to execute, and Hermes offers it first when it finds no server
+registered. Ignore it. Pass the address.
 
 ### Editing a config file
 
@@ -155,13 +216,19 @@ silently. Use the row for your client.
 | opencode | `opencode.json` | `mcp` | `{"type": "remote", "url": "https://srvr.postey.ai/mcp", "enabled": true}` |
 | Kiro, Junie, LM Studio | the client MCP settings file | `mcpServers` | `{"url": "https://srvr.postey.ai/mcp"}` |
 | Goose | `~/.config/goose/config.yaml` | `extensions` | `type: streamable_http` with `uri`, in YAML |
-| Zed | `settings.json` | `context_servers` | See the note below |
+| Zed | `settings.json` | `context_servers` | `{"url": "https://srvr.postey.ai/mcp"}` |
 
-Zed has no verified native remote HTTP entry. Bridge it instead, and treat this as
-unverified until Zed documents one:
+Zed takes a remote entry under `context_servers`: a `url`, and no command. With no
+`Authorization` header set, it runs the standard MCP OAuth flow and asks the user to
+sign in, which is what track A wants. Track C has no browser, so it sets the header:
 
-```
-npx -y add-mcp https://srvr.postey.ai/mcp -n postey -a zed -y
+```json
+"context_servers": {
+  "postey": {
+    "url": "https://srvr.postey.ai/mcp",
+    "headers": { "Authorization": "Bearer <the token>" }
+  }
+}
 ```
 
 Four names carry a trap.
@@ -207,6 +274,10 @@ Registering a server does not load it into a running session. Reload before Step
 `claude mcp list`. Confirm that `postey` appears. A new server that reports
 `Needs authentication` is the expected state. Step 3 resolves it.
 
+Run your own agent's list command, not another agent's. Then read the entry back out
+of the config file your agent reads, and confirm that it carries the address. An entry
+that names a local command is wrong even when the server lists correctly.
+
 | Symptom | Cause | Fix |
 |---|---|---|
 | `already exists`, non-zero exit | An earlier run registered the server | Not an error. Continue to Step 3 |
@@ -215,6 +286,9 @@ Registering a server does not load it into a running session. Reload before Step
 | Other servers disappeared | The config was overwritten, not merged | Restore from backup, then merge |
 | `"url" but no "type"` error | `type` is missing | Add `"type": "http"` |
 | Hermes reports an invalid endpoint | The preflight probe failed | Add `skip_preflight: true` |
+| The registered entry runs a command | A local wrapper was registered, not the server | Delete the entry. Write the row above, which carries the address |
+| The OAuth prompt returns every session | A wrapper holds the session, not the client | Register the address natively, then redo Step 3 |
+| Another agent lists `postey` and you still have no tools | You ran another agent's command and wrote to its config | Run the row for the agent you are |
 
 ---
 
@@ -309,6 +383,9 @@ Hermes Agent renames every tool. Call `mcp_postey_get_accounts` there.
 **Verify:** print `ready`, the account name, and the connected platforms. Print any
 blocker. If this returns nothing or errors, setup is not complete. Do not report
 success.
+
+Read it in your own session. A result you obtained by driving another agent proves
+that agent is connected, and says nothing about you.
 
 | Symptom | Cause | Fix |
 |---|---|---|
@@ -452,6 +529,8 @@ Keep it to the rules that the tool schemas do not already show:
 - Everything stays a draft until the user says publish.
 - Scheduling counts as publishing, so it also waits for approval.
 - Every platform gets its own caption.
+- Postey is a remote MCP server. Register it by address, in this agent's own config.
+  Never through a local wrapper, and never through another agent.
 
 **Verify:** confirm that the file exists and holds the section.
 

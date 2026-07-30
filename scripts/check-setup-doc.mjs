@@ -1,13 +1,16 @@
-// setup.md is executed by an agent, not read by a person. Two failure modes
-// follow from that, and neither is visible to any other check in this repo:
+// setup.md is executed by an agent, not read by a person. Three failure modes
+// follow from that, and none is visible to any other check in this repo:
 //
 //   1. A command that waits for a keystroke. An unattended run hangs forever.
 //      This is not a style problem — it is the difference between the document
 //      working and not working.
 //   2. An agent named in Step 0 with no row in the steps that act on it. The
 //      agent identifies itself, then finds no instruction for its own case.
+//   3. A registration that goes through a local bridge. Postey is remote and
+//      authorizes with OAuth, so a bridge breaks the browser flow, keeps the
+//      credential out of the client keychain, and pins an old protocol revision.
 //
-// check-doc-commands.js cannot catch either: it scans skills/ only, and matches
+// check-doc-commands.js cannot catch any of them: it scans skills/ only, and matches
 // postey.js commands only, so no regular expression in it can match `npx` or
 // `claude plugin`. check-setup-links.mjs checks that URLs resolve.
 //
@@ -45,6 +48,27 @@ const INTERACTIVE = [
 		why: 'prompts on stdin for the key; pass --key'
 	}
 ];
+
+/**
+ * Registrations that route Postey through a local process instead of the address.
+ * Prose is not scanned, so naming a bridge in order to forbid it stays legal.
+ */
+const PROXIED = [
+	{
+		name: 'bridge-wrapper',
+		test: (line) => /\b(mcp-remote|mcp-proxy|supergateway|mcpo|mcp-hub)\b/.test(line),
+		why: 'wraps the remote server in a local process; register the address natively'
+	},
+	{
+		name: 'mcp-add-with-command',
+		// `hermes mcp add <name> --command <cmd>` and its equivalents. The flag is
+		// correct for a server that runs locally. Postey does not.
+		test: (line) => /\bmcp\s+add\b/.test(line) && /--command\b/.test(line),
+		why: 'registers a command instead of the address; pass --url'
+	}
+];
+
+const RULES = [...INTERACTIVE, ...PROXIED];
 
 const FENCE = /^\s*```/;
 
@@ -95,7 +119,7 @@ export function checkSetupDoc(markdown) {
 	const problems = [];
 
 	for (const { line, n } of commandLines(markdown)) {
-		for (const rule of INTERACTIVE) {
+		for (const rule of RULES) {
 			if (rule.test(line)) {
 				problems.push({ rule: rule.name, line: n, why: rule.why, text: line.trim() });
 			}

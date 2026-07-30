@@ -101,4 +101,28 @@ describe('check-setup-doc', () => {
 		const doc = validDoc({ body: 'Do not use the /plugin slash command here.' });
 		assert.deepEqual(checkSetupDoc(doc), []);
 	});
+
+	test('catches a registration wrapped in a local bridge', () => {
+		const doc = validDoc({
+			body: '```\nnpx -y mcp-remote https://srvr.postey.ai/mcp\n```'
+		});
+		assert.ok(rules(checkSetupDoc(doc)).includes('bridge-wrapper'));
+	});
+
+	test('catches an mcp add that registers a command instead of the address', () => {
+		const doc = validDoc({ body: '```\nhermes mcp add postey --command npx --args mcp-remote\n```' });
+		assert.ok(rules(checkSetupDoc(doc)).includes('mcp-add-with-command'));
+	});
+
+	test('accepts an mcp add that passes the address', () => {
+		const doc = validDoc({
+			body: '```\nhermes mcp add postey --url https://srvr.postey.ai/mcp --auth oauth\n```'
+		});
+		assert.deepEqual(checkSetupDoc(doc), []);
+	});
+
+	test('lets prose name a bridge in order to forbid it', () => {
+		const doc = validDoc({ body: 'Never register Postey through mcp-remote or supergateway.' });
+		assert.deepEqual(checkSetupDoc(doc), []);
+	});
 });
