@@ -60,6 +60,15 @@ const PROXIED = [
 		why: 'wraps the remote server in a local process; register the address natively'
 	},
 	{
+		name: 'hermes-skills-install-url',
+		// Verified failing twice on v0.19.0, including with --force --yes. The
+		// agent then hand-copied SKILL.md alone, which yields a skill with no
+		// scripts/ that `hermes skills list` still reports as present. Use the
+		// `skills add` installer, whose Hermes identifier is `hermes-agent`.
+		test: (line) => /\bhermes\s+skills\s+install\b/.test(line) && /https?:\/\//.test(line),
+		why: 'hermes skills install cannot fetch a raw file URL; use npx -y skills add with -a hermes-agent'
+	},
+	{
 		name: 'hardcoded-tool-prefix',
 		// The prefix is built from the name the user gave the connection, and the
 		// separator varies by client. S9.3 removed these literals from the skill
