@@ -60,6 +60,15 @@ const PROXIED = [
 		why: 'wraps the remote server in a local process; register the address natively'
 	},
 	{
+		name: 'hermes-mcp-add',
+		// Verified on v0.19.0: `hermes mcp add --help` offers --url, --command,
+		// --args, --auth, --preset, --connect-timeout and --env. None writes
+		// skip_preflight, which Postey needs, and --skip-preflight exits 2.
+		// `hermes config set` writes all three keys and never blocks.
+		test: (line) => /\bhermes\s+mcp\s+add\b/.test(line),
+		why: 'no hermes mcp add option writes skip_preflight; use hermes config set'
+	},
+	{
 		name: 'mcp-add-with-command',
 		// `hermes mcp add <name> --command <cmd>` and its equivalents. The flag is
 		// correct for a server that runs locally. Postey does not.

@@ -188,7 +188,7 @@ below by hand.
 | Claude Code | `claude mcp add --transport http postey https://srvr.postey.ai/mcp --scope user` |
 | Codex CLI | `codex mcp add postey --url https://srvr.postey.ai/mcp` |
 | Gemini CLI | `gemini mcp add --transport http postey https://srvr.postey.ai/mcp` |
-| Hermes Agent | `hermes mcp add postey --url https://srvr.postey.ai/mcp --auth oauth` |
+| Hermes Agent | See the three `hermes config set` calls below. No `mcp add` option writes `skip_preflight` |
 | VS Code | `code --add-mcp '{"name":"postey","type":"http","url":"https://srvr.postey.ai/mcp"}'` |
 | Amp | `amp mcp add postey https://srvr.postey.ai/mcp` |
 
@@ -248,19 +248,23 @@ Codex CLI uses TOML, not JSON. Write this into `~/.codex/config.toml`:
 url = "https://srvr.postey.ai/mcp"
 ```
 
-Hermes Agent uses YAML. Write this into `~/.hermes/config.yaml`:
+Hermes Agent keeps its servers in `~/.hermes/config.yaml` and refuses a direct write to that
+file. A patch returns `Refusing to write to Hermes config file`. Set the three keys instead:
 
-```yaml
-mcp_servers:
-  postey:
-    url: "https://srvr.postey.ai/mcp"
-    auth: oauth
-    skip_preflight: true
+```
+hermes config set mcp_servers.postey.url https://srvr.postey.ai/mcp
+hermes config set mcp_servers.postey.auth oauth
+hermes config set mcp_servers.postey.skip_preflight true
 ```
 
 `skip_preflight` is required. Hermes probes the endpoint and expects
 `application/json` or `text/event-stream`. Postey answers `text/plain` on that probe,
-so Hermes rejects the server without this line.
+so Hermes rejects the server without this key. No `hermes mcp add` option writes it, which is
+why these three calls are the only path. To undo one, use `hermes config unset`.
+`hermes config delete` exits 2.
+
+Confirm the result with `hermes config get mcp_servers.postey`. It prints `url`, `auth` and
+`skip_preflight`.
 
 ### Load the server
 
@@ -294,7 +298,7 @@ that names a local command is wrong even when the server lists correctly.
 | `postey` is absent after adding | It went to a different scope or file | Re-run with the scope flag above |
 | Other servers disappeared | The config was overwritten, not merged | Restore from backup, then merge |
 | `"url" but no "type"` error | `type` is missing | Add `"type": "http"` |
-| Hermes reports an invalid endpoint | The preflight probe failed | Add `skip_preflight: true` |
+| Hermes reports an invalid endpoint | The preflight probe failed | Set `mcp_servers.postey.skip_preflight` to `true` |
 | The registered entry runs a command | A local wrapper was registered, not the server | Delete the entry. Write the row above, which carries the address |
 | The OAuth prompt returns every session | A wrapper holds the session, not the client | Register the address natively, then redo Step 3 |
 | Another agent lists `postey` and you still have no tools | You ran another agent's command and wrote to its config | Run the row for the agent you are |

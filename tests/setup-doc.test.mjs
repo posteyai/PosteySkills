@@ -115,14 +115,33 @@ describe('check-setup-doc', () => {
 	});
 
 	test('accepts an mcp add that passes the address', () => {
+		// Codex, not Hermes. On Hermes no `mcp add` form works at all, which the
+		// hermes-mcp-add rule below enforces.
 		const doc = validDoc({
-			body: '```\nhermes mcp add postey --url https://srvr.postey.ai/mcp --auth oauth\n```'
+			body: '```\ncodex mcp add postey --url https://srvr.postey.ai/mcp\n```'
 		});
 		assert.deepEqual(checkSetupDoc(doc), []);
 	});
 
 	test('lets prose name a bridge in order to forbid it', () => {
 		const doc = validDoc({ body: 'Never register Postey through mcp-remote or supergateway.' });
+		assert.deepEqual(checkSetupDoc(doc), []);
+	});
+
+	test('catches hermes mcp add, which cannot write skip_preflight', () => {
+		// Verified against `hermes mcp add --help` on v0.19.0: the options are
+		// --url, --command, --args, --auth, --preset, --connect-timeout, --env.
+		// None of them sets skip_preflight, and Postey needs it.
+		const doc = validDoc({
+			body: '```\nhermes mcp add postey --url https://srvr.postey.ai/mcp --auth oauth\n```'
+		});
+		assert.ok(rules(checkSetupDoc(doc)).includes('hermes-mcp-add'));
+	});
+
+	test('accepts the hermes config set form, which writes all three keys', () => {
+		const doc = validDoc({
+			body: '```\nhermes config set mcp_servers.postey.url https://srvr.postey.ai/mcp\n```'
+		});
 		assert.deepEqual(checkSetupDoc(doc), []);
 	});
 
