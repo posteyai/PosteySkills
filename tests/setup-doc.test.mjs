@@ -128,6 +128,19 @@ describe('check-setup-doc', () => {
 		assert.deepEqual(checkSetupDoc(doc), []);
 	});
 
+	test('catches a hardcoded MCP tool prefix, which follows the connection name', () => {
+		// The document printed `mcp_postey_get_accounts`. Hermes v0.19.0 exposes
+		// `mcp__postey__get_accounts`, and the prefix follows the name the user
+		// gave the connection, so no literal is right for everyone.
+		const doc = validDoc({ body: '| Agent | Call |\n|---|---|\n| X | `mcp_postey_get_accounts` |' });
+		assert.ok(rules(checkSetupDoc(doc)).includes('hardcoded-tool-prefix'));
+	});
+
+	test('catches the double-underscore form too', () => {
+		const doc = validDoc({ body: '| Agent | Call |\n|---|---|\n| X | `mcp__postey__get_accounts` |' });
+		assert.ok(rules(checkSetupDoc(doc)).includes('hardcoded-tool-prefix'));
+	});
+
 	test('catches a REST call standing in for an MCP call', () => {
 		// One run grepped the API key out of local config and called /v1 with it.
 		const doc = validDoc({

@@ -60,6 +60,14 @@ const PROXIED = [
 		why: 'wraps the remote server in a local process; register the address natively'
 	},
 	{
+		name: 'hardcoded-tool-prefix',
+		// The prefix is built from the name the user gave the connection, and the
+		// separator varies by client. S9.3 removed these literals from the skill
+		// for the same reason.
+		test: (line) => /\bmcp_+postey_+/i.test(line),
+		why: 'the tool prefix follows the connection name; tell the agent to read its own tool list'
+	},
+	{
 		name: 'rest-api-fallback',
 		// The REST base is a different product surface. Reaching it with a
 		// credential meant for MCP hides the setup failure it stands in for.

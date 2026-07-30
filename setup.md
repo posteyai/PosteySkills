@@ -325,8 +325,10 @@ Trigger your agent's MCP login for `postey` and complete the browser prompt.
 | Codex CLI | `codex mcp login postey` |
 | Hermes Agent | `hermes mcp login postey` |
 
-On Hermes, run the login in a new terminal. The automatic config reload times out
-after 30 seconds and can interrupt the flow.
+On Hermes, register the server before you log in. `hermes mcp login postey` fails while the
+server is absent from the config. Run the login in a new terminal, because the automatic config
+reload times out after 30 seconds and can interrupt the flow. The command waits for the browser
+and takes about 40 seconds. That wait is expected.
 
 ### Agent token, track C
 
@@ -421,7 +423,10 @@ Then read `postey://accounts` for the account name and its platforms.
 If your client cannot read MCP resources, call the `get_accounts` tool. Prefer the
 resource wherever both work.
 
-Hermes Agent renames every tool. Call `mcp_postey_get_accounts` there.
+Tool names vary by client and by version. Some clients add a prefix built from the name you gave
+the connection. A server added as `postey` appears on Hermes v0.19.0 as
+`mcp__postey__get_accounts`, and on another client as `get_accounts`. Read your own tool list and
+use the name you find there.
 
 **Verify:** print `ready`, the account name, and the connected platforms. Print any
 blocker. If this returns nothing or errors, setup is not complete. Do not report
@@ -546,6 +551,9 @@ a skill command to reach an effect the server already provides. See
 
 Write a short Postey section into your agent's instructions file.
 
+Write the file in the project directory you work in. Never write it into the home directory. A
+file at `~/AGENTS.md` or `~/HERMES.md` applies to every project the user opens.
+
 Prefer `AGENTS.md`. About 25 tools read it, including Codex, Cursor, Copilot, Gemini
 CLI, Windsurf, Zed, Amp and Claude Code.
 
@@ -586,6 +594,10 @@ Step 4 proved that you can read. Prove that you can write.
 1. Create a draft post for one connected platform.
 2. Read it back and confirm the text matches.
 3. Delete the draft.
+
+The three calls are `create_post`, the post-content read, and `delete_draft`. Search for each
+name. A search for `postey` alone can return a capped list that holds no write tool at all. On
+Hermes, a search for `postey` returned 20 names, and `create_post` was not among them.
 
 Publish nothing. Schedule nothing. This check must leave no trace.
 
