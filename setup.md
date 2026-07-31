@@ -483,11 +483,16 @@ claude plugin marketplace add posteyai/skills
 claude plugin install postey@postey-skills
 ```
 
-**Hermes Agent.**
+**Hermes Agent.** Its identifier is `hermes-agent`, not `hermes`.
 
 ```
-hermes skills install https://raw.githubusercontent.com/posteyai/skills/main/skills/postey/SKILL.md
+npx -y skills add posteyai/skills -a hermes-agent -s postey -y
 ```
+
+Do not use `hermes skills install` with a file address. It cannot fetch one. Two runs failed, the
+second with `--force --yes`, and the agent then copied `SKILL.md` by hand. That leaves a skill with
+no `scripts/` directory, which `hermes skills list` still reports as installed. Every local-file
+and video command then fails at the moment of use.
 
 **Every other agent.** All three flags matter. `-a` and `-y` stop the command waiting
 for a keystroke that an autonomous agent cannot send. `-s postey` stops it also
@@ -529,7 +534,9 @@ node skills/postey/scripts/postey.js setup --key <the key> --location global
 Do not run the setup command without `--key` on track C. It prompts on standard
 input, and a headless run has nobody to answer.
 
-**Verify:** run your agent's skill-list command. Confirm that `postey` appears.
+**Verify:** run your agent's skill-list command. Confirm that `postey` appears. Then confirm that
+`scripts/postey.js` exists inside the installed skill directory. A listing proves the directory
+exists. It does not prove the skill works, and a hand-copied `SKILL.md` alone lists as installed.
 
 The division is fixed. It is not negotiated per task. The server owns all state and
 every change to it. The skill owns local files, video processing and craft. Never use

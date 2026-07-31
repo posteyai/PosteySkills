@@ -128,6 +128,23 @@ describe('check-setup-doc', () => {
 		assert.deepEqual(checkSetupDoc(doc), []);
 	});
 
+	test('catches hermes skills install from a raw file URL, which does not work', () => {
+		// Observed twice on v0.19.0: 21.9s, then 14.4s with --force --yes, both
+		// failing. The agent then hand-copied SKILL.md alone, leaving a skill with
+		// no scripts/ that `hermes skills list` still reports as present.
+		const doc = validDoc({
+			body: '```\nhermes skills install https://raw.githubusercontent.com/posteyai/skills/main/skills/postey/SKILL.md\n```'
+		});
+		assert.ok(rules(checkSetupDoc(doc)).includes('hermes-skills-install-url'));
+	});
+
+	test('accepts the skills add form for hermes-agent', () => {
+		const doc = validDoc({
+			body: '```\nnpx -y skills add posteyai/skills -a hermes-agent -s postey -y\n```'
+		});
+		assert.deepEqual(checkSetupDoc(doc), []);
+	});
+
 	test('catches a hardcoded MCP tool prefix, which follows the connection name', () => {
 		// The document printed `mcp_postey_get_accounts`. Hermes v0.19.0 exposes
 		// `mcp__postey__get_accounts`, and the prefix follows the name the user
