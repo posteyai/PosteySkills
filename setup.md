@@ -7,7 +7,8 @@ table and stop. Do not guess.
 Re-running this document is safe. If a step reports that something already exists,
 that is success. Read on and continue.
 
-This document connects you. Once Step 4 passes, hand off to
+This document connects you, and it only ever reads. No step here creates, publishes,
+schedules or deletes anything. Once Step 4 passes, hand off to
 [`skills/postey/bootstrap-prompt.md`](skills/postey/bootstrap-prompt.md), where the
 content workflows start.
 
@@ -48,7 +49,7 @@ Reporting success without the steps that do apply is not.
 |---|---|---|---|
 | A, local | 1 to 7 | OAuth | Yes |
 | B, web | 1, 2B, 3, 4, 6, 7 | OAuth through the connector | No. See Step 5 |
-| C, headless | 1 to 7 | Agent token | Yes, with `-y` |
+| C, headless | 1 to 7 | MCP key | Yes, with `-y` |
 
 Four rules bind every track.
 
@@ -61,9 +62,9 @@ Four rules bind every track.
 4. Never fake. If the Postey tools are absent from this session, stop and say so. A local file,
    another agent and the REST API are all evidence about something else.
 
-Track C has one rule of its own. Stop once, at Step 3, to ask the user for an agent
-token. No other step may pause. A headless run cannot complete OAuth, and no flag
-works around that.
+Track C has one rule of its own. Stop once, at Step 3, to ask the user for an MCP
+key. No other step may pause. A headless run cannot complete OAuth, and no flag works
+around that.
 
 ---
 
@@ -228,7 +229,7 @@ sign in, which is what track A wants. Track C has no browser, so it sets the hea
 "context_servers": {
   "postey": {
     "url": "https://srvr.postey.ai/mcp",
-    "headers": { "Authorization": "Bearer <the token>" }
+    "headers": { "X-API-Key": "<the key>" }
   }
 }
 ```
@@ -313,7 +314,7 @@ Postey accepts three credentials. Pick by track.
 |---|---|
 | A, local | OAuth |
 | B, web | None. The connector already authorized in Step 2B |
-| C, headless | Agent token |
+| C, headless | MCP key |
 
 ### OAuth, preferred, track A
 
@@ -330,50 +331,57 @@ server is absent from the config. Run the login in a new terminal, because the a
 reload times out after 30 seconds and can interrupt the flow. The command waits for the browser
 and takes about 40 seconds. That wait is expected.
 
-### Agent token, track C
+### MCP key, track C
 
-An agent token is the credential for a client that cannot open a browser. The token
-starts with `pat_`. The store holds only a digest of it. It expires after 90 days.
-Revoking the connected app also kills the token.
+An MCP key is the credential for a client that cannot open a browser. It starts with
+`mk_`. It never expires, so there is nothing to rotate on a schedule. It works on
+every plan, including the free one, and there is no limit on how many exist.
 
-A token is minted against a connected app, so the user must authorize once through a
-browser before any token exists. Check <https://app.postey.ai?settings=api> for a
-connected app first. Newer builds show this area as **AI & Agents**.
+You cannot create it yourself, because creating one needs a signed-in browser. Stop
+here and give the user these four steps. This is the one pause a headless run is
+allowed.
 
-Stop here and ask the user to create the token. This is the one pause a headless run
-is allowed. Minting needs a signed-in browser session, so you cannot do it yourself.
+1. Open <https://app.postey.ai?settings=agents&section=advanced>
+2. Choose **New MCP key**
+3. Name it, then pick what it may do. **Read only** is enough to finish this setup;
+   **Publishing** is what a posting agent needs
+4. Choose **Create API Key**, then copy the key and send it back
 
-Send it as a bearer token:
+Send them that whole address. `?settings=api` opens Integrations instead, where the
+general-purpose API keys live, and those are plan-gated.
 
-```json
-{ "headers": { "Authorization": "Bearer <the token>" } }
+When you have the key, export it and send it as a header:
+
 ```
-
-Read the token from the environment. Never write it into a file that a repository
-tracks.
-
+export POSTEY_API_KEY=<the key>
 ```
-export POSTEY_AUTH_TOKEN=<the token>
-```
-
-A container or a continuous-integration job should inject the token as a secret. Pass
-it to the agent the same way you pass any other secret. Rotate it before the 90 days
-expire, because an expired token fails as `401` and looks like a broken setup.
-
-### API key, legacy
-
-An API key starts with `mk_`. Prefer an agent token. A key never expires, and the
-database holds it in plain text.
-
-Create one at <https://app.postey.ai?settings=api>. Newer builds show this area as
-**AI & Agents**, under **Direct connection**. Send the key as a header:
 
 ```json
 { "headers": { "X-API-Key": "<the key>" } }
 ```
 
-An API key on the free plan fails on every MCP call, including the handshake. The
-server answers `402`. OAuth and agent tokens do not carry that limit.
+Never write the key into a file that a repository tracks. A container or a
+continuous-integration job should inject it as a secret, the same way as any other.
+The store holds it in plain text, so if it leaks, revoke it and create another.
+
+The plan still decides what the key can *do*. Publishing, scheduling, analytics and
+auto-DM are gated one by one, so a free-plan key connects and reads, then answers
+`402` on the call that needs a paid feature. That is a limit on the action, not on
+the key.
+
+### Agent token, existing installs
+
+An older headless install may hold an agent token instead, starting with `pat_`. The
+app no longer creates these, and an MCP key replaces them, but the server still
+accepts every token already issued. Keep sending it as a bearer token:
+
+```json
+{ "headers": { "Authorization": "Bearer <the token>" } }
+```
+
+A `pat_` token expires 90 days after it was minted, and there is no way to mint a
+replacement. When it lapses it fails as `401`, which looks like a broken setup. Create
+an MCP key instead, which does not expire.
 
 Never print a credential back to the user. Never write it anywhere except the config
 file this document names for your client.
@@ -384,8 +392,8 @@ Three more rules bind the credential.
    Postey yourself. The client sends it. You do not handle it.
 2. Never call the REST API at `srvr.postey.ai/v1`. It is a different surface. A result from it
    says nothing about whether MCP works.
-3. A credential that reads and cannot write is a real state, and Step 7 names it. Do not treat a
-   read as proof of a write.
+3. A credential that reads and cannot write is a real state. Step 7 names it, from the
+   permissions the key carries rather than from a trial write.
 
 **Verify:** continue to Step 4. That is the real check.
 
@@ -438,7 +446,7 @@ that agent is connected, and says nothing about you.
 | Symptom | Cause | Fix |
 |---|---|---|
 | `401` or `unauthorized` | Step 3 is incomplete, or the credential is wrong | Redo Step 3 |
-| `402` | A free-plan API key | Use OAuth or an agent token. See Step 3 |
+| `402` | The plan does not carry the feature that call needs | Not a credential fault. An MCP key connects on every plan. See Step 3 |
 | `405` | The client fell back to SSE | Set the streamable HTTP transport. See Step 2 |
 | `ready` is `false` | The account can publish nowhere | Read `blockers` and run the call each one names |
 | Empty account list | The account has no connected platform | Not an error. Tell the user to connect one at `app.postey.ai` |
@@ -516,8 +524,8 @@ credential now, or every local-file command fails.
 The tool reads credentials in this order: `POSTEY_API_KEY`, then `POSTEY_AUTH_TOKEN`,
 then a stored OAuth session, then a config file.
 
-Track C already exported `POSTEY_AUTH_TOKEN` in Step 3. The tool picks it up. Nothing
-more is needed.
+Track C already exported `POSTEY_API_KEY` in Step 3, or `POSTEY_AUTH_TOKEN` if it
+still runs on an agent token. The tool picks either up. Nothing more is needed.
 
 Track A can export a key:
 
@@ -594,28 +602,36 @@ Keep it to the rules that the tool schemas do not already show:
 
 ---
 
-## Step 7 — Prove the write path
+## Step 7 — Confirm what the credential may do
 
-Step 4 proved that you can read. Prove that you can write.
+Verify with reads only. Setup must leave no trace, so create nothing, publish
+nothing, schedule nothing and delete nothing — not even a draft you clean up
+afterwards.
 
-1. Create a draft post for one connected platform.
-2. Read it back and confirm the text matches.
-3. Delete the draft.
+Step 4 read `postey://setup` and `postey://accounts`. Read two more, which those two
+did not cover:
 
-The three calls are `create_post`, the post-content read, and `delete_draft`. Search for each
-name. A search for `postey` alone can return a capped list that holds no write tool at all. On
-Hermes, a search for `postey` returned 20 names, and `create_post` was not among them.
+1. `postey://accounts/{account_id}` — an id from Step 4. This is account-scoped, so it
+   fails where the list read succeeded if the key was scoped to specific accounts
+2. `postey://notifications` — a plain read on a different resource
 
-Publish nothing. Schedule nothing. This check must leave no trace.
+A read that returns `403` or `insufficient_scope` names the permission the credential
+lacks. That is the answer, and it costs nothing to find out.
 
-**Verify:** report that all three actions succeeded. If the create call fails while
-Step 4 passed, your credential can read and cannot write. Read the error table in
-Step 3.
+Whether the credential can *write* is settled by the permissions chosen when the key
+was created, not by a trial write. An MCP key made with the **Read only** preset reads
+and cannot post. One made with **Publishing** can. If the user needs to change that,
+they edit the key where they created it, in Step 3.
+
+**Verify:** report `ready`, the account name, the connected platforms, every blocker,
+and the permission level the key carries. If any read errors, setup is not complete.
+Do not report success.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `402` on create, `200` on read | A free-plan API key | Use OAuth or an agent token |
-| `403` or `insufficient_scope` | The grant lacks the permission | Re-authorize and approve the write permission |
+| `403` or `insufficient_scope` on a read | The key has no permission for that resource | Edit the key in **AI & Agents**, then **Advanced**, and grant it |
+| `402` on a read | The plan does not carry that feature, such as analytics | Upgrade the plan. The key is fine |
+| `ready` is `false` | The account can publish nowhere | Read `blockers` and tell the user what each one names |
 
 Setup is complete. For content workflows, continue with
 [`skills/postey/bootstrap-prompt.md`](skills/postey/bootstrap-prompt.md).
