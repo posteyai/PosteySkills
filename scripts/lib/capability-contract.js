@@ -30,6 +30,16 @@ const UNCLAIMED_ALLOWLIST = [
   'post.resolve',
 ];
 
+// MCP prompts no skill routes to yet. Same discipline as UNCLAIMED_ALLOWLIST:
+// each entry names the stage that adopts it, and a claimed entry fails as stale.
+const PROMPT_ALLOWLIST = [
+  'repurpose-content',                // S2.2 — postey-studio
+  'generate-captions-from-transcript', // S2.3 — postey-video
+  'generate-captions-batch',           // S2.3 — postey-video
+  'improve-post',                      // S3.5 — postey-voice
+  'analyze-engagement',                // S4.2 — postey-analytics
+];
+
 // C1: every canonical key is claimed by some skill, as owner or reader.
 function checkCover(skills, snapshot, allowlist) {
   const failures = [];
@@ -88,4 +98,76 @@ function checkExclusive(skills) {
   return { failures };
 }
 
-module.exports = { UNCLAIMED_ALLOWLIST, checkCover, checkExclusive };
+// C3: reads are resource-first. Where a resource supersedes a tool, a skill that
+// claims that capability may keep the tool only as a declared fallback — the
+// resource must be listed too. A superseded tool for a capability the skill does
+// NOT claim is an orphan tool entry, which is C5's business, not C3's.
+function checkResourceFirst(skills, snapshot) {
+  const failures = [];
+
+  for (const { name, caps, mcp } of skills) {
+    const claimed = new Set([...caps.owns, ...caps.reads]);
+    const resources = new Set(mcp.resources);
+
+    for (const tool of mcp.tools) {
+      const resource = snapshot.supersededBy[tool];
+      if (!resource) continue;
+
+      const servesAClaimedCapability = [...claimed]
+        .some(key => snapshot.canonical[key] === resource);
+      if (!servesAClaimedCapability) continue;
+
+      if (!resources.has(resource)) {
+        failures.push({
+          key: tool, skill: name, check: 'c3',
+          reason: `"${tool}" is superseded by ${resource}, which this skill does not declare — ` +
+                  `the resource is the path, the tool is only the fallback`,
+        });
+      }
+    }
+  }
+
+  return { failures };
+}
+
+// C4: every prompt the server declares is routed to by some skill. Unlike
+// capabilities, prompts are not exclusive — several skills may use one.
+function checkPromptsOwned(skills, snapshot, allowlist) {
+  const failures = [];
+  const deferred = [];
+
+  const claimed = new Set();
+  for (const { caps } of skills) for (const p of caps.prompts) claimed.add(p);
+  const allowed = new Set(allowlist);
+
+  for (const prompt of allowlist) {
+    if (!snapshot.prompts.includes(prompt)) {
+      failures.push({ key: prompt, check: 'c4', reason: `allowlisted "${prompt}" is not a server prompt` });
+    } else if (claimed.has(prompt)) {
+      failures.push({
+        key: prompt, check: 'c4',
+        reason: `prompt allowlist entry "${prompt}" is stale — a skill now routes to it; remove it from PROMPT_ALLOWLIST`,
+      });
+    }
+  }
+
+  for (const prompt of snapshot.prompts) {
+    if (claimed.has(prompt)) continue;
+    if (allowed.has(prompt)) { deferred.push(prompt); continue; }
+    failures.push({
+      key: prompt, check: 'c4',
+      reason: `prompt "${prompt}" is routed to by no skill — declared by the server and unreachable`,
+    });
+  }
+
+  return { failures, deferred: deferred.sort() };
+}
+
+module.exports = {
+  UNCLAIMED_ALLOWLIST,
+  PROMPT_ALLOWLIST,
+  checkCover,
+  checkExclusive,
+  checkResourceFirst,
+  checkPromptsOwned,
+};

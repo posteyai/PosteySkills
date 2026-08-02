@@ -6,7 +6,9 @@
 //
 //   C1 cover      every canonical capability is claimed by some skill
 //   C2 exclusive  no capability is owned by two skills
-//   C3..C6        land in S1.2 / S1.3 / S1.4
+//   C3 resource-first  a superseded tool may appear only beside its resource
+//   C4 prompts owned   every server prompt is routed to by some skill
+//   C5, C6             land in S1.3 / S1.4
 //
 // Usage: node scripts/check-capability-contract.js [--check c1,c2]
 
@@ -14,9 +16,13 @@ const path = require('path');
 
 const { discoverSkills } = require('./lib/skills');
 const { loadSnapshot, readCapabilities, validateDeclarations } = require('./lib/capabilities');
-const { UNCLAIMED_ALLOWLIST, checkCover, checkExclusive } = require('./lib/capability-contract');
+const { extractFrontmatter, blockList } = require('./lib/frontmatter');
+const {
+  UNCLAIMED_ALLOWLIST, PROMPT_ALLOWLIST,
+  checkCover, checkExclusive, checkResourceFirst, checkPromptsOwned,
+} = require('./lib/capability-contract');
 
-const IMPLEMENTED = ['c1', 'c2'];
+const IMPLEMENTED = ['c1', 'c2', 'c3', 'c4'];
 
 function selectedChecks(argv) {
   const i = argv.indexOf('--check');
@@ -35,8 +41,24 @@ const ROOT = path.resolve(__dirname, '..');
 const checks = selectedChecks(process.argv.slice(2));
 
 const snapshot = loadSnapshot(ROOT);
-const skills = discoverSkills(path.join(ROOT, 'skills'))
-  .map(s => ({ name: s.name, caps: readCapabilities(s.dir) }));
+const skills = discoverSkills(path.join(ROOT, 'skills')).map(s => {
+  const fm = extractFrontmatter(path.join(s.dir, 'SKILL.md'));
+  return {
+    name: s.name,
+    caps: readCapabilities(s.dir),
+    mcp: {
+      tools: blockList(fm, 'mcp-tools', 'tools'),
+      resources: blockList(fm, 'mcp-tools', 'resources'),
+    },
+  };
+});
+
+function reportDeferred(label, items, what) {
+  if (!items.length) return;
+  console.error(`⚠ ${label}: ${items.length} ${what} unclaimed and allowlisted — ` +
+                `the split is complete when this reaches 0:`);
+  for (const key of items) console.error(`    · ${key}`);
+}
 
 const failures = [];
 
@@ -48,17 +70,21 @@ for (const p of validateDeclarations(skills, snapshot)) {
 if (checks.includes('c1')) {
   const { failures: f, deferred } = checkCover(skills, snapshot, UNCLAIMED_ALLOWLIST);
   failures.push(...f);
-  if (deferred.length) {
-    console.error(
-      `⚠ C1: ${deferred.length} capability/capabilities unclaimed and allowlisted — ` +
-      `the split is complete when this reaches 0:`
-    );
-    for (const key of deferred) console.error(`    · ${key}`);
-  }
+  reportDeferred('C1', deferred, 'capabilities');
 }
 
 if (checks.includes('c2')) {
   failures.push(...checkExclusive(skills).failures);
+}
+
+if (checks.includes('c3')) {
+  failures.push(...checkResourceFirst(skills, snapshot).failures);
+}
+
+if (checks.includes('c4')) {
+  const { failures: f, deferred } = checkPromptsOwned(skills, snapshot, PROMPT_ALLOWLIST);
+  failures.push(...f);
+  reportDeferred('C4', deferred, 'prompts');
 }
 
 for (const f of failures) {
