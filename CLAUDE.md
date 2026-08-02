@@ -19,7 +19,11 @@ skills/  (repo: posteyai/skills)
 ├── .github/workflows/
 │   └── test.yml               — CI: node --test + check-versions + check-leaks (2 scopes) + check-setup-links + check-capability-overlap + check-doc-commands + refresh-capability-snapshot + check-mcp-tool-sync
 ├── scripts/
-│   ├── check-versions.js      — CI: verify SKILL.md version == plugin.json == marketplace == pack.json == REGISTRY.md == README badge
+│   ├── lib/
+│   │   ├── skills.js          — discoverSkills(): the single definition of "what counts as a skill". Every multi-skill check consumes this
+│   │   └── cross-skill-links.js — reference scanner (markdown links + backtick refs) behind check-cross-skill-links.js
+│   ├── check-versions.js      — CI: verify SKILL.md version == plugin.json == marketplace == pack.json == REGISTRY.md == README badge (per skill)
+│   ├── check-cross-skill-links.js — CI: no skill may reference a file it does not ship
 │   ├── check-doc-commands.js  — CI: verify every documented command exists in the CLI COMMANDS table
 │   ├── check-mcp-tool-sync.js — CI: verify SKILL.md mcp-tools.tools: == MCP server registry
 │   ├── check-leaks.js         — CI leak gate: hashed-denylist + secret-pattern scanner (`--hash` mode generates denylist entries)
@@ -27,7 +31,10 @@ skills/  (repo: posteyai/skills)
 ├── tests/
 │   ├── postey-cli.test.js     — node:test suite for postey CLI
 │   ├── check-leaks.test.js    — leak-gate suite (synthetic secret-shaped fixtures; root tests/ is skip-listed in the scanner)
-│   └── pack-manifest.test.js  — pack.json completeness + version + tag-pinned rawBase
+│   ├── skills-discovery.test.js — discoverSkills() against a 2-skill fixture
+│   ├── cross-skill-links.test.js — reference gate: leak/dangling/history cases
+│   ├── fixtures/              — synthetic skill trees for the two suites above
+│   └── pack-manifest.test.js  — pack.json completeness + version + tag-pinned rawBase, per skill
 └── skills/
     ├── REGISTRY.md            — Index of all skills in this repo
     ├── _template/             — Starter template for new skills (copy and fill in)

@@ -55,6 +55,13 @@ jobs:
       - name: Check setup doc is agent-executable
         run: node scripts/check-setup-doc.mjs
 
+      # A skill must ship every file it references. Once skills are split, a
+      # reference to a file that moved elsewhere still reads fine in prose but is
+      # simply not installed. Catches markdown links AND backtick refs — the
+      # content flows cite the craft layer with backticks. Offline.
+      - name: Check no skill references a file it does not ship
+        run: node scripts/check-cross-skill-links.js
+
       # S9.6 — enforcement. The responsibility contract is prose until a build
       # fails on it. Offline: reads the committed snapshot, so it runs on forks.
       - name: Check skill/MCP capability overlap
