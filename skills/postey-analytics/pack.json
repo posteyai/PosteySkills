@@ -1,0 +1,10 @@
+{
+  "name": "postey-analytics",
+  "version": "1.0.0",
+  "description": "Analytics pack for Postey: read performance, say what it supports, and turn it into a recommendation. Requires the postey skill.",
+  "skill": "SKILL.md",
+  "docs": [],
+  "scripts": [],
+  "references": [],
+  "rawBase": "https://raw.githubusercontent.com/posteyai/skills/refs/tags/skills/postey-analytics/v1.0.0/skills/postey-analytics/"
+}

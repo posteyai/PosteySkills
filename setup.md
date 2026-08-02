@@ -527,11 +527,19 @@ wants — a pack the user never asked for is context they pay for on every turn.
 | `postey-studio` | turn a trend or a rough idea into per-platform posts |
 | `postey-video` | transcribe a video and cross-post it, or post local video files |
 | `postey-voice` | have the agent learn how they write and keep matching it |
+| `postey-engagement` | reply to comments, or run comment-to-DM funnels |
+| `postey-analytics` | read what worked and decide what to make next |
+| `postey-ops` | check things actually published, and chase what failed |
+| `postey-teams` | send drafts for review before anything goes out |
 
 ```
 claude plugin install postey-studio@postey-skills
 claude plugin install postey-video@postey-skills
 claude plugin install postey-voice@postey-skills
+claude plugin install postey-engagement@postey-skills
+claude plugin install postey-analytics@postey-skills
+claude plugin install postey-ops@postey-skills
+claude plugin install postey-teams@postey-skills
 ```
 
 Every other agent, one `-s` per pack:

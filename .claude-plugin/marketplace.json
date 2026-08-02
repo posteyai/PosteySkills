@@ -89,6 +89,74 @@
         "personalisation"
       ],
       "category": "productivity"
+    },
+    {
+      "name": "postey-engagement",
+      "source": "./skills/postey-engagement",
+      "description": "Engagement pack for Postey: comment triage, replies and auto-DM funnels. Requires the postey skill.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Postey",
+        "url": "https://postey.ai"
+      },
+      "homepage": "https://postey.ai",
+      "repository": "https://github.com/posteyai/skills",
+      "license": "MIT",
+      "keywords": [
+        "social-media"
+      ],
+      "category": "productivity"
+    },
+    {
+      "name": "postey-analytics",
+      "source": "./skills/postey-analytics",
+      "description": "Analytics pack for Postey: read performance, say what it supports, and turn it into a recommendation. Requires the postey skill.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Postey",
+        "url": "https://postey.ai"
+      },
+      "homepage": "https://postey.ai",
+      "repository": "https://github.com/posteyai/skills",
+      "license": "MIT",
+      "keywords": [
+        "social-media"
+      ],
+      "category": "productivity"
+    },
+    {
+      "name": "postey-ops",
+      "source": "./skills/postey-ops",
+      "description": "Ops pack for Postey: publish-status checks, failure triage and queue health. Requires the postey skill.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Postey",
+        "url": "https://postey.ai"
+      },
+      "homepage": "https://postey.ai",
+      "repository": "https://github.com/posteyai/skills",
+      "license": "MIT",
+      "keywords": [
+        "social-media"
+      ],
+      "category": "productivity"
+    },
+    {
+      "name": "postey-teams",
+      "source": "./skills/postey-teams",
+      "description": "Teams pack for Postey: review workflow, internal comments and share links. Requires the postey skill.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Postey",
+        "url": "https://postey.ai"
+      },
+      "homepage": "https://postey.ai",
+      "repository": "https://github.com/posteyai/skills",
+      "license": "MIT",
+      "keywords": [
+        "social-media"
+      ],
+      "category": "productivity"
     }
   ]
 }

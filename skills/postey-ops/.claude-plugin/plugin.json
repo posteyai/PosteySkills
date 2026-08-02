@@ -1,0 +1,12 @@
+{
+  "name": "postey-ops",
+  "description": "Know whether scheduled posts actually went out, find the ones that failed, and fix them",
+  "version": "1.0.0",
+  "author": {
+    "name": "Postey",
+    "url": "https://postey.ai"
+  },
+  "homepage": "https://postey.ai",
+  "repository": "https://github.com/posteyai/skills",
+  "license": "MIT"
+}

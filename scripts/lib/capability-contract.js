@@ -9,32 +9,16 @@
 // the stage that clears it; the list reaching EMPTY is the completion test for
 // the split. An entry that becomes claimed fails the build as stale, so this
 // cannot rot into a permanent exemption.
-const UNCLAIMED_ALLOWLIST = [
-  // S4.1 — postey-engagement
-  'comment.platform.list',
-  'comment.platform.reply',
-  'comment.internal.list',
-  'automation.list',
-  'schedule.auto_dm',
-  // S4.2 — postey-analytics
-  'analytics.overview',
-  'analytics.top_posts',
-  'post.analytics',
-  // S4.3 — postey-ops
-  'notification.list',
-  'post.publish_status',
-  // S4.4 — postey-teams
-  'team.list',
-  'team.info',
-  'team.read',
-  'post.resolve',
-];
+// EMPTY, and it must stay that way. Every capability the server exposes now has
+// exactly one owning skill. A new server capability lands here as a C1 failure —
+// adding it back to this list is a deliberate, reviewable act of deferral, not a
+// way to make the build green.
+const UNCLAIMED_ALLOWLIST = [];
 
 // MCP prompts no skill routes to yet. Same discipline as UNCLAIMED_ALLOWLIST:
 // each entry names the stage that adopts it, and a claimed entry fails as stale.
-const PROMPT_ALLOWLIST = [
-  'analyze-engagement',                // S4.2 — postey-analytics
-];
+// Empty for the same reason: all seven server prompts are routed to by some skill.
+const PROMPT_ALLOWLIST = [];
 
 // C1: every canonical key has an OWNER.
 //

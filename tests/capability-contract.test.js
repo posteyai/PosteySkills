@@ -82,6 +82,9 @@ test('the real tree passes C1 and C2 with the committed allowlist', () => {
   assert.deepStrictEqual(cover.failures, [], JSON.stringify(cover.failures, null, 2));
   assert.deepStrictEqual(checkExclusive(skills).failures, []);
 
-  // The hub deliberately leaves these unclaimed until their pillar ships (D-010).
-  assert.strictEqual(cover.deferred.length, 14, `deferred: ${cover.deferred.join(', ')}`);
+  // The split is complete: every capability the server exposes has an owner, and
+  // the allowlist that carried the gap is empty. A future capability with no owner
+  // fails C1 rather than being quietly exempted.
+  assert.deepStrictEqual(cover.deferred, [], 'no capability may be left unclaimed');
+  assert.deepStrictEqual(UNCLAIMED_ALLOWLIST, [], 'the allowlist must stay empty');
 });
