@@ -15,6 +15,11 @@ when_to_use: >
 requires:
   - postey
 
+# Local-machine work only: reading the user's own files and doing deterministic
+# arithmetic over them. The CLI calls no Postey API and creates nothing.
+allowed-tools:
+  - Bash(${CLAUDE_SKILL_DIR}/scripts/voice.js:*)
+
 # This skill OWNS no server capability. Voice is judgment, and
 # docs/skills-mcp-contract.md assigns judgment to the skill; every write still
 # goes through the hub. It only reads, and it stores what it learns client-side.
@@ -76,6 +81,33 @@ PUBLISHED`. Rejection is expressed by deleting the draft, which destroys the evi
 A rejection made in the Postey web UI is invisible to this skill, permanently. Only drafts this
 agent created in-session can be tracked through to their verdict.
 
+## Bulk ingest — content the user already has
+
+Fastest path to a first profile, and it needs no account access at all:
+
+```bash
+${CLAUDE_SKILL_DIR}/scripts/voice.js ingest ./their-writing --out ./voice-ledger.json
+```
+
+Accepts a directory, a single file, or a JSON export (`.md`, `.txt`, `.json`; a bare array,
+`{posts:[…]}` or `{data:[…]}`). A JSON export becomes one document per row, keeping `post_id`,
+`platform` and `published_at`; a text file becomes one document dated by its mtime.
+
+Useful flags: `--scope LINKEDIN` to attribute everything to one platform, `--since <ISO>` to ignore
+old work, `--out <file>` to write the ledger.
+
+It emits countable features and rule observations — never an opinion. Judgements like "warm but
+authoritative" are yours to make from reading the corpus; the CLI only measures what cannot be
+argued with, so that every rule can name its evidence.
+
+Then compile:
+
+```bash
+${CLAUDE_SKILL_DIR}/scripts/voice.js compile ./voice-ledger.json
+```
+
+Full flag list: [command-reference.md](command-reference.md).
+
 ## Cold start — the published corpus
 
 1. `get_posts(status=PUBLISHED)` per account.
@@ -97,6 +129,9 @@ Two gates. Both are mandatory; skip either and the loop silently never runs:
 
 - **Before drafting anything** — read the profile and the active rules.
 - **After every outcome** — append a verdict to the ledger.
+
+Append verdicts to the same ledger file, then re-run `voice.js compile`. Thresholds are applied by
+the script, not by eye — counting evidence across sessions by hand is exactly what drifts.
 
 Format and thresholds: [rules-ledger.md](rules-ledger.md).
 Profile shape: [voice-profile-schema.md](voice-profile-schema.md).

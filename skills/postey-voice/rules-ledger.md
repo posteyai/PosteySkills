@@ -9,19 +9,46 @@ A rule with no evidence count cannot be demoted, and a skill that cannot demote 
 eventually be confidently wrong. One grumpy rejection becoming a permanent law is the main way a
 learning loop goes bad. Thresholds exist to stop that.
 
+## The ledger is JSON
+
+`scripts/voice.js` reads it, so it is JSON rather than the prose format this document first sketched.
+An agent writes JSON reliably; a script parses it without a dependency. One file holds the corpus,
+the features, and both kinds of observation:
+
+```json
+{
+  "corpus":   { "documents": 48, "scopes": ["LINKEDIN"], "window": ["2026-02-01", "2026-08-01"] },
+  "features": [ { "feature": "emoji rate", "value": "0 per post", "from": [1180, 1194] } ],
+  "observations":         [ { "rule": "no emoji", "scope": "all", "post_id": 1180, "supports": true, "ts": "2026-07-11T00:00:00Z" } ],
+  "verdict_observations": [ { "rule": "no em-dashes", "scope": "all", "post_id": 1231, "supports": true, "ts": "2026-07-30T00:00:00Z" } ]
+}
+```
+
+`observations` come from `voice.js ingest`. `verdict_observations` are what you append by hand as
+drafts get their outcomes. `compile` merges the two, so corpus evidence and live corrections promote
+the same rules.
+
 ## Verdict ledger
 
-One entry per draft the agent produced. Written at draft time, completed at outcome.
+One entry per draft the agent produced. Written at draft time, completed at outcome. Keep the raw
+verdicts alongside the observations you derive from them — the diff is the thing worth re-reading.
 
+```json
+{
+  "post_id": 1234,
+  "platform": "LINKEDIN",
+  "drafted": "<the exact text the agent proposed>",
+  "ts": "2026-08-02T11:04:00Z",
+  "verdict": "published_edited",
+  "published": "<the exact text that actually went out>",
+  "delta": "removed two em-dashes; cut the closing CTA"
+}
 ```
-- post_id: 1234
-  platform: LINKEDIN
-  drafted: "<the exact text the agent proposed>"
-  ts: 2026-08-02T11:04:00Z
-  verdict: published_edited
-  published: "<the exact text that actually went out>"
-  delta: removed two em-dashes; cut the closing CTA
-```
+
+A `published_edited` verdict whose delta removed em-dashes becomes
+`{"rule": "no em-dashes", "supports": true, "post_id": 1234, "ts": "…"}` in
+`verdict_observations`. Deciding what a delta means is judgement and stays with you; counting the
+evidence afterwards is arithmetic and belongs to the script.
 
 | Verdict | Meaning | Strength |
 |---|---|---|
@@ -34,27 +61,20 @@ One entry per draft the agent produced. Written at draft time, completed at outc
 (`postey://posts/{post_id}/comments/{platform}`), or what the user said in the session. The
 second is usually more specific. Record it verbatim; paraphrasing loses the signal.
 
-## Rules
+## Rules — the compiler's output
 
-```
-- rule: "no em-dashes"
-  scope: all
-  evidence: 4          # 4 edits removed them
-  first_seen: 2026-07-11
-  confirmed: 2026-07-30
-  status: active
-  from: [1180, 1194, 1207, 1231]
+You do not hand-write these. `voice.js compile` emits them:
 
-- rule: "opens with a question"
-  scope: LINKEDIN
-  evidence: 2
-  first_seen: 2026-07-28
-  confirmed: 2026-07-28
-  status: candidate
-  from: [1219, 1226]
+```json
+{ "rule": "no em-dashes", "scope": "all", "status": "active", "evidence": 4,
+  "total_observations": 4, "contradictions": 0,
+  "first_seen": "2026-07-11T00:00:00Z", "confirmed": "2026-07-30T00:00:00Z",
+  "from": [1180, 1194, 1207, 1231] }
 ```
 
-`from` carries the post IDs. A rule that cannot name its evidence is not a rule.
+`from` carries the post IDs behind the current run. A rule that cannot name its evidence is not a
+rule. `evidence` counts the run since the last contradiction; `total_observations` keeps the whole
+history, so a demoted rule does not lose its past.
 
 ## Thresholds
 

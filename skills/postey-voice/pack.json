@@ -1,13 +1,18 @@
 {
   "name": "postey-voice",
   "version": "1.0.0",
-  "description": "Postey voice pack: build a brand profile from the published corpus, then sharpen it from every draft verdict. Requires the postey skill, which ships the brand-profile schema and the craft layer.",
+  "description": "Postey voice pack: bulk-ingest existing content or the published corpus, then sharpen the profile from every draft verdict. Ships a local CLI (ingest + compile); requires the postey skill.",
   "skill": "SKILL.md",
   "docs": [
     "voice-profile-schema.md",
-    "rules-ledger.md"
+    "rules-ledger.md",
+    "command-reference.md"
   ],
-  "scripts": [],
+  "scripts": [
+    "scripts/voice.js",
+    "scripts/voiceFeatures.js",
+    "scripts/voiceRules.js"
+  ],
   "references": [
     "references/brand-voice.md"
   ],
