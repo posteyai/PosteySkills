@@ -29,35 +29,31 @@ mcp-tools:
     - postey://teams/{team_id}/members
     - postey://skill-manifest
   tools:
-    # Write operations — MCP only. The CLI has no write command; there is no fallback.
-    - create_post
-    - update_post
-    - delete_draft
-    - publish_draft
-    - schedule_post
-    - unschedule_post
-    - update_schedule
+    # GENERATED from capabilities: by scripts/gen-mcp-tools.js — do not hand-edit.
     - add_tag
-    - remove_tag
-    - upload_media
-    - reply_to_platform_comment
     - connect_account
-    - configure_auto_dm
-    # Read operations (fallback tools when resources unavailable)
-    - get_accounts
-    - get_teams
-    - get_team_info
-    - get_posts
-    - get_specific_post_content
-    - get_post_by_share_link
-    - get_schedule
-    - get_platform_comments
-    - get_internal_comments
-    # AI-enhanced operations (no CLI equivalent — always use MCP)
-    - validate_post_content
-    - review_post_content_and_add_comments_for_virality
     - convert_post_content
+    - create_post
+    - delete_draft
+    - file_manager
+    - get_posts
+    - get_schedule
+    - list_files
+    - publish_draft
+    - read_file
+    - remove_tag
+    - review_post_content_and_add_comments_for_virality
+    - schedule_post
     - transcribe_video
+    - unschedule_post
+    - update_post
+    - update_schedule
+    - upload_media
+    - validate_post_content
+    # Fallbacks only: each is superseded by a postey:// resource this skill
+    # declares. Use them when the client cannot read MCP resources.
+    - get_accounts
+    - get_specific_post_content
   prompts:
     - compose-post
     - review-for-virality

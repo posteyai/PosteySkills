@@ -55,6 +55,12 @@ jobs:
       - name: Check setup doc is agent-executable
         run: node scripts/check-setup-doc.mjs
 
+      # C5: mcp-tools.tools: is derived from capabilities:, never hand-written.
+      # The hand-kept list had silently omitted file_manager, list_files and
+      # read_file — capabilities the skill claims but could not call. Offline.
+      - name: Check mcp-tools.tools is derived from capabilities
+        run: node scripts/gen-mcp-tools.js --check
+
       # The capability contract: every capability the server exposes is owned by
       # exactly one skill. C1's allowlist of not-yet-claimed capabilities shrinks
       # as each pillar ships, and an entry that becomes claimed fails as stale —

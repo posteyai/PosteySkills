@@ -22,13 +22,29 @@ const https = require('https');
 const http = require('http');
 
 const ROOT = path.resolve(__dirname, '..');
-const SKILL_MD = path.join(ROOT, 'skills', 'postey', 'SKILL.md');
+// Every skill's SKILL.md, not just the hub's. With several skills each holding a
+// SUBSET of the registry, equality is the wrong assertion: the union must cover
+// the registry, and no skill may name a tool outside it (S1.5).
+const { discoverSkills } = require('./lib/skills');
+const { loadSnapshot } = require('./lib/capabilities');
+const { UNCLAIMED_ALLOWLIST } = require('./lib/capability-contract');
+const SKILL_MDS = () =>
+  discoverSkills(path.join(ROOT, 'skills')).map(s => ({
+    name: s.name,
+    file: path.join(s.dir, 'SKILL.md'),
+  }));
 const MCP_TOOLS_DIR = process.env.MCP_TOOLS_DIR;
 const MCP_SERVER_URL = process.env.MCP_SERVER_URL;
 const POSTEY_API_KEY = process.env.POSTEY_API_KEY;
 // Derived from MCP_TOOLS_DIR (../prompts.py) or overridden explicitly.
 const MCP_PROMPTS_FILE = process.env.MCP_PROMPTS_FILE ||
   (MCP_TOOLS_DIR ? path.join(path.dirname(MCP_TOOLS_DIR), 'prompts.py') : null);
+// file_manager / list_files / read_file come from FastMCP's file-upload
+// integration, not from @mcp.tool in tools/*.py, so scanning that directory alone
+// cannot see them. The backend records them in file_tool_metadata.py — a second
+// source, handled the same way prompts.py already is.
+const MCP_FILE_TOOLS_FILE = process.env.MCP_FILE_TOOLS_FILE ||
+  (MCP_TOOLS_DIR ? path.join(path.dirname(MCP_TOOLS_DIR), 'file_tool_metadata.py') : null);
 
 /**
  * Tools deliberately NOT granted in SKILL.md `mcp-tools.tools:`.
@@ -128,6 +144,14 @@ function extractToolsFromSource(toolsDir) {
   return names.sort();
 }
 
+// Keys of the FILE_TOOL_METADATA mapping — tools the server registers through
+// FastMCP rather than through the @mcp.tool decorator.
+function extractFileToolsFromSource(metadataFile) {
+  if (!metadataFile || !fs.existsSync(metadataFile)) return [];
+  const src = fs.readFileSync(metadataFile, 'utf8');
+  return [...src.matchAll(/^\s{4}["']([a-z_]+)["']:\s*\{/gm)].map(m => m[1]).sort();
+}
+
 function extractPromptsFromSource(promptsFile) {
   if (!promptsFile || !fs.existsSync(promptsFile)) {
     return null; // not available — caller decides whether to skip or warn
@@ -196,10 +220,22 @@ async function fetchManifestFromServer(serverUrl, apiKey) {
 // --- Main ---
 
 (async () => {
-  const fm = extractFrontmatter(SKILL_MD);
-  const skillTools = extractMcpTools(fm);
+  const skills = SKILL_MDS();
+  const skillTools = [];
+  const skillPromptsBySkill = [];
+  const toolOwner = new Map();
+  for (const { name, file } of skills) {
+    const skillFm = extractFrontmatter(file);
+    for (const t of extractMcpTools(skillFm)) {
+      skillTools.push(t);
+      if (!toolOwner.has(t)) toolOwner.set(t, []);
+      toolOwner.get(t).push(name);
+    }
+    skillPromptsBySkill.push(...extractMcpPrompts(skillFm));
+  }
+  const fm = extractFrontmatter(skills[0].file);
   const skillResources = extractMcpResources(fm);
-  const skillPrompts = extractMcpPrompts(fm);
+  const skillPrompts = [...new Set(skillPromptsBySkill)];
 
   if (skillTools.length === 0) {
     console.log('⚠ mcp-tools.tools: empty in SKILL.md — nothing to verify');
@@ -234,7 +270,10 @@ async function fetchManifestFromServer(serverUrl, apiKey) {
     }
   } else if (MCP_TOOLS_DIR) {
     console.log(`Source-parse mode: reading ${MCP_TOOLS_DIR}`);
-    mcpRawNames = new Set(extractToolsFromSource(MCP_TOOLS_DIR));
+    mcpRawNames = new Set([
+      ...extractToolsFromSource(MCP_TOOLS_DIR),
+      ...extractFileToolsFromSource(MCP_FILE_TOOLS_FILE),
+    ]);
   } else {
     console.error('Set MCP_TOOLS_DIR (source-parse) or MCP_SERVER_URL (runtime) to run this check.');
     process.exit(1);
@@ -250,9 +289,21 @@ async function fetchManifestFromServer(serverUrl, apiKey) {
     }
   }
 
+  // Tools whose only capability is still unclaimed (C1 allowlist). They are
+  // permitted to be ungranted until the pillar that owns them ships.
+  const snap = loadSnapshot(ROOT);
+  const unclaimedTools = new Set();
+  for (const key of UNCLAIMED_ALLOWLIST) {
+    const provider = snap.canonical[key];
+    if (provider && !String(provider).startsWith('postey://')) unclaimedTools.add(provider);
+    for (const [tool, resource] of Object.entries(snap.supersededBy)) {
+      if (resource === provider) unclaimedTools.add(tool);
+    }
+  }
+
   // ── Tools check ────────────────────────────────────────────────────────────
   console.log('\nMCP tools in server:', [...mcpRawNames].sort().join(', '));
-  console.log('MCP tools in SKILL.md:', [...skillRawNames].sort().join(', '));
+  console.log(`MCP tools across ${skills.length} skill(s):`, [...skillRawNames].sort().join(', '));
 
   // SKILL.md lists a tool that doesn't exist in the server → hard error
   for (const name of skillRawNames) {
@@ -268,6 +319,11 @@ async function fetchManifestFromServer(serverUrl, apiKey) {
       // not an observation — unless the omission is declared on purpose.
       if (INTENTIONALLY_UNGRANTED[name]) {
         console.log(`  · '${name}' ungranted on purpose: ${INTENTIONALLY_UNGRANTED[name]}`);
+      } else if (unclaimedTools.has(name)) {
+        // The capability this tool serves is owned by no skill yet, and that gap
+        // is already tracked by C1's allowlist. Failing here too would report one
+        // gap twice and force skills to grant tools they do not document.
+        console.log(`  · '${name}' serves a capability still on C1's unclaimed allowlist`);
       } else {
         fail(`'${name}' is registered on the MCP server but missing from SKILL.md ` +
              `mcp-tools.tools: — the skill cannot call it. Grant it, or declare the ` +
