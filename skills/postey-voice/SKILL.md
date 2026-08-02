@@ -113,7 +113,25 @@ Full flag list: [command-reference.md](command-reference.md).
 1. `get_posts(status=PUBLISHED)` per account.
 2. Read each one's text: `postey://posts/{post_id}/content/{platform}`.
 3. Weight by `postey://accounts/{account_id}/analytics/posts` — profile what **worked**, not
-   merely what shipped.
+   merely what shipped. **Check the numbers are real first.** On the account checked during
+   development, every LinkedIn post reported zero impressions while the same content on X reported
+   between 481 and 2,935. Weighting by a metric that is uniformly zero silently weights by nothing;
+   say so and fall back to unweighted rather than implying the ranking meant something.
+### Corpus hygiene — read this before trusting a pass
+
+A Postey account accumulates **QA and pipeline-test posts**, and they are `PUBLISHED` like anything
+else. A real account checked during development had 88 published LinkedIn posts, of which a large
+share were artifacts: `AUDIT-PUBLISH-PROBE`, `publish-fix validation test`, `testf`,
+`sdsd sdssdaaaa`, `qwetgvdbmFgh`. Ingest those and you will learn that the user writes gibberish.
+
+Exclude a post from the corpus when any of these hold:
+
+- the title or text reads as a probe — `test`, `probe`, `validation`, `[dev]`, `please ignore`
+- the text is not language — no sentence structure, repeated character runs
+- it is a duplicate of another post with a near-identical opening
+
+Then say how many you dropped and why. A silent filter is as misleading as no filter.
+
 4. Derive observable features only: sentence length distribution, how posts open and close,
    punctuation habits, emoji and hashtag rate, whether there is a CTA and what shape it takes.
 
