@@ -136,8 +136,10 @@ function scanTree(rootDir, denylist) {
   (function walk(dir, isRoot) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
+      // Skip by name regardless of type: in a git worktree `.git` is a FILE
+      // holding `gitdir: <absolute path>`, and that path is not content either.
+      if (SKIP_DIR_NAMES.has(entry.name)) continue;
       if (entry.isDirectory()) {
-        if (SKIP_DIR_NAMES.has(entry.name)) continue;
         if (isRoot && ROOT_SKIP_DIRS.has(entry.name)) continue;
         walk(full, false);
       } else if (entry.isFile()) {
