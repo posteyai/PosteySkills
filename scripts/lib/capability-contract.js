@@ -33,7 +33,6 @@ const UNCLAIMED_ALLOWLIST = [
 // MCP prompts no skill routes to yet. Same discipline as UNCLAIMED_ALLOWLIST:
 // each entry names the stage that adopts it, and a claimed entry fails as stale.
 const PROMPT_ALLOWLIST = [
-  'repurpose-content',                // S2.2 — postey-studio
   'generate-captions-from-transcript', // S2.3 — postey-video
   'generate-captions-batch',           // S2.3 — postey-video
   'improve-post',                      // S3.5 — postey-voice

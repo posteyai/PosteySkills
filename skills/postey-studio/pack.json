@@ -1,0 +1,13 @@
+{
+  "name": "postey-studio",
+  "version": "1.0.0",
+  "description": "Postey content-ideation flows: trends to posts, and idea to posts. Requires the postey skill, which carries the routing, the auth and the craft layer these flows cite.",
+  "skill": "SKILL.md",
+  "docs": [],
+  "scripts": [],
+  "references": [
+    "references/idea-to-posts.md",
+    "references/trends-to-posts.md"
+  ],
+  "rawBase": "https://raw.githubusercontent.com/posteyai/skills/refs/tags/skills/postey-studio/v1.0.0/skills/postey-studio/"
+}

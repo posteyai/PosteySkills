@@ -16,11 +16,24 @@
 // A backtick naming a file that exists in no skill at all is not a cross-skill
 // problem — CHANGELOG.md cites `skills/SKILLS.md` from a repo that no longer
 // exists here, and that is history, not leakage.
+//
+// THE HUB IS A GUARANTEED DEPENDENCY. The pillar skills are optional add-ons to
+// `postey`, which is not optional: it carries the routing, the auth and the craft
+// layer every flow cites. So a spoke may name a hub file — that file is always
+// installed alongside it. Spoke-to-spoke is still forbidden, because two optional
+// packs have no such guarantee about each other.
+//
+// This applies to BACKTICK names only. A markdown link into another skill's
+// directory stays forbidden regardless: the relative path between two installed
+// skills is not knowable at authoring time, so the link would not resolve.
 
 const fs = require('fs');
 const path = require('path');
 
 const { discoverSkills } = require('./skills');
+
+// The hub. Every spoke depends on it, so a spoke may name its files.
+const HUB = 'postey';
 
 const MD_LINK = /\]\(([^)\s]+?\.md)(?:#[^)\s]*)?\)/g;
 const BACKTICK_MD = /`([A-Za-z0-9_./-]+\.md)`/g;
@@ -80,6 +93,7 @@ function findCrossSkillLinkProblems(skillsDir) {
         const base = path.basename(ref);
         const owners = byBasename.get(base);
         if (!owners || owners.has(skill.name)) continue; // ours, or in no skill at all
+        if (skill.name !== HUB && owners.has(HUB)) continue; // hub file: always installed
         problems.push({
           skill: skill.name, file: rel, ref, kind: 'backtick',
           reason: `only skill(s) "${[...owners].join(', ')}" ship ${base}`,

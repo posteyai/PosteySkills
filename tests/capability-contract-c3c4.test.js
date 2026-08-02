@@ -116,5 +116,5 @@ test('the real tree passes C3 and C4 with the committed allowlist', () => {
 
   const c4 = checkPromptsOwned(skills, snap, PROMPT_ALLOWLIST);
   assert.deepStrictEqual(c4.failures, [], JSON.stringify(c4.failures, null, 2));
-  assert.strictEqual(c4.deferred.length, 5, `deferred: ${c4.deferred.join(', ')}`);
+  assert.strictEqual(c4.deferred.length, 4, `deferred: ${c4.deferred.join(', ')}`);
 });
