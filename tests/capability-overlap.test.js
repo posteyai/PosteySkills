@@ -19,14 +19,19 @@ const ROOT = path.join(__dirname, '..');
 const CHECK = path.join(ROOT, 'scripts', 'check-capability-overlap.js');
 const CLI_REL = path.join('skills', 'postey', 'scripts', 'postey.js');
 const SNAP_REL = path.join('skills', 'postey', 'capability-snapshot.json');
+const SKILL_REL = path.join('skills', 'postey', 'SKILL.md');
+// The check discovers skills now instead of hardcoding one, so the scratch repo
+// must look like a repo: a SKILL.md to be discovered, and the shared discovery lib.
+const LIB_REL = path.join('scripts', 'lib', 'skills.js');
 
 function scratchRepo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'overlap-'));
-  fs.mkdirSync(path.join(dir, 'scripts'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'scripts', 'lib'), { recursive: true });
   fs.mkdirSync(path.join(dir, 'skills', 'postey', 'scripts'), { recursive: true });
   fs.copyFileSync(CHECK, path.join(dir, 'scripts', 'check-capability-overlap.js'));
-  fs.copyFileSync(path.join(ROOT, CLI_REL), path.join(dir, CLI_REL));
-  fs.copyFileSync(path.join(ROOT, SNAP_REL), path.join(dir, SNAP_REL));
+  for (const rel of [CLI_REL, SNAP_REL, SKILL_REL, LIB_REL]) {
+    fs.copyFileSync(path.join(ROOT, rel), path.join(dir, rel));
+  }
   return dir;
 }
 

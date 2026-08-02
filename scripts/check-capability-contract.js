@@ -8,7 +8,8 @@
 //   C2 exclusive  no capability is owned by two skills
 //   C3 resource-first  a superseded tool may appear only beside its resource
 //   C4 prompts owned   every server prompt is routed to by some skill
-//   C5, C6             land in S1.3 / S1.4
+//   C6 non-intersection delegated to check-capability-overlap.js
+//   C5                 lands in S1.3
 //
 // Usage: node scripts/check-capability-contract.js [--check c1,c2]
 
@@ -22,7 +23,7 @@ const {
   checkCover, checkExclusive, checkResourceFirst, checkPromptsOwned,
 } = require('./lib/capability-contract');
 
-const IMPLEMENTED = ['c1', 'c2', 'c3', 'c4'];
+const IMPLEMENTED = ['c1', 'c2', 'c3', 'c4', 'c6'];
 
 function selectedChecks(argv) {
   const i = argv.indexOf('--check');
@@ -85,6 +86,19 @@ if (checks.includes('c4')) {
   const { failures: f, deferred } = checkPromptsOwned(skills, snapshot, PROMPT_ALLOWLIST);
   failures.push(...f);
   reportDeferred('C4', deferred, 'prompts');
+}
+
+if (checks.includes('c6')) {
+  // C6 lives in check-capability-overlap.js, which compares CAPABILITY rather than
+  // spelling. Run it as a child so there is exactly one implementation and one set
+  // of SKILL_OWNED exemptions.
+  const { spawnSync } = require('child_process');
+  const r = spawnSync(process.execPath, [path.join(__dirname, 'check-capability-overlap.js')],
+    { encoding: 'utf8' });
+  if (r.status !== 0) {
+    process.stderr.write(r.stderr || '');
+    failures.push({ check: 'c6', reason: 'CLI commands overlap MCP — see output above' });
+  }
 }
 
 for (const f of failures) {
