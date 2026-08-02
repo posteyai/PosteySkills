@@ -66,6 +66,54 @@ mcp-tools:
     - analyze-engagement
     - generate-captions-from-transcript
     - generate-captions-batch
+# Capability-keyed ownership. Keys are `canonical` entries from
+# capability-snapshot.json — the server's vocabulary, never raw tool names, so this
+# cannot drift into a second hand-kept list (S9.5). `owns` is exclusive: exactly one
+# skill may own a key. `reads` is shared. Contract: docs/skills-mcp-contract.md.
+#
+# Keys absent here are owned by NO skill yet and are tracked as unclaimed until the
+# pillar that covers them ships: analytics.*, post.analytics, comment.*, team.*,
+# automation.list, schedule.auto_dm, notification.list, post.publish_status,
+# post.resolve. Claiming a capability the skill does not actually document would
+# defeat the coverage check.
+capabilities:
+  owns:
+    # Accounts, platform truth, setup — the hub's operations layer
+    - account.connect
+    - account.list
+    - account.read
+    - account.tags
+    - platform.limits
+    - platform.rules
+    - server.manifest
+    - setup.read
+    # Authoring and the post lifecycle
+    - post.create
+    - post.read
+    - post.list
+    - post.update
+    - post.delete
+    - post.convert
+    - post.review
+    - post.validate
+    - post.tag.add
+    - post.tag.remove
+    - publish.now
+    - schedule.create
+    - schedule.read
+    - schedule.update
+    - schedule.delete
+    # Media and local files (the only capability the CLI may hold)
+    - media.upload
+    - media.transcribe
+    - file.list
+    - file.read
+    - file.upload
+  reads:
+  prompts:
+    - compose-post
+    - review-for-virality
+
 # Machine-readable routing rules (mirrors routing-guide.md; used by CI and agents).
 # Values: a single path, or "primary > fallback" — use the fallback only when
 # your client lacks the primary capability (cannot read MCP resources, or has
