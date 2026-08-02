@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { discoverSkills } = require('./lib/skills');
 
 const ROOT = path.resolve(__dirname, '..');
 let errors = 0;
@@ -47,26 +48,26 @@ function parseRegistryVersion(registryPath, skillName) {
   return cells.length ? cells[cells.length - 1] : null;
 }
 
-// README shield badge: .../badge/version-X.Y.Z-green.svg (repo-level badge
-// tracks the postey skill version).
+// README shield badge: .../badge/version-X.Y.Z-green.svg
 function parseReadmeBadgeVersion(readmePath) {
   if (!fs.existsSync(readmePath)) return null;
   const match = fs.readFileSync(readmePath, 'utf8').match(/badge\/version-([0-9.]+)-/);
   return match ? match[1] : null;
 }
 
+// Which skill each README badge tracks. The repo-level README badge tracks
+// `postey`; a skill absent from this map has no badge to check. Add an entry
+// when a skill gets its own badge — data, not a branch.
+const README_BADGES = {
+  postey: 'README.md',
+};
+
 const skillsDir = path.join(ROOT, 'skills');
 const marketplacePath = path.join(ROOT, '.claude-plugin', 'marketplace.json');
-const skillDirs = fs.readdirSync(skillsDir).filter(d => {
-  if (d.startsWith('_')) return false;
-  return fs.statSync(path.join(skillsDir, d)).isDirectory();
-});
 
-for (const skill of skillDirs) {
-  const skillMdPath = path.join(skillsDir, skill, 'SKILL.md');
-  const pluginJsonPath = path.join(skillsDir, skill, '.claude-plugin', 'plugin.json');
-
-  if (!fs.existsSync(skillMdPath)) continue;
+for (const { name: skill, dir: skillDir } of discoverSkills(skillsDir)) {
+  const skillMdPath = path.join(skillDir, 'SKILL.md');
+  const pluginJsonPath = path.join(skillDir, '.claude-plugin', 'plugin.json');
 
   const frontmatterVersion = parseFrontmatterVersion(skillMdPath);
   const pluginJsonVersion = parsePluginJsonVersion(pluginJsonPath);
@@ -85,7 +86,7 @@ for (const skill of skillDirs) {
     fail(`skills/${skill}: marketplace.json version (${marketplaceVersion}) != SKILL.md version (${frontmatterVersion})`);
   }
 
-  const packVersion = parsePackJsonVersion(path.join(skillsDir, skill, 'pack.json'));
+  const packVersion = parsePackJsonVersion(path.join(skillDir, 'pack.json'));
   if (packVersion && packVersion !== frontmatterVersion) {
     fail(`skills/${skill}: pack.json version (${packVersion}) != SKILL.md version (${frontmatterVersion})`);
   }
@@ -95,10 +96,11 @@ for (const skill of skillDirs) {
     fail(`skills/${skill}: REGISTRY.md version (${registryVersion}) != SKILL.md version (${frontmatterVersion})`);
   }
 
-  if (skill === 'postey') {
-    const badgeVersion = parseReadmeBadgeVersion(path.join(ROOT, 'README.md'));
+  const badgeFile = README_BADGES[skill];
+  if (badgeFile) {
+    const badgeVersion = parseReadmeBadgeVersion(path.join(ROOT, badgeFile));
     if (badgeVersion && badgeVersion !== frontmatterVersion) {
-      fail(`README.md badge version (${badgeVersion}) != SKILL.md version (${frontmatterVersion})`);
+      fail(`${badgeFile} badge version (${badgeVersion}) != skills/${skill} SKILL.md version (${frontmatterVersion})`);
     }
   }
 
