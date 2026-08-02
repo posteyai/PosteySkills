@@ -20,9 +20,11 @@ test('C1: a key claimed by no skill is a failure', () => {
   assert.strictEqual(r.failures[0].key, 'b.one');
 });
 
-test('C1: reads count as coverage, not just owns', () => {
+// Reading a capability does not discharge responsibility for documenting it.
+test('C1: a key only READ, never owned, is still a failure', () => {
   const r = checkCover([skill('alpha', ['a.one', 'a.two'], ['b.one'])], snapshot, []);
-  assert.deepStrictEqual(r.failures, []);
+  assert.strictEqual(r.failures.length, 1);
+  assert.strictEqual(r.failures[0].key, 'b.one');
 });
 
 test('C1: an allowlisted unclaimed key is deferred, not failed', () => {

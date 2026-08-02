@@ -70,6 +70,25 @@
         "reels"
       ],
       "category": "productivity"
+    },
+    {
+      "name": "postey-voice",
+      "source": "./skills/postey-voice",
+      "description": "Voice pack for Postey: learn how the user writes from their published posts and their draft verdicts. Requires the postey skill.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Postey",
+        "url": "https://postey.ai"
+      },
+      "homepage": "https://postey.ai",
+      "repository": "https://github.com/posteyai/skills",
+      "license": "MIT",
+      "keywords": [
+        "social-media",
+        "brand-voice",
+        "personalisation"
+      ],
+      "category": "productivity"
     }
   ]
 }

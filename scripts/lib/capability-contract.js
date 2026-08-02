@@ -33,18 +33,23 @@ const UNCLAIMED_ALLOWLIST = [
 // MCP prompts no skill routes to yet. Same discipline as UNCLAIMED_ALLOWLIST:
 // each entry names the stage that adopts it, and a claimed entry fails as stale.
 const PROMPT_ALLOWLIST = [
-  'improve-post',                      // S3.5 — postey-voice
   'analyze-engagement',                // S4.2 — postey-analytics
 ];
 
-// C1: every canonical key is claimed by some skill, as owner or reader.
+// C1: every canonical key has an OWNER.
+//
+// Reading is not coverage. A capability several skills read but nobody owns is
+// exactly the gap this check exists to catch: no skill carries the guidance for
+// using it. Counting readers would also let the allowlist drain without any
+// pillar shipping — postey-voice reads analytics to weight its corpus, which
+// says nothing about who explains what the numbers mean.
 function checkCover(skills, snapshot, allowlist) {
   const failures = [];
   const deferred = [];
 
   const claimed = new Set();
   for (const { caps } of skills) {
-    for (const key of [...caps.owns, ...caps.reads]) claimed.add(key);
+    for (const key of caps.owns) claimed.add(key);
   }
 
   const allowed = new Set(allowlist);

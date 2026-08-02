@@ -7,6 +7,7 @@ Index of all skills in this repository.
 | [postey](postey/) | Draft, schedule, and manage social media posts across every network Postey supports | stable | 2.5.0 |
 | [postey-studio](postey-studio/) | Content-ideation flows: trends to posts, idea to posts. Requires `postey` | stable | 1.0.0 |
 | [postey-video](postey-video/) | Transcribe a video and cross-post it. Requires `postey` | stable | 1.0.0 |
+| [postey-voice](postey-voice/) | Learn the user's voice from published posts and draft verdicts. Requires `postey` | stable | 1.0.0 |
 
 ## Adding a New Skill
 

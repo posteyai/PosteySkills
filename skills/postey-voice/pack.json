@@ -1,0 +1,15 @@
+{
+  "name": "postey-voice",
+  "version": "1.0.0",
+  "description": "Postey voice pack: build a brand profile from the published corpus, then sharpen it from every draft verdict. Requires the postey skill, which ships the brand-profile schema and the craft layer.",
+  "skill": "SKILL.md",
+  "docs": [
+    "voice-profile-schema.md",
+    "rules-ledger.md"
+  ],
+  "scripts": [],
+  "references": [
+    "references/brand-voice.md"
+  ],
+  "rawBase": "https://raw.githubusercontent.com/posteyai/skills/refs/tags/skills/postey-voice/v1.0.0/skills/postey-voice/"
+}
