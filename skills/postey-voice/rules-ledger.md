@@ -93,7 +93,20 @@ Only `active` rules constrain drafting. `candidate` rules may be mentioned to th
 questions ("you've cut the closing CTA twice — should I stop adding them?"), never applied
 silently. `stale` rules are neither applied nor mentioned, only retained as history.
 
-## Scope
+## Scope — get this right or the rule forks
+
+A verdict observation must carry the **platform of the draft it came from**. Ingested corpus
+observations already do: `voice.js ingest` takes the scope from each export row's `platform`.
+
+Recording a LinkedIn verdict at `scope: "all"` does not widen the rule — it creates a **second,
+separate rule** with the same name, and the evidence splits across the two. During the first live
+run of this loop that is exactly what happened: every rule appeared twice, once at `LINKEDIN` with
+5 observations and once at `all` with 1, and neither could promote on evidence the other held.
+
+If you genuinely mean a habit that spans platforms, record it at `all` **everywhere**, including in
+the corpus pass (`voice.js ingest --scope all`). Mixing the two is the failure mode.
+
+## Scope values
 
 `all`, or a platform name. A habit observed only on LinkedIn must not be applied to X: the
 per-platform archetypes in the hub's `platform-archetypes.md` already say these voices differ, and
