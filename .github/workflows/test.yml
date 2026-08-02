@@ -55,6 +55,13 @@ jobs:
       - name: Check setup doc is agent-executable
         run: node scripts/check-setup-doc.mjs
 
+      # The capability contract: every capability the server exposes is owned by
+      # exactly one skill. C1's allowlist of not-yet-claimed capabilities shrinks
+      # as each pillar ships, and an entry that becomes claimed fails as stale —
+      # so the list cannot rot into a permanent exemption. Offline.
+      - name: Check capability contract (C1 cover, C2 exclusive)
+        run: node scripts/check-capability-contract.js
+
       # A skill must ship every file it references. Once skills are split, a
       # reference to a file that moved elsewhere still reads fine in prose but is
       # simply not installed. Catches markdown links AND backtick refs — the
