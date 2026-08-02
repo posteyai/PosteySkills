@@ -35,6 +35,12 @@ const { discoverSkills } = require('./skills');
 // The hub. Every spoke depends on it, so a spoke may name its files.
 const HUB = 'postey';
 
+// A changelog's job is to say what moved, which means naming files that are no
+// longer here. It is a retrospective record, not guidance — no agent follows it to
+// locate a file — so the backtick rule does not apply to it. Markdown LINKS in a
+// changelog are still checked: a link is an instruction to go somewhere.
+const HISTORY_FILES = new Set(['CHANGELOG.md']);
+
 const MD_LINK = /\]\(([^)\s]+?\.md)(?:#[^)\s]*)?\)/g;
 const BACKTICK_MD = /`([A-Za-z0-9_./-]+\.md)`/g;
 
@@ -88,6 +94,8 @@ function findCrossSkillLinkProblems(skillsDir) {
           });
         }
       }
+
+      if (HISTORY_FILES.has(path.basename(file))) continue;
 
       for (const [, ref] of text.matchAll(BACKTICK_MD)) {
         const base = path.basename(ref);

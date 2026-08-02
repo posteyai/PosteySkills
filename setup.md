@@ -516,6 +516,32 @@ identifier is `hermes-agent`, not `hermes`.
 **No installer.** Copy `skills/postey/` into `.agents/skills/`, which about 18 agents
 read. Claude Code does not. Use `~/.claude/skills/` there.
 
+### Optional packs
+
+`postey` is the hub and is not optional: it carries the routing, the accounts, the write path and
+the shared craft layer. Everything below is an add-on that requires it. Install only what the user
+wants — a pack the user never asked for is context they pay for on every turn.
+
+| Pack | Install when the user wants to |
+|---|---|
+| `postey-studio` | turn a trend or a rough idea into per-platform posts |
+| `postey-video` | transcribe a video and cross-post it, or post local video files |
+| `postey-voice` | have the agent learn how they write and keep matching it |
+
+```
+claude plugin install postey-studio@postey-skills
+claude plugin install postey-video@postey-skills
+claude plugin install postey-voice@postey-skills
+```
+
+Every other agent, one `-s` per pack:
+
+```
+npx -y skills add posteyai/skills -a <agent> -s postey-studio -y
+```
+
+**Verify:** name which packs you installed, or say "hub only" if none.
+
 ### Give the skill its credential
 
 The skill runs its own command-line tool, and Step 3 did not authenticate it. Set the

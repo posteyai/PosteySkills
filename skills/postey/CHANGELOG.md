@@ -4,6 +4,32 @@ All notable user-facing changes to the Postey skill and its CLI are documented h
 
 The format is based on Keep a Changelog.
 
+## 3.0.0
+
+**Breaking — the content flows now ship as separate, optional packs.** The hub keeps routing,
+accounts, platform truth, the CLI and the shared craft layer. Install a pack only if you want its
+flow:
+
+| Flow | Pack |
+|---|---|
+| Trends to posts · idea to posts | `postey-studio` |
+| Video everywhere | `postey-video` |
+| Brand voice | `postey-voice` |
+
+`references/trends-to-posts.md`, `references/idea-to-posts.md`, `references/video-to-everywhere.md`
+and `references/brand-voice.md` are no longer in this skill. The craft layer they cite —
+`caption-playbook.md`, `hook-formulas.md`, `platform-archetypes.md`, `x-algorithm.md`,
+`thread-and-video-formats.md` and `brand-profile-template.md` — stays here, because every pack reads
+it. A pack cannot be installed usefully without this skill.
+
+The Content Flows section is now a discovery table naming which pack carries each flow, so an agent
+can tell the user a flow is not installed rather than improvising it.
+
+`mcp-tools.tools:` is generated from a new `capabilities:` block rather than hand-maintained.
+Regenerating it corrected drift in both directions: seven tools were granted for capabilities this
+skill does not document, and three the skill does need — `file_manager`, `list_files`, `read_file` —
+had been missing.
+
 ## [Unreleased]
 
 ### Fixed
