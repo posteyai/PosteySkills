@@ -101,11 +101,11 @@ capabilities:
     - schedule.delete
     # Media and local files (the only capability the CLI may hold)
     - media.upload
-    - media.transcribe
     - file.list
     - file.read
     - file.upload
   reads:
+    - media.transcribe
   prompts:
     - compose-post
     - review-for-virality
@@ -410,7 +410,7 @@ available — say so and offer the ones that are, rather than improvising the fl
 | Flow | The user says something like | Ships in | Load |
 |------|------------------------------|----------|------|
 | Brand voice | "Learn my voice", "write like me", a handle or website | `postey` | [references/brand-voice.md](references/brand-voice.md) |
-| Video everywhere | a video URL, "post this video everywhere" | `postey` | [references/video-to-everywhere.md](references/video-to-everywhere.md) |
+| Video everywhere | a video URL, "post this video everywhere" | `postey-video` | that pack's own flow file |
 | Trends | "what should I post today?", "find something trending" | `postey-studio` | that pack's own flow file |
 | Idea to posts | one rough idea, "turn this into posts" | `postey-studio` | that pack's own flow file |
 

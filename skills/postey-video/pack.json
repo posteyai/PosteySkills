@@ -1,0 +1,19 @@
+{
+  "name": "postey-video",
+  "version": "1.0.0",
+  "description": "Postey video pack: transcribe a video and cross-post it. Requires the postey skill. Ships a byte-identical copy of the CLI plus capability-snapshot.json, which postey.js requires at runtime.",
+  "skill": "SKILL.md",
+  "docs": [
+    "video-workflow.md"
+  ],
+  "scripts": [
+    "scripts/postey.js",
+    "scripts/videoUtils.js",
+    "scripts/mediaValidator.js",
+    "capability-snapshot.json"
+  ],
+  "references": [
+    "references/video-to-everywhere.md"
+  ],
+  "rawBase": "https://raw.githubusercontent.com/posteyai/skills/refs/tags/skills/postey-video/v1.0.0/skills/postey-video/"
+}

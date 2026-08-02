@@ -68,6 +68,11 @@ jobs:
       - name: Check capability contract (C1 cover, C2 exclusive)
         run: node scripts/check-capability-contract.js
 
+      # A skill that mirrors the hub's CLI must mirror it byte-for-byte, snapshot
+      # included — postey.js requires it at runtime. Offline.
+      - name: Check mirrored CLI copies are byte-identical
+        run: node scripts/check-script-parity.js
+
       # Shipped docs must not advertise a pack that does not exist. The Content
       # Flows table names the skill carrying each flow, and during the split those
       # packs appear one at a time. Offline.

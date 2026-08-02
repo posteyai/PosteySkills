@@ -50,6 +50,26 @@
         "ideation"
       ],
       "category": "productivity"
+    },
+    {
+      "name": "postey-video",
+      "source": "./skills/postey-video",
+      "description": "Video pack for Postey: transcribe a video and turn it into per-platform posts. Requires the postey skill.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Postey",
+        "url": "https://postey.ai"
+      },
+      "homepage": "https://postey.ai",
+      "repository": "https://github.com/posteyai/skills",
+      "license": "MIT",
+      "keywords": [
+        "social-media",
+        "video",
+        "transcription",
+        "reels"
+      ],
+      "category": "productivity"
     }
   ]
 }

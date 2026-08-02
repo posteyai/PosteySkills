@@ -24,7 +24,6 @@
     "references/mcp-workflows.md",
     "references/platform-archetypes.md",
     "references/thread-and-video-formats.md",
-    "references/video-to-everywhere.md",
     "references/x-algorithm.md"
   ],
   "rawBase": "https://raw.githubusercontent.com/posteyai/skills/refs/tags/skills/postey/v2.5.0/skills/postey/"
