@@ -403,21 +403,27 @@ House rules for every flow (non-negotiable):
    reuse the tag names visible on recent posts (`get_posts` returns each post's tags) instead of
    inventing near-duplicates. `remove_tag` undoes a mis-tag.
 
-| Flow | The user says something like | Load |
-|------|------------------------------|------|
-| Brand voice | "Learn my voice", "write like me", a handle or website | [references/brand-voice.md](references/brand-voice.md) |
-| Video everywhere | a video URL, "post this video everywhere" | [references/video-to-everywhere.md](references/video-to-everywhere.md) |
-| Trends | "what should I post today?", "find something trending" | [references/trends-to-posts.md](references/trends-to-posts.md) |
-| Idea to posts | one rough idea, "turn this into posts" | [references/idea-to-posts.md](references/idea-to-posts.md) |
+**Ships in** names the skill that carries each flow. A flow whose pack is not installed is not
+available — say so and offer the ones that are, rather than improvising the flow from memory. CI
+(`scripts/check-pack-discovery.js`) fails if this table advertises a pack that does not exist.
 
-Shared knowledge the flows cite: [references/caption-playbook.md](references/caption-playbook.md)
-(universal rules and pre-upload checklist), [references/platform-archetypes.md](references/platform-archetypes.md),
+| Flow | The user says something like | Ships in | Load |
+|------|------------------------------|----------|------|
+| Brand voice | "Learn my voice", "write like me", a handle or website | `postey` | [references/brand-voice.md](references/brand-voice.md) |
+| Video everywhere | a video URL, "post this video everywhere" | `postey` | [references/video-to-everywhere.md](references/video-to-everywhere.md) |
+| Trends | "what should I post today?", "find something trending" | `postey` | [references/trends-to-posts.md](references/trends-to-posts.md) |
+| Idea to posts | one rough idea, "turn this into posts" | `postey` | [references/idea-to-posts.md](references/idea-to-posts.md) |
+
+**The craft layer always ships here**, in the hub, because every flow cites it — wherever the flow
+itself lives: [references/caption-playbook.md](references/caption-playbook.md) (universal rules and
+pre-upload checklist), [references/platform-archetypes.md](references/platform-archetypes.md),
 [references/hook-formulas.md](references/hook-formulas.md), [references/x-algorithm.md](references/x-algorithm.md),
 [references/thread-and-video-formats.md](references/thread-and-video-formats.md), and
-[references/brand-profile-template.md](references/brand-profile-template.md).
+[references/brand-profile-template.md](references/brand-profile-template.md) (the schema for the
+per-brand profile every flow reads before drafting).
 
-First-run greeting: after verifying accounts, offer the four flows in one short list and run
-whichever the user picks. Two minutes to a share link is the goal.
+First-run greeting: after verifying accounts, offer the flows this installation actually has in one
+short list and run whichever the user picks. Two minutes to a share link is the goal.
 
 ## Automation Guidelines
 

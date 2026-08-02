@@ -68,6 +68,12 @@ jobs:
       - name: Check capability contract (C1 cover, C2 exclusive)
         run: node scripts/check-capability-contract.js
 
+      # Shipped docs must not advertise a pack that does not exist. The Content
+      # Flows table names the skill carrying each flow, and during the split those
+      # packs appear one at a time. Offline.
+      - name: Check no doc advertises a nonexistent pack
+        run: node scripts/check-pack-discovery.js
+
       # A skill must ship every file it references. Once skills are split, a
       # reference to a file that moved elsewhere still reads fine in prose but is
       # simply not installed. Catches markdown links AND backtick refs — the
