@@ -12,7 +12,7 @@
     {
       "name": "postey",
       "source": "./skills/postey",
-      "description": "Draft, schedule, and manage social media posts across X, LinkedIn, Instagram, TikTok, YouTube, Threads, and Bluesky",
+      "description": "Draft, schedule, and manage social media posts across X, LinkedIn, Instagram, TikTok, YouTube, Threads, Bluesky, Facebook, and Pinterest",
       "version": "2.5.0",
       "author": {
         "name": "Postey",
