@@ -228,6 +228,24 @@ When adding a prompt to `postey-backend/app/core/mcp/prompts.py`:
 7. Run `npm test` — `check-versions.js` and `check-mcp-tool-sync.js` will catch mismatches.
 8. Tag release as `skills/<new-name>/v1.0.0`.
 
-## Commit & PR Guidelines
+<!-- BEGIN MARQ-KNOWLEDGE (generated) -->
 
-- Do not add "Co-authored with Claude" or similar AI-assistant attributions to commit messages or PR descriptions.
+## Knowledge base
+
+Regenerate this block with `python3 tools/render_blocks.py` from
+`MarqetiveKnowledge`. Do not edit inside the markers -- CI reverts a hand edit.
+
+- Practice: `repos/MarqetiveKnowledge/main/practice/SPINE.md`
+- Type ownership: `repos/MarqetiveKnowledge/main/contracts/OWNERSHIP.md`
+- Type drift: `repos/MarqetiveKnowledge/main/contracts/DRIFT.md`
+- Migration graph: `repos/MarqetiveKnowledge/main/contracts/migrations.md`
+- Live estate state: `Audits/GROUND-TRUTH.md`. Last full verification: 2026-07-28. Check its date before you act on it.
+- The rules: `repos/MarqetiveKnowledge/main/KNOWLEDGE-CONTRACT.md`
+
+### Types this repository defines (0)
+
+None found by the extractor.
+
+Rendered 2026-08-02.
+
+<!-- END MARQ-KNOWLEDGE -->
