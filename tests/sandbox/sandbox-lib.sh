@@ -10,6 +10,29 @@ MCP_URL="${MCP_URL:-https://srvr.postey.ai/mcp}"
 # team is identifiable and sweepable. Do not remove it.
 RUN_TAG="SANDBOX-$(date -u +%Y%m%dT%H%M%SZ)"
 
+# Portable timeout. macOS ships no `timeout` — coreutils installs it as `gtimeout`,
+# and a stock box has neither. Calling `timeout` directly exits 127, which a caller
+# reads as a real verdict rather than a missing tool. Returns 124 on timeout, matching
+# coreutils, so callers get one contract on every platform.
+TIMEOUT_EXIT=124
+run_with_timeout() {
+  local secs="$1"; shift
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$secs" "$@"; return $?
+  elif command -v gtimeout >/dev/null 2>&1; then
+    gtimeout "$secs" "$@"; return $?
+  fi
+  # Stock-bash fallback: run in background, kill it if the deadline passes.
+  "$@" & local pid=$!
+  ( sleep "$secs"; kill -0 "$pid" 2>/dev/null && kill -TERM "$pid" 2>/dev/null ) &
+  local watcher=$!
+  local rc=0; wait "$pid" 2>/dev/null || rc=$?
+  kill -TERM "$watcher" 2>/dev/null || true; wait "$watcher" 2>/dev/null || true
+  # 143 = SIGTERM, i.e. the watcher fired: report a timeout.
+  [[ $rc -eq 143 ]] && return $TIMEOUT_EXIT
+  return $rc
+}
+
 sandbox_new() {
   SANDBOX="$(mktemp -d "${TMPDIR:-/tmp}/postey-sandbox.XXXXXX")"
   mkdir -p "$SANDBOX/.claude" "$SANDBOX/workspace"

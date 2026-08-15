@@ -18,12 +18,16 @@ cd "$SANDBOX/workspace"
 # attempt OAuth and hang. Static doc parsing cannot verify this; only a run can.
 echo "--- assertion 1: headless run without a credential pauses, does not hang"
 set +e
-timeout 120 claude -p "Set up Postey by following instructions: $SETUP_URL
+run_with_timeout 120 claude -p "Set up Postey by following instructions: $SETUP_URL
 You are headless: no browser, no interactive input. Do not attempt OAuth." \
   >"$SANDBOX/pause.log" 2>&1
 rc=$?
 set -e
-if [[ $rc -eq 124 ]]; then
+if [[ $rc -eq 127 ]]; then
+  # Distinguish a missing tool from a verdict. Reporting 127 as "did not ask for a
+  # token" is how a broken harness looks identical to a broken product.
+  echo "ERROR: could not launch the agent (rc=127). Harness problem, not a result."; FAILED=1
+elif [[ $rc -eq $TIMEOUT_EXIT ]]; then
   echo "FAIL: headless run hung (timeout). The pause is not working."; FAILED=1
 elif grep -qiE 'pat_|agent token|api key|token' "$SANDBOX/pause.log"; then
   echo "PASS: run terminated asking for a token (rc=$rc)"
