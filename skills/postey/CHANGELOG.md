@@ -30,6 +30,41 @@ Regenerating it corrected drift in both directions: seven tools were granted for
 skill does not document, and three the skill does need — `file_manager`, `list_files`, `read_file` —
 had been missing.
 
+## [3.0.1]
+
+### Added
+
+- **`references/mcp-authentication.md`** — the auth guidance this line has never shipped. The 3.0.0
+  consolidation cut the hub's references from eleven to seven, correctly: the four it dropped were
+  content flows that moved to `postey-studio`, `postey-video` and `postey-voice`. Auth was not one of
+  them — it was never a reference here at all. The MCP instruction block relocated the OAuth scope
+  list, the MCP-key path and the two agent-token mint endpoints out to this path on 2026-08-24
+  (mcp-northstar N1.4) and the file did not exist on either line, so `skills/postey/v3.0.0` is a
+  published, installable tag whose pack contains no auth documentation and no path to any
+  (mcp-northstar F-081).
+
+  It sits in the hub because the hub is the one guaranteed dependency — every optional pack requires
+  it, so auth is documented once and read by all of them. It is a separate file rather than a section
+  of `mcp-workflows.md` because that file is scoped to sequencing and craft, and because the
+  instruction block's ledger names this exact path: one destination that now resolves on both lines.
+
+  Written for this line rather than copied from 2.5.1: it opens on setup.md's A/B/C tracks and states
+  that **track B mints nothing**, it notes that installing a pack does not widen a grant, and it names
+  the CLI's credential order because Step 5 sets `POSTEY_API_KEY` separately from Step 3's OAuth.
+
+- **`references/mcp-workflows.md` gains `## Local Files and Large Uploads`.** A fourth ledger entry —
+  which upload paths survive without this skill installed — has pointed at
+  `mcp-workflows.md#local-files-and-large-uploads` since 2026-08-24. The file was loadable but the
+  heading existed on no branch and no tag, so the anchor resolved silently to the top of the file. It
+  now states, per path, which side of the local-disk line each upload sits on: `url`, `base64` and
+  `file_manager` need nothing installed; `local_path`, chunked upload above 50 MB and local
+  transcription are the CLI's.
+
+**Why 3.0.1 and not an edit in place.** `rawBase` pins `refs/tags/skills/postey/v<version>`. The
+bootstrap reads this manifest from the branch but every listed file from the tag, so a new
+`references[]` entry shipped without a matching pushed tag is a live 404 on every new install —
+strictly worse than the unreachable destination it fixes. Push `skills/postey/v3.0.1` at release.
+
 ## [Unreleased]
 
 ### Fixed
