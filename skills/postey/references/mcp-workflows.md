@@ -94,6 +94,34 @@ clients and on the hosted server, which `local_path` does not.
 **Do not use `read_file` to fetch media bytes.** It returns metadata and the `cdn_url` by design.
 Media does not belong in a context window.
 
+## Local Files and Large Uploads
+
+The table above assumes this skill is installed. It often is not, and the difference is not
+cosmetic: **the MCP server cannot see the user's disk.** Every path that reads a local file is the
+CLI's, and the CLI ships with this skill. Work out which side of that line you are on before you
+promise the user an upload.
+
+| Path | Needs this skill | What it is for |
+|---|---|---|
+| `upload_media(source_type='url')` | no | A public URL, fetched server-side. Works everywhere, including the hosted server |
+| `upload_media(source_type='base64')` | no | Inline bytes, small files only — the cap is on the tool's own description |
+| `file_manager()` then `list_files()` | no | A file on the user's machine, any client. Drag-and-drop; the bytes go straight to the CDN and never enter your context |
+| `upload_media(source_type='local_path')` | **yes** | A local path read directly. Also needs API-key auth, so it is unavailable to OAuth clients and on the hosted server |
+| `media:upload` above 50 MB | **yes** | The CLI switches to the chunked path on its own — init, parallel chunks with retry, complete. There is no MCP equivalent |
+| `video transcribe` on a local file | **yes** | Runs ffmpeg on the user's machine |
+
+**Without the skill, `file_manager` is the answer for a local file** — not an apology. It reaches
+every client, it works on the hosted server, and it is the only credential-agnostic path that takes
+a file too large to inline. `upload_media` with `url` or `base64` covers the rest.
+
+Only the last three rows are a reason to install anything. Install it the way
+[`setup.md`](../../../setup.md) Step 5 names for the client — the bare
+`npx skills add posteyai/skills` also installs this repository's skill template as a second
+skill, which is why every documented form carries `-s postey`.
+
+Never ask the user to paste a large file's contents, and never reach for `read_file` to get media
+bytes when a path is missing. It returns metadata and the `cdn_url` by design.
+
 ## Video: Choosing a Path
 
 Three paths. Pick on what you have, not on what is fastest.

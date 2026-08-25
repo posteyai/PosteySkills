@@ -1,6 +1,6 @@
 ---
 name: postey
-version: 3.0.0
+version: 3.0.1
 # No `platforms:` list. The platform set lives on the server and is mirrored into
 # capability-snapshot.json by scripts/refresh-capability-snapshot.js. A copy here
 # would be a fourth hand-maintained list agreeing with the other three and with
@@ -443,6 +443,8 @@ short list and run whichever the user picks. Two minutes to a share link is the 
 
 - MCP workflow sequencing, media/video path choice, tagging, what to ask before you guess:
   [references/mcp-workflows.md](references/mcp-workflows.md)
+- OAuth scopes, the MCP-key path and the agent-token mint endpoints:
+  [references/mcp-authentication.md](references/mcp-authentication.md)
 - Full command reference: [command-reference.md](command-reference.md)
 - Video transcription workflow: [video-workflow.md](video-workflow.md)
 - Platform caption templates: [prompts.md](prompts.md)
