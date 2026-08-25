@@ -18,6 +18,14 @@ The format is based on Keep a Changelog.
 
 ### Added
 
+- **`references/mcp-authentication.md`** — the auth guidance the MCP instruction block relocated here
+  and never delivered. The block's own ledger has pointed three entries at this file since 2026-08-24;
+  the file did not exist and was not in `pack.json`, so a fetch-installed client could not load any of
+  them. It now carries the OAuth scope list, the MCP-key path and the two agent-token mint endpoints,
+  under the anchors the ledger names. Version bumped to 2.5.1 because a new `references[]` entry is
+  read from `main` while the file is fetched from the pinned tag: shipping the entry without a matching
+  release tag would 404 on every new install.
+
 - **`scripts/check-doc-commands.js`** — CI now fails when shipped guidance names a CLI command that is
   not in the COMMANDS table, or routes an MCP-owned operation to the CLI in `SKILL.md`'s `routing:`
   map. It reuses the COMMANDS parser from `check-capability-overlap.js` rather than growing a second

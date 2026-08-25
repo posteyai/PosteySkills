@@ -4,7 +4,7 @@ Index of all skills in this repository.
 
 | Skill | Description | Status | Version |
 |-------|-------------|--------|---------|
-| [postey](postey/) | Draft, schedule, and manage social media posts across every network Postey supports | stable | 2.5.0 |
+| [postey](postey/) | Draft, schedule, and manage social media posts across every network Postey supports | stable | 2.5.1 |
 
 ## Adding a New Skill
 
