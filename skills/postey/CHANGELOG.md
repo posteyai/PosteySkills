@@ -18,6 +18,14 @@ The format is based on Keep a Changelog.
 
 ### Added
 
+- **`references/mcp-workflows.md` gains `## Local Files and Large Uploads`.** The instruction block's
+  ledger has pointed a fourth entry — which upload paths survive without this skill installed — at
+  `mcp-workflows.md#local-files-and-large-uploads` since 2026-08-24. The file was loadable but the
+  heading did not exist on any branch or tag, so the anchor resolved to the top of the file and the
+  rule it names was documented nowhere. It now states, per path, which side of the local-disk line
+  each upload sits on: `url`, `base64` and `file_manager` need nothing installed; `local_path`,
+  chunked upload above 50 MB and local transcription are the CLI's and ship with this skill.
+
 - **`references/mcp-authentication.md`** — the auth guidance the MCP instruction block relocated here
   and never delivered. The block's own ledger has pointed three entries at this file since 2026-08-24;
   the file did not exist and was not in `pack.json`, so a fetch-installed client could not load any of
