@@ -1,6 +1,6 @@
 {
   "name": "postey",
-  "version": "2.5.1",
+  "version": "2.5.2",
   "description": "Postey social publishing skill: MCP/CLI routing plus four guided content flows (brand voice, video everywhere, trends, idea to posts). Fetch skill + docs + references for a complete install; load references on demand.",
   "note": "rawBase pins the immutable release tag skills/postey/v<version>. Push that tag when releasing (see CLAUDE.md) or fetches 404. The bootstrap prompt fetches this manifest from main; everything else is fetched from the pinned tag so a later push to main cannot rewrite already-installed playbooks.",
   "skill": "SKILL.md",
@@ -30,5 +30,5 @@
     "references/video-to-everywhere.md",
     "references/x-algorithm.md"
   ],
-  "rawBase": "https://raw.githubusercontent.com/posteyai/skills/refs/tags/skills/postey/v2.5.1/skills/postey/"
+  "rawBase": "https://raw.githubusercontent.com/posteyai/skills/refs/tags/skills/postey/v2.5.2/skills/postey/"
 }

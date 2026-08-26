@@ -77,7 +77,7 @@ A healthy server answers in ways that look like errors. Read them as success.
 | Request | Healthy response |
 |---|---|
 | `POST /mcp` with no credential | `401` with a `WWW-Authenticate` header |
-| `GET /mcp` | `405` with `text/plain` |
+| `GET /mcp` | `405` with JSON naming the transport and both credentials |
 | `GET /.well-known/oauth-protected-resource/mcp` | `200` with JSON |
 
 The `405` is correct. The MCP revision of 2026-07-28 removed the GET stream endpoint.
@@ -252,16 +252,46 @@ url = "https://srvr.postey.ai/mcp"
 Hermes Agent keeps its servers in `~/.hermes/config.yaml` and refuses a direct write to that
 file. A patch returns `Refusing to write to Hermes config file`. Set the three keys instead:
 
+The `auth` value is decided by your track, and getting it wrong is the one mistake
+this document has actually caused. A Hermes gateway that runs as a service is
+track C.
+
+Track C, headless — the common case for Hermes, which runs as a background
+service and cannot reach a browser:
+
+```
+hermes config set mcp_servers.postey.url https://srvr.postey.ai/mcp
+hermes config set mcp_servers.postey.auth none
+hermes config set mcp_servers.postey.headers.X-API-Key <the key>
+hermes config set mcp_servers.postey.skip_preflight true
+```
+
+Track A, a Hermes you drive yourself and that can open a browser:
+
 ```
 hermes config set mcp_servers.postey.url https://srvr.postey.ai/mcp
 hermes config set mcp_servers.postey.auth oauth
 hermes config set mcp_servers.postey.skip_preflight true
 ```
 
-`skip_preflight` is required. Hermes probes the endpoint and expects
-`application/json` or `text/event-stream`. Postey answers `text/plain` on that probe,
-so Hermes rejects the server without this key. No `hermes mcp add` option writes it, which is
-why these three calls are the only path. To undo one, use `hermes config unset`.
+Do not set `auth oauth` on a headless Hermes, and do not set it alongside a key.
+There is no `client_credentials` grant, so the OAuth flow cannot finish without a
+browser: Hermes registers an OAuth client, never receives a token, and parks the
+server. The key sitting in `headers` is not tried, because `auth: oauth` decided
+the method before the header was read. One host lost several days to exactly this
+state — a valid key present the whole time, every call refused, and a cron that
+reported success while publishing nothing.
+
+The working track C end state, confirmed on a running host, is `auth: none` with
+the key in `headers`.
+
+`skip_preflight` is belt and braces. Hermes probes the endpoint and expects
+`application/json` or `text/event-stream` before it will attempt the handshake.
+Postey used to answer that probe with `text/plain` and Hermes rejected the server
+outright; since 2026-08-26 it answers `application/json`, so the probe passes on
+its own. Setting the key is still harmless, and it keeps the setup working against
+an older deployment, so it stays in the list. No `hermes mcp add` option writes it,
+which is why these calls are the only path. To undo one, use `hermes config unset`.
 `hermes config delete` exits 2.
 
 Confirm the result with `hermes config get mcp_servers.postey`. It prints `url`, `auth` and
@@ -300,6 +330,8 @@ that names a local command is wrong even when the server lists correctly.
 | Other servers disappeared | The config was overwritten, not merged | Restore from backup, then merge |
 | `"url" but no "type"` error | `type` is missing | Add `"type": "http"` |
 | Hermes reports an invalid endpoint | The preflight probe failed | Set `mcp_servers.postey.skip_preflight` to `true` |
+| Hermes parks the server: `OAuthNonInteractiveError: non-interactive environment and no cached tokens found` | `auth` is `oauth` on a host with no browser | Set `auth` to `none`, put the key in `headers`, delete any file under `~/.hermes/mcp-tokens/postey.*`, then restart the gateway |
+| `hermes mcp test postey` connects and lists tools, but `tool_search` finds none | The server registered after the session built its tool catalog. Parking and reconnecting does this | Restart the gateway from another terminal — `hermes gateway restart`. The running session cannot restart itself, and a reconnect alone does not rebuild the catalog |
 | The registered entry runs a command | A local wrapper was registered, not the server | Delete the entry. Write the row above, which carries the address |
 | The OAuth prompt returns every session | A wrapper holds the session, not the client | Register the address natively, then redo Step 3 |
 | Another agent lists `postey` and you still have no tools | You ran another agent's command and wrote to its config | Run the row for the agent you are |
@@ -324,7 +356,7 @@ Trigger your agent's MCP login for `postey` and complete the browser prompt.
 |---|---|
 | Claude Code | `claude mcp login postey`, or the `/mcp` command, then **Authenticate** |
 | Codex CLI | `codex mcp login postey` |
-| Hermes Agent | `hermes mcp login postey` |
+| Hermes Agent | `hermes mcp login postey`. Track A only — a headless Hermes cannot complete this. Use the MCP key below |
 
 On Hermes, register the server before you log in. `hermes mcp login postey` fails while the
 server is absent from the config. Run the login in a new terminal, because the automatic config

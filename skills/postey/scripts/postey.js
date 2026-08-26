@@ -22,7 +22,7 @@ const GLOBAL_CONFIG_DIR = path.join(os.homedir(), ".config", "postey");
 const GLOBAL_CONFIG_FILE = path.join(GLOBAL_CONFIG_DIR, "config.json");
 const LOCAL_CONFIG_DIR = ".postey";
 const LOCAL_CONFIG_FILE = path.join(LOCAL_CONFIG_DIR, "config.json");
-const API_KEY_URL = "https://app.postey.ai?settings=api";
+const API_KEY_URL = "https://app.postey.ai?settings=agents&section=advanced";
 
 // ── OAuth 2.1 / PKCE constants ────────────────────────────────────────────────
 // auth:login uses Dynamic Client Registration (DCR) so no static client ID is

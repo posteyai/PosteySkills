@@ -180,7 +180,7 @@ test('config:show returns configured=false when no API key configured', async ()
     assert.deepEqual(parseJsonOrNull(result.stdout), {
       configured: false,
       hint: 'Run: postey.js auth:login  (OAuth)  or  postey.js setup  (API key)',
-      api_key_url: 'https://app.postey.ai?settings=api',
+      api_key_url: 'https://app.postey.ai?settings=agents&section=advanced',
     });
   } finally {
     await sandbox.cleanup();
