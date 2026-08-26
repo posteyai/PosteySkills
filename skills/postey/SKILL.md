@@ -1,6 +1,6 @@
 ---
 name: postey
-version: 2.5.1
+version: 2.5.2
 # No `platforms:` list. The platform set lives on the server and is mirrored into
 # capability-snapshot.json by scripts/refresh-capability-snapshot.js. A copy here
 # would be a fourth hand-maintained list agreeing with the other three and with
@@ -121,6 +121,14 @@ An installed skill is not a working setup. This file loads from disk whether or 
 reachable. If the Postey tools are absent from your session, stop and say so. There is no command
 here that reaches Postey state, so looking for one wastes the user's time.
 
+Say what to do next, rather than only that you are stuck. The server address is
+`https://srvr.postey.ai/mcp`, registered natively in your own client — never behind a local
+bridge. A client that can open a browser finishes OAuth. A browserless one (CI, container, cron)
+cannot: there is no `client_credentials` grant, so it needs an MCP key (`mk_…`) sent as
+`X-API-Key`, and you cannot create that key yourself. Per-client registration commands and config
+paths: <https://raw.githubusercontent.com/posteyai/skills/main/setup.md>. The key steps:
+[references/mcp-authentication.md](references/mcp-authentication.md).
+
 ### Decision Tree
 
 1. **Local file path involved** (`~/video.mp4`, `./cover.jpg`)?
@@ -175,7 +183,10 @@ here that reaches Postey state, so looking for one wastes the user's time.
 
 ## Setup
 
-1. **API Key** — Get your key at https://app.postey.ai/?settings=api, then:
+1. **MCP key** — Ask the user to create one at
+   https://app.postey.ai?settings=agents&section=advanced — that is **AI & Agents → Advanced**,
+   and the key it mints never expires and works on every plan. `?settings=api` opens Integrations
+   instead, where the plan-gated general-purpose keys live. Then:
    ```bash
    ${CLAUDE_SKILL_DIR}/scripts/postey.js setup
    ```
@@ -395,6 +406,8 @@ whichever the user picks. Two minutes to a share link is the goal.
   [references/mcp-workflows.md](references/mcp-workflows.md)
 - OAuth scopes, the MCP-key path and the agent-token mint endpoints:
   [references/mcp-authentication.md](references/mcp-authentication.md)
+- Connecting the server itself — address, per-client registration, config paths:
+  <https://raw.githubusercontent.com/posteyai/skills/main/setup.md>
 - Full command reference: [command-reference.md](command-reference.md)
 - Video transcription workflow: [video-workflow.md](video-workflow.md)
 - Platform caption templates: [prompts.md](prompts.md)

@@ -8,6 +8,38 @@ The format is based on Keep a Changelog.
 
 ### Fixed
 
+- **The Hermes setup told a headless host to use OAuth, which it can never finish.** `setup.md`
+  Step 2 set `auth oauth` unconditionally for every Hermes install, and Step 3's login table
+  offered `hermes mcp login postey` with no caveat. A Hermes gateway runs as a background service
+  and cannot reach a browser, and there is no `client_credentials` grant — so it registered an
+  OAuth client, never received a token, and parked the server. Worse, `auth: oauth` decides the
+  method before `headers` is read, so a valid MCP key sitting in the config was never tried. One
+  host lost several days to that state, with a cron reporting success while publishing nothing.
+  Step 2 is now split by track: headless Hermes uses `auth none` with the key in `headers`, which
+  is the configuration confirmed working on a live host.
+- **The API-key link opened the wrong settings panel.** `SKILL.md`, `README.md` (×3),
+  `routing-guide.md` and the CLI's own `API_KEY_URL` — which feeds the `requireApiKey` error, the
+  `setup` prompt and `config:show` — pointed at `?settings=api` or `?settings=integrations`.
+  The first opens Integrations, where the plan-gated general-purpose keys live; the second maps to
+  no panel at all. MCP keys live at `?settings=agents&section=advanced`, are not plan-gated, and
+  never expire.
+- **`README.md` recommended a credential that can no longer be created.** It led browserless
+  callers to a `pat_` agent token; the app no longer mints those, they expire 90 days after
+  minting, and there is no replacement path. It now leads with the MCP key.
+- **The skill told an agent to stop with no way forward.** `SKILL.md` correctly said to stop when
+  the Postey tools are absent, but never named the server address, the `X-API-Key` header, or
+  where to go next — so a headless agent that loaded the skill had no route to a working
+  connection.
+
+### Changed
+
+- `setup.md` records that Postey now answers a preflight probe of `/mcp` with `application/json`
+  rather than `text/plain`, so Hermes' `skip_preflight` is no longer required to connect. It stays
+  in the documented steps because it is harmless and keeps the setup working against an older
+  deployment. Two symptoms are added to the troubleshooting table: the `OAuthNonInteractiveError`
+  park, and a gateway that connects and lists tools while `tool_search` finds none — which needs a
+  gateway restart from another terminal, because a reconnect alone does not rebuild the catalog.
+
 - **Routing no longer sends writes to a CLI that has no write commands.** `routing-guide.md` (steps
   3 and 6, and the environment table) and `SKILL.md` both told CI/CD, shell scripts, Cursor, Windsurf
   and SDK agents to create / update / publish / schedule via the CLI. Those commands were removed —
