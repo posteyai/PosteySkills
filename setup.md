@@ -8,7 +8,10 @@ Re-running this document is safe. If a step reports that something already exist
 that is success. Read on and continue.
 
 This document connects you, and it only ever reads. No step here creates, publishes,
-schedules or deletes anything. Once Step 4 passes, hand off to
+schedules or deletes anything — not even a draft it cleans up afterwards.
+
+Steps 1 to 6 run in one go. Step 7 is a reload, and it is the only point where this
+document hands control back. Once Step 9 passes, hand off to
 [`skills/postey/bootstrap-prompt.md`](skills/postey/bootstrap-prompt.md), where the
 content workflows start.
 
@@ -47,9 +50,13 @@ Reporting success without the steps that do apply is not.
 
 | Track | Steps | Credential | Skill |
 |---|---|---|---|
-| A, local | 1 to 7 | OAuth | Yes |
-| B, web | 1, 2B, 3, 4, 6, 7 | OAuth through the connector | No. See Step 5 |
-| C, headless | 1 to 7 | MCP key | Yes, with `-y` |
+| A, local | 1 to 9 | OAuth, linked to the skill in Step 5 | Yes |
+| B, web | 1, 2B, 3, 6, 7, 8, 9 | OAuth through the connector | No. See Step 4 |
+| C, headless | 1 to 9 | MCP key, which serves both surfaces | Yes, with `-y` |
+
+Steps 1 to 6 are one uninterrupted run. Nothing in them needs the Postey tools to be
+loaded, so none of them has to wait for anything. Step 7 is where your client picks
+the server up, and it is the only place this document hands control back.
 
 Four rules bind every track.
 
@@ -106,10 +113,10 @@ cannot do this yourself. Give the user the steps and wait.
 | ChatGPT | Open Settings, then **Apps**, then **Advanced**, and turn on **Developer Mode**. Choose **Create app**, paste the address, then authorize |
 
 A connector authorizes through OAuth in the browser. Track B therefore needs no
-credential from Step 3. Go to Step 4 once the user reports that the connector is
+credential from Step 3. Go to Step 6 once the user reports that the connector is
 connected.
 
-Track B cannot install the skill. Step 5 says what to do instead.
+Track B cannot install the skill. Step 4 says what to do instead.
 
 The rest of Step 2 covers tracks A and C.
 
@@ -152,7 +159,7 @@ The table below lists one command per agent. Run the row for the agent you are, 
 only that row. Running another agent's command writes to another agent's file:
 `claude mcp add` writes `~/.claude.json`, which Hermes never reads. The command
 succeeds, `claude mcp list` shows `postey`, and your own session still has no tools.
-That is a false pass, and Step 4 exists to catch it.
+That is a false pass, and Step 8 exists to catch it.
 
 The same holds for calls. Never reach Postey by driving another agent — not
 `claude -p`, not `codex exec`, not any headless invocation of a second client, and
@@ -297,23 +304,6 @@ which is why these calls are the only path. To undo one, use `hermes config unse
 Confirm the result with `hermes config get mcp_servers.postey`. It prints `url`, `auth` and
 `skip_preflight`.
 
-### Load the server
-
-Registering a server does not load it into a running session. Reload before Step 4.
-
-| Agent | Action |
-|---|---|
-| Hermes Agent | None. It reloads when the config changes. The tools arrive in your next turn |
-| Claude Code | Restart the session |
-| Everything else | Restart the agent |
-
-If your client loads MCP at a turn boundary, Step 2 ends your turn. Tell the user that
-registration is done, and that you continue at Step 4 when they reply. Do not run Step 4 in the
-same turn. The tools are not there yet, and no command brings them forward.
-
-This is measured, not assumed. On Hermes, `hermes config set` returns success, and a tool search
-in that same turn still finds nothing. The server appears in the next turn.
-
 **Verify:** run your agent's MCP list command. In Claude Code that is
 `claude mcp list`. Confirm that `postey` appears. A new server that reports
 `Needs authentication` is the expected state. Step 3 resolves it.
@@ -424,70 +414,14 @@ Three more rules bind the credential.
    Postey yourself. The client sends it. You do not handle it.
 2. Never call the REST API at `srvr.postey.ai/v1`. It is a different surface. A result from it
    says nothing about whether MCP works.
-3. A credential that reads and cannot write is a real state. Step 7 names it, from the
+3. A credential that reads and cannot write is a real state. Step 9 names it, from the
    permissions the key carries rather than from a trial write.
 
-**Verify:** continue to Step 4. That is the real check.
+**Verify:** continue to Step 4, and then to Step 8. Step 8 is the real check.
 
 ---
 
-## Step 4 — Verify the connection
-
-Read your own tool list first. It separates two failures that look the same.
-
-| Your tool list | Meaning | Action |
-|---|---|---|
-| Postey tools are listed and callable | The transport works. Your call was wrong | Fix the call. Read the tool schema again |
-| Listed by a search, and a direct call says the tool does not exist | Your client dispatches MCP through a meta-tool | Call it the way your client requires. On Hermes that is `tool_call` |
-| Postey tools are absent | The server is registered and not yet loaded | Stop. Say so. Continue here next turn |
-
-Never infer either state from a failed call. A rejected call is not proof that the server is
-absent, and a reachable server is not proof that your call is right.
-
-When the tools are absent, these are all wrong, and a real run tried every one:
-
-- a nested session of your own agent, headless, such as `hermes chat` piped from `echo`
-- another agent driven headlessly, such as `claude -p` or `codex exec`
-- opening a new interactive session. If you are already interactive, you gain nothing
-- reading a local file, such as the skill capability snapshot, and calling it proof
-- the REST API. See Step 3
-
-Stopping is the only correct action. A false `complete` costs the user more than a stop does.
-
-Now read the MCP resource `postey://setup`. It answers the readiness question directly.
-It returns `ready`, an account count, and a `blockers` array. Each blocker carries a
-code, the account and platform it concerns, and the call that fixes it.
-
-Then read `postey://accounts` for the account name and its platforms.
-
-If your client cannot read MCP resources, call the `get_accounts` tool. Prefer the
-resource wherever both work.
-
-Tool names vary by client and by version. Some clients add a prefix built from the name you gave
-the connection. A server added as `postey` appears on Hermes v0.19.0 as
-`mcp__postey__get_accounts`, and on another client as `get_accounts`. Read your own tool list and
-use the name you find there.
-
-**Verify:** print `ready`, the account name, and the connected platforms. Print any
-blocker. If this returns nothing or errors, setup is not complete. Do not report
-success.
-
-Read it in your own session. A result you obtained by driving another agent proves
-that agent is connected, and says nothing about you.
-
-| Symptom | Cause | Fix |
-|---|---|---|
-| `401` or `unauthorized` | Step 3 is incomplete, or the credential is wrong | Redo Step 3 |
-| `402` | The plan does not carry the feature that call needs | Not a credential fault. An MCP key connects on every plan. See Step 3 |
-| `405` | The client fell back to SSE | Set the streamable HTTP transport. See Step 2 |
-| `ready` is `false` | The account can publish nowhere | Read `blockers` and run the call each one names |
-| Empty account list | The account has no connected platform | Not an error. Tell the user to connect one at `app.postey.ai` |
-| Resource not found | The server registered but never loaded | Reload the agent, then redo Step 4 |
-| Tool and resource are both missing | Step 2 did not take effect | Redo Step 2 |
-
----
-
-## Step 5 — Install the Postey skill
+## Step 4 — Install the Postey skill
 
 Steps 0 to 4 gave you everything the server does: reading accounts, posts and
 schedules, and creating, updating, publishing and scheduling them.
@@ -548,32 +482,6 @@ identifier is `hermes-agent`, not `hermes`.
 **No installer.** Copy `skills/postey/` into `.agents/skills/`, which about 18 agents
 read. Claude Code does not. Use `~/.claude/skills/` there.
 
-### Give the skill its credential
-
-The skill runs its own command-line tool, and Step 3 did not authenticate it. Set the
-credential now, or every local-file command fails.
-
-The tool reads credentials in this order: `POSTEY_API_KEY`, then `POSTEY_AUTH_TOKEN`,
-then a stored OAuth session, then a config file.
-
-Track C already exported `POSTEY_API_KEY` in Step 3, or `POSTEY_AUTH_TOKEN` if it
-still runs on an agent token. The tool picks either up. Nothing more is needed.
-
-Track A can export a key:
-
-```
-export POSTEY_API_KEY=<the key>
-```
-
-To store it instead, run the setup command. Pass `--key` so it does not prompt.
-
-```
-node skills/postey/scripts/postey.js setup --key <the key> --location global
-```
-
-Do not run the setup command without `--key` on track C. It prompts on standard
-input, and a headless run has nobody to answer.
-
 **Verify:** run your agent's skill-list command. Confirm that `postey` appears. Then confirm that
 `scripts/postey.js` exists inside the installed skill directory. A listing proves the directory
 exists. It does not prove the skill works, and a hand-copied `SKILL.md` alone lists as installed.
@@ -588,11 +496,69 @@ a skill command to reach an effect the server already provides. See
 | The command waits and never returns | The agent name or `-y` is missing | Re-run with `-a <agent> -y` |
 | `npx: command not found` | Node is missing | Install Node 20 or later, then retry |
 | `Invalid agents: hermes` | The identifier is wrong | Use `hermes-agent` |
-| The skill installs but the tools are missing | Step 2 is incomplete | Redo Step 2, then Step 4 |
-| `API key not found` | The skill has no credential | Set `POSTEY_API_KEY`. See above |
+| The skill installs but the tools are missing | Step 2 is incomplete | Redo Step 2, then Step 8 |
 | A skill command reports `Unknown command` | The server owns that effect | Use the server tool the error names, or read `CHANGELOG.md` |
 
 ---
+
+## Step 5 — Link the skill to this connection
+
+The skill runs its own command-line tool, and Step 3 authenticated your *client*,
+not that tool. Link it now, or every local-file command fails: uploading a video or
+an image from disk, trimming, transcription.
+
+One connection, one credential. The link copies the access this connection already
+has — never more — so there is no second sign-in and no second thing to revoke
+separately.
+
+### Track C — nothing to do
+
+You set `POSTEY_API_KEY` in Step 3. The same key authenticates the server and the
+tool. Go to Step 6.
+
+### Track B — nothing to do
+
+A web client has no local disk and no tool to link. Go to Step 6.
+
+### Track A — link it
+
+Three commands, none of which blocks and none of which opens a browser.
+
+```
+node <skill>/scripts/postey.js auth:link --begin
+```
+
+It prints a `link_` code and a challenge, and writes a secret to disk that it does
+not print. Pass **both printed values** to the `link_cli` tool:
+
+```
+link_cli(link_code=<the code>, code_challenge=<the challenge>)
+```
+
+That call returns no credential, and none will appear in this conversation. It
+answers `status: pending`. Then:
+
+```
+node <skill>/scripts/postey.js auth:link --claim <the code>
+```
+
+The tool collects the credential itself, over its own connection, and stores it.
+The code expires after two minutes and works once, so if you are interrupted
+between the three commands, start again at `--begin`.
+
+Never paste a credential into this conversation, and do not ask the user for one on
+this track. There is nothing for them to fetch.
+
+**Verify:** run `node <skill>/scripts/postey.js config:show` and confirm it reports
+`auth_method` as `linked (auth:link)`. It prints no credential.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `No pending link for that code` | `--begin` ran somewhere else, or the config was cleared | Run `--begin` again on the machine that will run `--claim` |
+| The claim reports the code is spent or expired | More than two minutes passed, or the code was already claimed | Run `--begin` again |
+| `link_cli` says this connection uses an API key | You are on track C | Nothing to link. Set `POSTEY_API_KEY` to that key |
+| `link_cli` says there is no grant to copy | The server is registered but not authenticated | Redo Step 3, then link |
+| `config:show` still reports `api_key` | `POSTEY_API_KEY` is set and outranks the link | Unset it, or leave it — either credential works |
 
 ## Step 6 — Record usage rules
 
@@ -634,16 +600,111 @@ Keep it to the rules that the tool schemas do not already show:
 
 ---
 
-## Step 7 — Confirm what the credential may do
+## Step 7 — Load the server
+
+Registering a server does not load it into a running session. Reload before Step 8.
+
+| Agent | Action |
+|---|---|
+| Hermes Agent | None. It reloads when the config changes. The tools arrive in your next turn |
+| Claude Code | Restart the session |
+| Everything else | Restart the agent |
+
+If your client loads MCP at a turn boundary, this step ends your turn, and it is the
+only place in this document that does. Everything before it — registering, authenticating,
+installing the skill, linking it, writing the rules file — needed no Postey tool and has
+already run. Everything after it is two reads.
+
+This is measured, not assumed. On Hermes, `hermes config set` returns success, and a tool search
+in that same turn still finds nothing. The server appears in the next turn.
+
+Before you end the turn, make the next session able to finish without being asked. Step 6
+wrote a Postey section into the agent instructions file; append this line to it:
+
+```
+Postey setup is incomplete: the server is registered but unverified.
+Finish Step 8 and Step 9 of the setup document, then delete this line.
+https://raw.githubusercontent.com/posteyai/skills/main/setup.md
+```
+
+Your client reads that file when it starts, so the next session picks the work up on its
+own. Deleting the line is part of Step 9 — a permanent instruction to verify an install
+that is already verified would send every future session to this document.
+
+Then tell the user exactly one thing: restart, and setup finishes itself.
+
+**Verify:** in the next session, before anything else, read your own tool list and
+confirm the Postey tools are in it. If they are absent the reload did not take: say so
+and stop. Step 8 is a read against the server, and it cannot run without them.
+
+---
+
+## Step 8 — Verify the connection
+
+Read your own tool list first. It separates two failures that look the same.
+
+| Your tool list | Meaning | Action |
+|---|---|---|
+| Postey tools are listed and callable | The transport works. Your call was wrong | Fix the call. Read the tool schema again |
+| Listed by a search, and a direct call says the tool does not exist | Your client dispatches MCP through a meta-tool | Call it the way your client requires. On Hermes that is `tool_call` |
+| Postey tools are absent | The server is registered and not yet loaded | Stop. Say so. Continue here next turn |
+
+Never infer either state from a failed call. A rejected call is not proof that the server is
+absent, and a reachable server is not proof that your call is right.
+
+When the tools are absent, these are all wrong, and a real run tried every one:
+
+- a nested session of your own agent, headless, such as `hermes chat` piped from `echo`
+- another agent driven headlessly, such as `claude -p` or `codex exec`
+- opening a new interactive session. If you are already interactive, you gain nothing
+- reading a local file, such as the skill capability snapshot, and calling it proof
+- the REST API. See Step 3
+
+Stopping is the only correct action. A false `complete` costs the user more than a stop does.
+
+Now read the MCP resource `postey://setup`. It answers the readiness question directly.
+It returns `ready`, an account count, and a `blockers` array. Each blocker carries a
+code, the account and platform it concerns, and the call that fixes it.
+
+Then read `postey://accounts` for the account name and its platforms.
+
+If your client cannot read MCP resources, call the `get_accounts` tool. Prefer the
+resource wherever both work.
+
+Tool names vary by client and by version. Some clients add a prefix built from the name you gave
+the connection. A server added as `postey` appears on Hermes v0.19.0 as
+`mcp__postey__get_accounts`, and on another client as `get_accounts`. Read your own tool list and
+use the name you find there.
+
+**Verify:** print `ready`, the account name, and the connected platforms. Print any
+blocker. If this returns nothing or errors, setup is not complete. Do not report
+success.
+
+Read it in your own session. A result you obtained by driving another agent proves
+that agent is connected, and says nothing about you.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `401` or `unauthorized` | Step 3 is incomplete, or the credential is wrong | Redo Step 3 |
+| `402` | The plan does not carry the feature that call needs | Not a credential fault. An MCP key connects on every plan. See Step 3 |
+| `405` | The client fell back to SSE | Set the streamable HTTP transport. See Step 2 |
+| `ready` is `false` | The account can publish nowhere | Read `blockers` and run the call each one names |
+| Empty account list | The account has no connected platform | Not an error. Tell the user to connect one at `app.postey.ai` |
+| Resource not found | The server registered but never loaded | Reload the agent, then redo Step 7 |
+| Tool and resource are both missing | Step 2 did not take effect | Redo Step 2 |
+
+---
+
+## Step 9 — Confirm what the credential may do
 
 Verify with reads only. Setup must leave no trace, so create nothing, publish
 nothing, schedule nothing and delete nothing — not even a draft you clean up
 afterwards.
 
-Step 4 read `postey://setup` and `postey://accounts`. Read two more, which those two
+Step 8 read `postey://setup` and `postey://accounts`. Read two more, which those two
 did not cover:
 
-1. `postey://accounts/{account_id}` — an id from Step 4. This is account-scoped, so it
+1. `postey://accounts/{account_id}` — an id from Step 8. This is account-scoped, so it
    fails where the list read succeeded if the key was scoped to specific accounts
 2. `postey://notifications` — a plain read on a different resource
 
@@ -655,9 +716,19 @@ was created, not by a trial write. An MCP key made with the **Read only** preset
 and cannot post. One made with **Publishing** can. If the user needs to change that,
 they edit the key where they created it, in Step 3.
 
-**Verify:** report `ready`, the account name, the connected platforms, every blocker,
-and the permission level the key carries. If any read errors, setup is not complete.
-Do not report success.
+Then remove the resume line Step 7 appended to the agent instructions file. It says
+setup is incomplete; it is not, and leaving it sends every future session back here.
+
+**Verify:** report exactly these five, as a block. Anything missing means setup is not
+complete, and you do not report success.
+
+```
+ready ............ true | false
+account .......... <name>
+platforms ........ <the connected ones, or none>
+blockers ......... <each code, or none>
+credential ....... Read only | Publishing
+```
 
 | Symptom | Cause | Fix |
 |---|---|---|
