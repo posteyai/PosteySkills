@@ -9,12 +9,21 @@ import { execFileSync } from 'node:child_process';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..');
 
+// Each fixture is a tmpdir; without this the suite leaked one per test.
+const FIXTURE_ROOTS = [];
+process.on('exit', () => {
+	for (const d of FIXTURE_ROOTS) {
+		try { fs.rmSync(d, { recursive: true, force: true }); } catch {}
+	}
+});
+
 // check-versions.js resolves ROOT from its own location, so a fixture that
 // carries its own scripts/ copy is checked as if it were the repo. That is the
 // only way to assert what the script does when a file it compares is ABSENT —
 // the case every soft-skip used to swallow.
 function fixture({ version = '1.0.0', omit = [] } = {}) {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'postey-versions-'));
+	FIXTURE_ROOTS.push(root);
 	const skill = path.join(root, 'skills', 'postey');
 	for (const d of ['scripts/lib', 'skills/postey/.claude-plugin', '.claude-plugin', '.codex-plugin', '.cursor-plugin']) {
 		fs.mkdirSync(path.join(root, d), { recursive: true });

@@ -1,6 +1,6 @@
 ---
 name: postey-voice
-version: 1.1.0
+version: 1.2.0
 description: >
   Learn how the user actually writes — from the posts they published, and from
   what they approved, edited or rejected — and keep a brand profile that gets

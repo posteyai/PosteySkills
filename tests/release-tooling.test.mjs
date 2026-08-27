@@ -26,8 +26,16 @@ import {
 const REAL_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /** A miniature repo carrying every file the fan-out writes. */
+const FIXTURE_ROOTS = [];
+process.on('exit', () => {
+	for (const d of FIXTURE_ROOTS) {
+		try { fs.rmSync(d, { recursive: true, force: true }); } catch {}
+	}
+});
+
 function fixtureRoot({ version = '1.0.0', omit = [] } = {}) {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'postey-release-'));
+	FIXTURE_ROOTS.push(root);
 	const skill = path.join(root, 'skills', 'postey');
 	fs.mkdirSync(path.join(skill, '.claude-plugin'), { recursive: true });
 	fs.mkdirSync(path.join(root, '.claude-plugin'), { recursive: true });

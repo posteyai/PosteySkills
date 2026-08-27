@@ -1,6 +1,6 @@
 {
   "name": "postey",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Postey hub: MCP/CLI routing, accounts, platform truth, the post lifecycle and the shared craft layer, plus the local-file and large-upload paths the MCP server cannot reach. Content flows ship as optional packs that require this one (postey-ideas, postey-video, postey-voice, postey-engagement, postey-analytics, postey-ops, postey-teams). Load references on demand.",
   "note": "rawBase pins the immutable release tag skills/postey/v<version>. Push that tag when releasing (see CLAUDE.md) or fetches 404. The bootstrap prompt fetches this manifest from main; everything else is fetched from the pinned tag so a later push to main cannot rewrite already-installed playbooks.",
   "skill": "SKILL.md",
@@ -28,5 +28,5 @@
     "references/x-algorithm.md",
     "references/post-structures.md"
   ],
-  "rawBase": "https://raw.githubusercontent.com/posteyai/skills/refs/tags/skills/postey/v3.1.0/skills/postey/"
+  "rawBase": "https://raw.githubusercontent.com/posteyai/skills/refs/tags/skills/postey/v3.2.0/skills/postey/"
 }

@@ -115,11 +115,51 @@ function readConfigFile(configPath) {
   return null;
 }
 
+const LOCAL_CONFIG_PATH = () => path.join(process.cwd(), LOCAL_CONFIG_FILE);
+
+function _resolvedCwd() {
+  try {
+    return fs.realpathSync(process.cwd());
+  } catch {
+    return path.resolve(process.cwd());
+  }
+}
+
+// A local config is only honoured in the directory it was created for.
+// `setup --location local` and `auth:login --local` stamp `scope_path`; a config
+// that arrived by clone, copy or archive carries somebody else's path, and using
+// it would silently authenticate as them and upload to their account.
+function readLocalConfig() {
+  const file = LOCAL_CONFIG_PATH();
+  const cfg = readConfigFile(file);
+  if (!cfg) return null;
+  // realpath both sides: process.cwd() resolves symlinks and a stamped path may
+  // not (/tmp vs /private/tmp on macOS), so a plain string compare rejects a
+  // config that is genuinely this directory's.
+  const real = (d) => {
+    try {
+      return fs.realpathSync(d);
+    } catch {
+      return path.resolve(d);
+    }
+  };
+  const here = real(process.cwd());
+  if (cfg.scope_path && real(cfg.scope_path) === here) return cfg;
+  if (process.env.POSTEY_TRUST_LOCAL_CONFIG === "1") return cfg;
+  console.error(
+    fmt.warn(
+      `Ignoring ${file}: it was not created for this directory. ` +
+        `Re-run 'postey.js setup --key <key> --location local' here, or set ` +
+        `POSTEY_TRUST_LOCAL_CONFIG=1 if you are certain it is yours.`
+    )
+  );
+  return null;
+}
+
 function _getConfigValue(fieldName, envVar) {
   if (envVar && process.env[envVar]) return { source: "environment variable", value: process.env[envVar] };
-  const localConfigPath = path.join(process.cwd(), LOCAL_CONFIG_FILE);
-  const local = readConfigFile(localConfigPath);
-  if (local?.[fieldName]) return { source: localConfigPath, value: local[fieldName] };
+  const local = readLocalConfig();
+  if (local?.[fieldName]) return { source: LOCAL_CONFIG_PATH(), value: local[fieldName] };
   const global = readConfigFile(GLOBAL_CONFIG_FILE);
   if (global?.[fieldName]) return { source: GLOBAL_CONFIG_FILE, value: global[fieldName] };
   return null;
@@ -272,8 +312,7 @@ async function getAuthHeader() {
   if (linked) return { header: "Authorization", value: `Bearer ${linked}` };
 
   // 4. API key in config files
-  const localConfigPath = path.join(process.cwd(), LOCAL_CONFIG_FILE);
-  const localConfig = readConfigFile(localConfigPath);
+  const localConfig = readLocalConfig();
   if (localConfig?.apiKey) return { header: "X-API-Key", value: localConfig.apiKey };
 
   const globalConfig = readConfigFile(GLOBAL_CONFIG_FILE);
@@ -566,7 +605,7 @@ async function _handlePost(argv) {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "postey_vpost_"));
     const thumbOut = path.join(tmpDir, "cover.jpg");
     try {
-      const ff = spawnSync("ffmpeg", ["-ss", String(argv.coverTime), "-i", argv.video, "-vframes", "1", "-q:v", "2", thumbOut, "-y"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+      const ff = spawnSync("ffmpeg", ["-ss", String(argv.coverTime), "-i", argv.video, "-vframes", "1", "-q:v", "2", thumbOut, "-y"], { env: mediaEnv(), encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
       if (ff.status === 0 && fs.existsSync(thumbOut)) {
         process.stderr.write("[video:post] uploading cover thumbnail...\n");
         const coverResult = _callSelf("media:upload", "--platform", "INSTAGRAM", "--file", thumbOut);
@@ -621,8 +660,8 @@ function _handleTrim(argv) {
   ffArgs.push("-c", "copy", outPath, "-y");
 
   if (process.stderr.isTTY) process.stderr.write(`Trimming: ${argv.file} → ${outPath}\n`);
-  const r = spawnSync("ffmpeg", ffArgs, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-  if (r.status !== 0) { error("ffmpeg trim failed", { stderr: r.stderr?.slice(0, 500), hint: "Is ffmpeg installed? brew install ffmpeg" }); }
+  const r = spawnSync("ffmpeg", ffArgs, { env: mediaEnv(), encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  if (r.status !== 0) { error("ffmpeg trim failed", { stderr: redactUrls(r.stderr)?.slice(0, 500), hint: "Is ffmpeg installed? brew install ffmpeg" }); }
   if (!fs.existsSync(outPath)) { error("Output file was not created"); }
 
   const endSec = argv.end != null ? argv.end : startSec + argv.duration;
@@ -632,9 +671,9 @@ function _handleTrim(argv) {
 function _handleInfo(argv) {
   if (!fs.existsSync(argv.file)) { error(`File not found: ${argv.file}`, { hint: "Check the file path" }); }
 
-  const probe = spawnSync("ffprobe", ["-v", "quiet", "-print_format", "json", "-show_streams", "-show_format", argv.file], { encoding: "utf8" });
+  const probe = spawnSync("ffprobe", ["-v", "quiet", "-print_format", "json", "-show_streams", "-show_format", argv.file], { env: mediaEnv(), encoding: "utf8" });
   if (probe.status !== 0 || !probe.stdout) {
-    error("ffprobe failed — is ffmpeg installed?", { hint: "brew install ffmpeg  or  sudo apt install ffmpeg", stderr: probe.stderr?.slice(0, 300) });
+    error("ffprobe failed — is ffmpeg installed?", { hint: "brew install ffmpeg  or  sudo apt install ffmpeg", stderr: redactUrls(probe.stderr)?.slice(0, 300) });
   }
   let data;
   try { data = JSON.parse(probe.stdout); } catch { error("Could not parse ffprobe output"); }
@@ -662,9 +701,65 @@ function _handleInfo(argv) {
   output({ file: path.resolve(argv.file), duration_seconds: dur, file_size_bytes: sizeBytes, file_size_mb: Math.round(sizeBytes / 1024 / 1024 * 10) / 10, width: w, height: h, aspect_ratio: aspectRatio, video_codec: vs?.codec_name || null, audio_codec: as?.codec_name || null, fps: vs?.r_frame_rate || null, container: fmt.format_name || null, platform_hints: hints });
 }
 
+// A remote video URL is fetched by yt-dlp on the user's machine and behind their
+// network. Without a check, `video transcribe --input http://127.0.0.1:.../` and
+// http://169.254.169.254/ are reachable, and --print "%(title)s" returns the
+// fetched page's title into the output JSON — a read primitive, not a blind hit.
+// Child processes echo the input URL into stderr, and for a presigned S3 / Drive
+// / CDN link the query string IS the credential. This output is read by an agent
+// and forwarded to a model provider, so strip it before it leaves.
+function redactUrls(text) {
+  if (!text) return text;
+  return String(text).replace(/(https?:\/\/[^\s"']+?)\?[^\s"']*/g, "$1?<redacted>");
+}
+
+// yt-dlp, ffmpeg and whisper need none of Postey's credentials, and yt-dlp in
+// particular loads config files and extractor plugins while fetching an
+// attacker-chosen URL. Hand them an environment without the secrets.
+function mediaEnv() {
+  const {
+    POSTEY_API_KEY, POSTEY_AUTH_TOKEN, // eslint-disable-line no-unused-vars
+    ...rest
+  } = process.env;
+  return rest;
+}
+
+function assertPublicHttpUrl(raw) {
+  let u;
+  try {
+    u = new URL(raw);
+  } catch {
+    error("Not a valid URL", { input: raw });
+  }
+  if (u.protocol !== "http:" && u.protocol !== "https:") {
+    error("Only http:// and https:// video URLs are supported", { protocol: u.protocol });
+  }
+  const host = u.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  const blocked =
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host === "::1" ||
+    host === "0.0.0.0" ||
+    /^127\./.test(host) ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+    /^169\.254\./.test(host) ||
+    /^f[cd][0-9a-f]{2}:/i.test(host) ||
+    /^fe80:/i.test(host);
+  if (blocked) {
+    error("Refusing to fetch a private, loopback or link-local address", {
+      host,
+      hint: "video transcribe takes a public video URL or a local file path",
+    });
+  }
+  return u;
+}
+
 async function _handleTranscribe(argv) {
   const input = argv.input;
   const isLocal = !input.startsWith("http://") && !input.startsWith("https://");
+  if (!isLocal) assertPublicHttpUrl(input);
 
   const missing = [];
   if (!_which("ffmpeg"))           missing.push("ffmpeg");
@@ -684,7 +779,7 @@ async function _handleTranscribe(argv) {
     if (process.stderr.isTTY) process.stderr.write(`Using local file: ${videoFile}\n`);
   } else {
     if (process.stderr.isTTY) process.stderr.write(`Fetching metadata: ${input}\n`);
-    const tr = spawnSync("yt-dlp", ["--print", "%(title)s", "--no-download", input], { encoding: "utf8" });
+    const tr = spawnSync("yt-dlp", ["--print", "%(title)s", "--no-download", input], { env: mediaEnv(), encoding: "utf8" });
     videoTitle = (tr.status === 0 && tr.stdout) ? tr.stdout.trim().split("\n")[0] : "";
     if (process.stderr.isTTY) process.stderr.write(`Downloading: ${input}\n`);
     _vRun("yt-dlp", ["-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best", "--merge-output-format", "mp4", "-o", path.join(tmpDir, _sanitizeFname(videoTitle) + ".%(ext)s"), input]);
@@ -1234,17 +1329,23 @@ async function cmdAuthLogin(args) {
       }, OAUTH_TIMEOUT_MS);
 
       server.on("request", (req, res) => {
-        clearTimeout(timer);
         const u = new URL(req.url, "http://localhost");
 
+        // Only the callback disarms the timeout. Clearing it on every request
+        // meant a stray GET /favicon.ico left this promise pending forever.
         if (u.pathname !== "/callback") {
           res.writeHead(404); res.end("Not found"); return;
         }
+        clearTimeout(timer);
 
         const oauthErr = u.searchParams.get("error");
         const code     = u.searchParams.get("code");
         const gotState = u.searchParams.get("state");
 
+        const esc = (t) =>
+          String(t).replace(/[&<>"']/g, (c) =>
+            ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
+          );
         const html = (title, body) =>
           `<!DOCTYPE html><html><head><title>Postey CLI</title><style>
             body{font-family:sans-serif;text-align:center;padding-top:80px;background:#fafafa}
@@ -1254,7 +1355,7 @@ async function cmdAuthLogin(args) {
         if (oauthErr) {
           const desc = u.searchParams.get("error_description") || oauthErr;
           res.writeHead(400, { "Content-Type": "text/html" });
-          res.end(html("Authentication error", `${desc}<br>You can close this window.`));
+          res.end(html("Authentication error", `${esc(desc)}<br>You can close this window.`));
           server.close();
           reject(new Error(`OAuth error: ${desc}`));
           return;
@@ -1320,9 +1421,13 @@ async function cmdAuthLogin(args) {
 
   // Honor --local flag; otherwise always global for tokens
   if (useLocal) {
-    const localPath = path.join(process.cwd(), LOCAL_CONFIG_FILE);
+    const localPath = LOCAL_CONFIG_PATH();
     const existing  = readConfigFile(localPath) || {};
-    writeConfig(localPath, { ...existing, oauth: oauthEntry });
+    // scope_path binds this config to the directory it was written for.
+    writeConfig(localPath, { ...existing, scope_path: _resolvedCwd(), oauth: oauthEntry });
+    // This file now holds a refresh token, which outlives the access token.
+    // cmdSetup guarded its API key this way and the OAuth path never did.
+    await _setupGitignore(true, true);
     console.error(fmt.success(`Tokens saved to ${fmt.dim(localPath)}`));
   } else {
     saveOAuthConfig(oauthEntry);
@@ -1378,19 +1483,32 @@ function prompt(question) {
 
 function writeConfig(configPath, config) {
   const configDir = path.dirname(configPath);
+  // 0700: this directory holds a credential, and the default 0755 leaves it
+  // traversable by every other account on the machine.
   if (!fs.existsSync(configDir)) {
-    fs.mkdirSync(configDir, { recursive: true });
+    fs.mkdirSync(configDir, { recursive: true, mode: 0o700 });
   }
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n", {
-    mode: 0o600,
-  });
-  // `mode` applies only when writeFileSync CREATES the file. A config.json that
-  // already existed at 0644 keeps those bits, and this file holds an API key, so
-  // tighten it explicitly. Best-effort: some filesystems do not implement chmod.
+
+  // Write a fresh file at 0600 and rename over the target. writeFileSync's
+  // `mode` applies only on create, so writing in place left an existing 0644
+  // file world-readable for the window between the write and any chmod — with
+  // the key already in it. Rename is atomic, and O_EXCL means we never follow a
+  // symlink a repo or a dotfile manager left in the way.
+  const tmp = `${configPath}.${process.pid}.tmp`;
+  const fd = fs.openSync(tmp, "wx", 0o600);
   try {
-    fs.chmodSync(configPath, 0o600);
-  } catch {}
+    fs.writeSync(fd, JSON.stringify(config, null, 2) + "\n");
+  } finally {
+    fs.closeSync(fd);
+  }
+  try {
+    fs.renameSync(tmp, configPath);
+  } catch (err) {
+    try { fs.unlinkSync(tmp); } catch {}
+    throw err;
+  }
 }
+
 
 async function _promptApiKey(parsed, isNonInteractive) {
   let apiKey = parsed._positional[0] || parsed.key;
@@ -1482,7 +1600,12 @@ async function cmdSetup(args) {
   const configPath = isLocal ? path.join(process.cwd(), LOCAL_CONFIG_FILE) : GLOBAL_CONFIG_FILE;
 
   const existingConfig = readConfigFile(configPath) || {};
-  writeConfig(configPath, { ...existingConfig, apiKey });
+  writeConfig(configPath, {
+    ...existingConfig,
+    // Binds a local config to this directory. A copy of it elsewhere is ignored.
+    ...(isLocal ? { scope_path: _resolvedCwd() } : {}),
+    apiKey,
+  });
 
   await _setupGitignore(isLocal, isNonInteractive);
 
@@ -1584,7 +1707,7 @@ async function cmdConfigShow() {
 }
 
 function showHelp() {
-  console.log(`Postey CLI - Manage social media posts via the Postey API
+  console.error(`Postey CLI - Manage social media posts via the Postey API
 
 USAGE:
   postey.js <command> [arguments]

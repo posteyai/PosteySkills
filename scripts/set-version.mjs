@@ -124,7 +124,16 @@ function setRegistryVersion(source, skill, version) {
 	if (i === -1) throw new Error(`no REGISTRY.md row for ${skill}`);
 	const cells = lines[i].split('|');
 	// Last cell is trailing whitespace after the closing pipe; version is before it.
+	if (!lines[i].trimEnd().endsWith('|')) {
+		throw new Error(`REGISTRY.md: the ${skill} row does not end in "|", so its columns cannot be located`);
+	}
 	const last = cells.length - 2;
+	// Test for a match, not for a change: an idempotent re-run legitimately
+	// produces the same string, while a blank cell matches nothing and used to
+	// leave the row untouched while reporting success.
+	if (!/\S+/.test(cells[last])) {
+		throw new Error(`REGISTRY.md: the ${skill} row has an empty version column`);
+	}
 	cells[last] = cells[last].replace(/\S+/, version);
 	lines[i] = cells.join('|');
 	return lines.join('\n');

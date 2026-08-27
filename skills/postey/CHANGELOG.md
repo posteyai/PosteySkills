@@ -4,6 +4,43 @@ All notable user-facing changes to the Postey skill and its CLI are documented h
 
 The format is based on Keep a Changelog.
 
+## 3.2.0
+
+**A project-local config can no longer authenticate you as somebody else.** `./.postey/config.json`
+was read from the working directory with no trust check and outranked your global key, so a repo
+that committed one supplied both the credential and the default account — every upload from that
+clone went to their account, and nothing looked wrong. A local config is now stamped with the
+directory it was created for and ignored anywhere else. If you already have one, re-run
+`setup --key <key> --location local` in that directory, or set `POSTEY_TRUST_LOCAL_CONFIG=1`.
+
+**`auth:login --local` now protects what it writes.** It stored an OAuth *refresh* token in the
+working tree and never added the `.gitignore` entry that `setup` adds for an API key.
+
+**`video transcribe` refuses private, loopback and link-local addresses.** The URL is fetched by
+yt-dlp on your machine and inside your network, and `--print "%(title)s"` returned the fetched
+page's title into the output, making it readable rather than blind.
+
+**Credentials no longer leak through subprocess output.** ffmpeg and yt-dlp echo the input URL into
+stderr, which was copied verbatim into the JSON an agent reads — and for a presigned S3, Drive or
+CDN link the query string *is* the credential. Query strings are now redacted, and the media
+subprocesses run without `POSTEY_API_KEY` / `POSTEY_AUTH_TOKEN` in their environment.
+
+**The config file is written atomically at 0600, in a 0700 directory.** Writing in place left an
+existing 0644 file world-readable with the key already in it, and followed a symlink if one was in
+the way.
+
+**The OAuth callback page escapes what the server sends it**, and only the callback path disarms the
+two-minute timeout — a stray request to `/favicon.ico` used to leave `auth:login` hanging with an
+open listener.
+
+**`help` no longer writes to stdout.** stdout is JSON-only, and a bare `postey.js` defaults to help,
+so an agent wrapper parsing stdout threw instead of getting a usable result.
+
+**Voice profiles say which accounts the evidence came from.** `corpus.accounts` was documented in
+two places and never emitted; it now is, and the CLI warns when the corpus was read from a different
+account than the profile is scoped to. The "unscoped profile" warning also reached nobody: it was
+inside the write-to-file branch and gated on a TTY, so an agent piping output never saw it.
+
 ## 3.1.0
 
 **A fetch-based install of the hub shipped a CLI that could not start.** `pack.json` listed the
