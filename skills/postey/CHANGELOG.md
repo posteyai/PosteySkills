@@ -6,6 +6,41 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-08-27
+
+### Added
+
+- **`auth:link` — one consent now covers the server and the CLI.** A user on the OAuth track
+  finished setup with a credential the MCP server could use and a CLI that held nothing, so
+  `setup.md` told them to `export POSTEY_API_KEY` — a key that track was never issued. Every
+  local-file command failed after an install that reported success. `auth:link --begin` generates a
+  PKCE verifier and keeps it on disk, prints only a public code and challenge, and `--claim`
+  collects the credential directly. Nothing secret passes through the agent's conversation.
+- **The plugin now registers the MCP server.** `skills/postey/.mcp.json` ships at the plugin root,
+  so `claude plugin install postey@postey-skills` registers the server as well as the skill. Claude
+  Code users run no `claude mcp add` and cannot hit the `url`-without-`type` trap.
+- **`scripts/set-version.mjs`** writes all seven version declarations from one argument, including
+  the tag inside `pack.json`'s `rawBase`, and **`scripts/check-release-tag.mjs`** asserts that tag
+  exists on the remote and that the shipped content has not moved past it.
+
+### Changed
+
+- **`setup.md` runs Steps 1 to 6 without stopping.** The reload sat in the middle, with three steps
+  parked behind it that need no Postey tool. It now sits at Step 7, and Step 7 writes a resume line
+  into the agent's instructions file so the next session finishes on its own. Step 9 deletes it.
+- **The document's promise is now the one that holds.** It said it "only ever reads"; Step 5 issues
+  a credential. It now says it touches no content, and names the one thing it creates.
+
+### Fixed
+
+- **`config:show` reported a linked CLI as unconfigured**, which reads as a broken install.
+- **A guard that admitted what the crypto layer could not take.** `str.isalnum()` is Unicode-aware,
+  so a non-ASCII challenge passed validation and then raised inside `secrets.compare_digest` — a 500
+  raised *after* the link code was spent, leaving no way to retry. Found four times in the same
+  shape; both sides of the comparison are now shape-checked against an explicit ASCII set, and the
+  verifier accepts the full RFC 7636 unreserved range rather than base64url alone.
+
+
 ### Fixed
 
 - **The Hermes setup told a headless host to use OAuth, which it can never finish.** `setup.md`

@@ -12,7 +12,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { setVersion } from '../scripts/set-version.mjs';
-import { checkReleaseTags, packagedSkills, remoteTags, tagFor } from '../scripts/check-release-tag.mjs';
+import {
+	checkReleaseTags,
+	contentDiffersFromTag,
+	packagedSkills,
+	remoteTags,
+	tagFor
+} from '../scripts/check-release-tag.mjs';
 
 // Not `import.meta.dirname`: that landed in Node 20.11 and is undefined on 18,
 // which this repo supports and CI still runs on. It fails there as a bare
@@ -202,4 +208,63 @@ test('tagFor matches the tag pack.json rawBase pins', () => {
 			`skills/${skill}: rawBase does not pin ${tagFor(skill, version)}`
 		);
 	}
+});
+
+
+// ── the tag exists, and is current ───────────────────────────────────────────
+//
+// Existence alone was not enough, and a real release proved it: auth:link and a
+// plugin manifest landed on main while pack.json still declared 2.5.2 and
+// pinned the v2.5.2 tag. check-versions was green (all seven places agreed) and
+// check-release-tag was green (the tag existed), and a fetch-based install
+// still received a skill missing the command the setup document told it to run.
+
+test('a tag that exists but whose content has moved on FAILS', () => {
+	const root = fixtureRoot({ version: '2.6.0' });
+	// git says "there is a difference" by exiting 1.
+	const run = (cmd, args) => {
+		if (args[0] === 'rev-parse') return 'abc123\n';
+		if (args[0] === 'diff') {
+			const err = new Error('exit 1');
+			err.status = 1;
+			throw err;
+		}
+		return '';
+	};
+	const problems = checkReleaseTags({
+		root,
+		tags: new Set(['skills/postey/v2.6.0']),
+		run
+	});
+	assert.strictEqual(problems.length, 1);
+	assert.match(problems[0], /differs from skills\/postey\/v2\.6\.0/);
+	assert.match(problems[0], /set-version\.mjs/);
+});
+
+test('a tag whose content matches passes', () => {
+	const root = fixtureRoot({ version: '2.6.0' });
+	const run = (cmd, args) => (args[0] === 'rev-parse' ? 'abc123\n' : '');
+	assert.deepStrictEqual(
+		checkReleaseTags({ root, tags: new Set(['skills/postey/v2.6.0']), run }),
+		[]
+	);
+});
+
+test('a comparison that cannot run reports null, never agreement', () => {
+	// No such tag locally: a shallow clone, or a tag not fetched. Saying "they
+	// match" here would be the vacuous pass this whole check exists to avoid.
+	const missing = () => {
+		throw new Error('unknown revision');
+	};
+	assert.strictEqual(contentDiffersFromTag('postey', '9.9.9', missing), null);
+});
+
+test('a git error that is not "differs" reports null, not drift', () => {
+	const run = (cmd, args) => {
+		if (args[0] === 'rev-parse') return 'abc123\n';
+		const err = new Error('fatal: not a git repository');
+		err.status = 128;
+		throw err;
+	};
+	assert.strictEqual(contentDiffersFromTag('postey', '2.6.0', run), null);
 });

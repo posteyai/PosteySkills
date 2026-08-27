@@ -78,12 +78,56 @@ export function packagedSkills(root = ROOT) {
 	return out;
 }
 
-/** @returns {string[]} one message per missing tag; empty when every tag exists. */
-export function checkReleaseTags({ root = ROOT, tags, only } = {}) {
+/**
+ * Whether a skill's shipped content differs from the tag its manifest pins.
+ *
+ * Existence was not enough, and this is the case that proved it: `auth:link`
+ * and a plugin manifest landed on main while pack.json still declared 2.5.2 and
+ * pinned the v2.5.2 tag. Both checks were green — the version was internally
+ * consistent and the tag existed — and a fetch-based install still received a
+ * skill without the command the setup document told it to run.
+ *
+ * Returns null when the comparison cannot be made (no tag locally, not a git
+ * tree). A comparison that cannot run says so rather than reporting agreement.
+ */
+export function contentDiffersFromTag(skill, version, run = defaultRun) {
+	const tag = tagFor(skill, version);
+	try {
+		run('git', ['rev-parse', '--verify', `${tag}^{commit}`]);
+	} catch {
+		return null;
+	}
+	try {
+		run('git', ['diff', '--quiet', tag, 'HEAD', '--', `skills/${skill}/`]);
+		return false;
+	} catch (err) {
+		// git diff --quiet exits 1 when there IS a difference, and >1 on error.
+		if (err && err.status === 1) return true;
+		return null;
+	}
+}
+
+/** @returns {string[]} one message per problem; empty when every tag is present and current. */
+export function checkReleaseTags({ root = ROOT, tags, only, run = defaultRun } = {}) {
 	const problems = [];
 	for (const { skill, version } of packagedSkills(root)) {
 		if (only && skill !== only) continue;
 		const tag = tagFor(skill, version);
+
+		if (tags.has(tag)) {
+			const drifted = contentDiffersFromTag(skill, version, run);
+			if (drifted === true) {
+				problems.push(
+					`skills/${skill}: the shipped content differs from ${tag}, which pack.json pins.\n` +
+						`      A fetch-based install resolves rawBase to that tag and receives the OLD\n` +
+						`      skill, while the setup document served from this branch describes the new\n` +
+						`      one. Bump the version — node scripts/set-version.mjs <next> — and tag the\n` +
+						`      release.`
+				);
+			}
+			continue;
+		}
+
 		if (!tags.has(tag)) {
 			problems.push(
 				`skills/${skill}: pack.json declares ${version}, but tag ${tag} does not exist on the ` +
