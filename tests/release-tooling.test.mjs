@@ -285,3 +285,17 @@ test('a git error that is not "differs" reports null, not drift', () => {
 	};
 	assert.strictEqual(contentDiffersFromTag('postey', '2.6.0', run), null);
 });
+
+// The tag can only point at the merge commit, so it is pushed after the merge.
+// Without a grace window the push-to-main check is red on every release, and a
+// gate that is routinely red is one people re-run without reading.
+test('a missing tag inside the grace window is pending, not a failure', () => {
+	const root = fixtureRoot({ version: '2.6.0' });
+	const problems = checkReleaseTags({ root, tags: new Set([]) });
+	assert.strictEqual(problems.length, 1, 'the problem is still reported');
+	assert.match(problems[0], /does not exist on the remote/);
+	// The grace decision belongs to the CLI wrapper, not to checkReleaseTags:
+	// the library always reports, so the scheduled no-grace run sees the same
+	// list. Guarding that split here keeps a future refactor from moving the
+	// grace into the library, where it would silence both callers at once.
+});
