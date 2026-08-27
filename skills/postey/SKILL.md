@@ -7,14 +7,19 @@ version: 3.1.0
 # nothing that ships (S9.5).
 description: >
   Create, schedule, and manage social media posts via Postey across X, LinkedIn,
-  Instagram, TikTok, YouTube, Threads, Bluesky, Facebook, and Pinterest. Handles video/reel workflows:
-  transcribe any video URL and cross-post, or use `video post` for single-command
-  upload with auto cover thumbnail.
+  Instagram, TikTok, YouTube, Threads, Bluesky, Facebook, and Pinterest. The hub:
+  accounts, platform truth, the post lifecycle, and the shared craft layer that
+  decides how a post is written — plus the local-file and large-upload paths the
+  MCP server cannot reach. Content flows ship as optional packs that require this
+  one: install `postey-video` to transcribe a video and turn it into per-platform
+  posts, `postey-ideas` to decide what to post.
 when_to_use: >
   Use when asked to: draft a tweet, post to LinkedIn, create a thread, schedule
-  content, publish a post, check scheduled or published posts, upload a video to
-  Instagram/TikTok/YouTube, cross-post to multiple platforms, manage social drafts,
-  generate captions from a video URL, or any social media publishing task.
+  content, publish a post, check scheduled or published posts, upload a video or
+  image from local disk to Instagram/TikTok/YouTube, cross-post to multiple
+  platforms, manage social drafts, or any social media publishing task. Transcribing
+  a video into captions belongs to `postey-video`; deciding what to post belongs to
+  `postey-ideas`; confirming something actually went out belongs to `postey-ops`.
 allowed-tools:
   - Bash(${CLAUDE_SKILL_DIR}/scripts/postey.js:*)
 mcp-tools:

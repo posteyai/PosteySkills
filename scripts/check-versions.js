@@ -65,7 +65,17 @@ const README_BADGES = {
 const skillsDir = path.join(ROOT, 'skills');
 const marketplacePath = path.join(ROOT, '.claude-plugin', 'marketplace.json');
 
-for (const { name: skill, dir: skillDir } of discoverSkills(skillsDir)) {
+// discoverSkills returns [] for a missing or renamed skills/ directory. Without
+// this the loop body never runs, errors stays 0, and the gate reports success
+// having compared nothing. check-release-tag.mjs already refuses to pass on an
+// empty set; this is the same stance.
+const skills = discoverSkills(skillsDir);
+if (skills.length === 0) {
+  console.error(`✗ no skills found under ${skillsDir} — the check has nothing to assert, which is a failure`);
+  process.exit(1);
+}
+
+for (const { name: skill, dir: skillDir } of skills) {
   const skillMdPath = path.join(skillDir, 'SKILL.md');
   const pluginJsonPath = path.join(skillDir, '.claude-plugin', 'plugin.json');
 
@@ -78,28 +88,44 @@ for (const { name: skill, dir: skillDir } of discoverSkills(skillsDir)) {
     continue;
   }
 
-  if (pluginJsonVersion && pluginJsonVersion !== frontmatterVersion) {
+  // Every skill must carry all four of these (CLAUDE.md, "Adding a New Skill").
+  // Absent is therefore a broken skill, not an exempt one — and skipping it is
+  // how a version place goes stale without any gate noticing.
+  if (!pluginJsonVersion) {
+    fail(`skills/${skill}/.claude-plugin/plugin.json is missing or carries no version`);
+  } else if (pluginJsonVersion !== frontmatterVersion) {
     fail(`skills/${skill}: plugin.json version (${pluginJsonVersion}) != SKILL.md version (${frontmatterVersion})`);
   }
 
-  if (marketplaceVersion && marketplaceVersion !== frontmatterVersion) {
+  if (!marketplaceVersion) {
+    fail(`skills/${skill}: no entry with a version in .claude-plugin/marketplace.json`);
+  } else if (marketplaceVersion !== frontmatterVersion) {
     fail(`skills/${skill}: marketplace.json version (${marketplaceVersion}) != SKILL.md version (${frontmatterVersion})`);
   }
 
   const packVersion = parsePackJsonVersion(path.join(skillDir, 'pack.json'));
+  if (!packVersion) {
+    fail(`skills/${skill}/pack.json is missing or carries no version — fetch-based installs read it`);
+  }
   if (packVersion && packVersion !== frontmatterVersion) {
     fail(`skills/${skill}: pack.json version (${packVersion}) != SKILL.md version (${frontmatterVersion})`);
   }
 
   const registryVersion = parseRegistryVersion(path.join(skillsDir, 'REGISTRY.md'), skill);
-  if (registryVersion && registryVersion !== frontmatterVersion) {
+  if (!registryVersion) {
+    fail(`skills/${skill}: no row in skills/REGISTRY.md — the index is how a skill is found`);
+  } else if (registryVersion !== frontmatterVersion) {
     fail(`skills/${skill}: REGISTRY.md version (${registryVersion}) != SKILL.md version (${frontmatterVersion})`);
   }
 
   const badgeFile = README_BADGES[skill];
   if (badgeFile) {
     const badgeVersion = parseReadmeBadgeVersion(path.join(ROOT, badgeFile));
-    if (badgeVersion && badgeVersion !== frontmatterVersion) {
+    // README_BADGES names this file, so an unreadable badge is a broken
+    // assertion, not an absent one.
+    if (!badgeVersion) {
+      fail(`${badgeFile} declares a version badge for skills/${skill}, but none could be read from it`);
+    } else if (badgeVersion !== frontmatterVersion) {
       fail(`${badgeFile} badge version (${badgeVersion}) != skills/${skill} SKILL.md version (${frontmatterVersion})`);
     }
 
@@ -109,7 +135,12 @@ for (const { name: skill, dir: skillDir } of discoverSkills(skillsDir)) {
     // Unpinned, they silently advertise a stale version to two whole ecosystems.
     for (const manifest of ['.codex-plugin/plugin.json', '.cursor-plugin/plugin.json']) {
       const manifestVersion = parsePluginJsonVersion(path.join(ROOT, manifest));
-      if (manifestVersion && manifestVersion !== frontmatterVersion) {
+      // Absent is the failure this check exists for: set-version.mjs writes both
+      // manifests, so one that cannot be read is either deleted or malformed,
+      // and skipping it ships a stale version to that ecosystem silently.
+      if (!manifestVersion) {
+        fail(`${manifest} is missing or carries no version — it must track skills/${skill} (${frontmatterVersion})`);
+      } else if (manifestVersion !== frontmatterVersion) {
         fail(`${manifest} version (${manifestVersion}) != SKILL.md version (${frontmatterVersion})`);
       }
     }

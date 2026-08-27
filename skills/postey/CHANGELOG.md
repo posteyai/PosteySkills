@@ -6,6 +6,31 @@ The format is based on Keep a Changelog.
 
 ## 3.1.0
 
+**Arming an auto-DM funnel now needs an explicit yes.** `configure_auto_dm` had design rules but no
+approval gate, while `reply_comment` had one. An armed automation messages every person who hits the
+trigger with no further review, so it now requires the same confirmation, naming the trigger word,
+the payload, the account and the post before anything is armed.
+
+**`postey-engagement` now says which kind of comment it is holding.** Audience comments
+(`get_platform_comments`) and internal team notes (`postey://posts/{post_id}/comments/{platform}`)
+are different things; replying to the second with `reply_comment` would put a colleague's private
+note on a public timeline.
+
+**The hub no longer advertises the video workflow it does not own.** `media.transcribe` belongs to
+`postey-video`; the hub's description and `when_to_use` promised transcription and caption
+generation, which would route an agent to the hub and leave the pack uninstalled. They now name the
+pack that owns each flow.
+
+**`postey-video`'s mirrored CLI was stale.** Its copy of `postey.js` had drifted 5.7KB from the
+hub's and its `capability-snapshot.json` still pinned server 2.1.0 against the hub's 2.3.0.
+`postey.js` reads the snapshot at runtime, so the pack was shipping a different program. Both are
+now byte-identical to the hub's, which `check-script-parity.js` enforces.
+
+**Post restore and trash now have an owner.** `post.restore`, `post.restore_many` and
+`post.trash.list` — along with `platform.actions` and `cli.link` — were exposed by the server and
+claimed by no skill. They belong to the hub, next to `post.delete`.
+
+
 **New: `references/post-structures.md`** — eighteen post structures in the craft layer, each with
 the condition that selects it, its shape, a length rule, and the way it typically fails. Derived
 from measured top-vs-bottom quintile analysis of high-performing operator accounts on X.
