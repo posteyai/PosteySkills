@@ -1371,6 +1371,12 @@ function writeConfig(configPath, config) {
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n", {
     mode: 0o600,
   });
+  // `mode` applies only when writeFileSync CREATES the file. A config.json that
+  // already existed at 0644 keeps those bits, and this file holds an API key, so
+  // tighten it explicitly. Best-effort: some filesystems do not implement chmod.
+  try {
+    fs.chmodSync(configPath, 0o600);
+  } catch {}
 }
 
 async function _promptApiKey(parsed, isNonInteractive) {

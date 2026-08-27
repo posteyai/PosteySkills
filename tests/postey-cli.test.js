@@ -213,6 +213,31 @@ test('config:show reads local config and reports default account source', async 
   }
 });
 
+// writeFileSync's `mode` applies only when it CREATES the file. A config.json
+// that already exists at 0644 keeps those bits, and this one holds an API key.
+test('setup tightens an existing world-readable config to 0600', async () => {
+  const sandbox = await makeSandbox();
+  try {
+    const dir = path.join(sandbox.cwd, '.postey');
+    await fs.mkdir(dir, { recursive: true });
+    const cfgPath = path.join(dir, 'config.json');
+    await fs.writeFile(cfgPath, '{}\n', { mode: 0o644 });
+    await fs.chmod(cfgPath, 0o644);
+    assert.equal(fsSync.statSync(cfgPath).mode & 0o777, 0o644, 'fixture must start loose');
+
+    const result = await runCli(
+      ['setup', '--key', 'typ_perm_key', '--location', 'local'],
+      { cwd: sandbox.cwd, env: { HOME: sandbox.home } }
+    );
+    assert.equal(result.code, 0);
+
+    const mode = fsSync.statSync(cfgPath).mode & 0o777;
+    assert.equal(mode, 0o600, `config holding an API key left at ${mode.toString(8)}`);
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
 test('setup writes local config and .gitignore entry', async () => {
   const sandbox = await makeSandbox();
   try {

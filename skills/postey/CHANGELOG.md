@@ -26,6 +26,10 @@ hub's and its `capability-snapshot.json` still pinned server 2.1.0 against the h
 `postey.js` reads the snapshot at runtime, so the pack was shipping a different program. Both are
 now byte-identical to the hub's, which `check-script-parity.js` enforces.
 
+**`setup` now tightens an existing config file.** `writeFileSync`'s `mode` applies only when it
+creates the file, so a `config.json` that already sat at 0644 kept those bits after an API key was
+written into it. It is chmodded to 0600 explicitly.
+
 **Post restore and trash now have an owner.** `post.restore`, `post.restore_many` and
 `post.trash.list` — along with `platform.actions` and `cli.link` — were exposed by the server and
 claimed by no skill. They belong to the hub, next to `post.delete`.
