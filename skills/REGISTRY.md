@@ -2,6 +2,9 @@
 
 Index of all skills in this repository.
 
+> External distribution — where Postey is registered so agents can find it — is tracked in
+> [`DISTRIBUTION.md`](../DISTRIBUTION.md), not here.
+
 | Skill | Description | Status | Version |
 |-------|-------------|--------|---------|
 | [postey](postey/) | Draft, schedule, and manage social media posts across every network Postey supports | stable | 2.5.2 |

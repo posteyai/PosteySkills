@@ -1,0 +1,18 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "ai.postey/postey",
+  "title": "Postey",
+  "description": "Draft, schedule and publish social posts to 9 networks; manage team drafts and comments.",
+  "version": "1.3.0",
+  "websiteUrl": "https://postey.ai",
+  "repository": {
+    "url": "https://github.com/posteyai/skills",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://srvr.postey.ai/mcp"
+    }
+  ]
+}
