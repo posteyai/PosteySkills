@@ -30,7 +30,7 @@ flow:
 
 | Flow | Pack |
 |---|---|
-| Trends to posts · idea to posts | `postey-studio` |
+| Trends to posts · idea to posts | `postey-ideas` |
 | Video everywhere | `postey-video` |
 | Brand voice | `postey-voice` |
 
@@ -54,7 +54,7 @@ had been missing.
 
 - **`references/mcp-authentication.md`** — the auth guidance this line has never shipped. The 3.0.0
   consolidation cut the hub's references from eleven to seven, correctly: the four it dropped were
-  content flows that moved to `postey-studio`, `postey-video` and `postey-voice`. Auth was not one of
+  content flows that moved to `postey-ideas`, `postey-video` and `postey-voice`. Auth was not one of
   them — it was never a reference here at all. The MCP instruction block relocated the OAuth scope
   list, the MCP-key path and the two agent-token mint endpoints out to this path on 2026-08-24
   (mcp-northstar N1.4) and the file did not exist on either line, so `skills/postey/v3.0.0` is a

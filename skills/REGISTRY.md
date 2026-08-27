@@ -5,7 +5,7 @@ Index of all skills in this repository.
 | Skill | Description | Status | Version |
 |-------|-------------|--------|---------|
 | [postey](postey/) | The hub: routing, accounts, platform truth and the shared craft layer | stable | 3.1.0 |
-| [postey-studio](postey-studio/) | Content-ideation flows: trends to posts, idea to posts. Requires `postey` | stable | 1.0.0 |
+| [postey-ideas](postey-ideas/) | Content-ideation flows: trends to posts, idea to posts. Requires `postey` | stable | 1.0.0 |
 | [postey-video](postey-video/) | Transcribe a video and cross-post it. Requires `postey` | stable | 1.0.0 |
 | [postey-voice](postey-voice/) | Learn the user's voice from published posts and draft verdicts. Requires `postey` | stable | 1.1.0 |
 | [postey-engagement](postey-engagement/) | Comment triage, replies and auto-DM funnels. Requires `postey` | stable | 1.0.0 |

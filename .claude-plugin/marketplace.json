@@ -33,9 +33,9 @@
       "category": "productivity"
     },
     {
-      "name": "postey-studio",
-      "source": "./skills/postey-studio",
-      "description": "Content-ideation flows for Postey: trends to posts, and idea to posts. Requires the postey skill.",
+      "name": "postey-ideas",
+      "source": "./skills/postey-ideas",
+      "description": "Decide what to post: turn a trend or one rough idea into per-platform drafts. Hooks that earn replies and saves, post structures measured against top performers, and what actually spreads on each network.",
       "version": "1.0.0",
       "author": {
         "name": "Postey",
@@ -46,8 +46,14 @@
       "license": "MIT",
       "keywords": [
         "social-media",
+        "content-ideation",
+        "viral-content",
+        "hooks",
+        "engagement",
         "content-planning",
-        "ideation"
+        "captions",
+        "content-strategy",
+        "growth"
       ],
       "category": "productivity"
     },

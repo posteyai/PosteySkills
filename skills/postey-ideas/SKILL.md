@@ -1,14 +1,16 @@
 ---
-name: postey-studio
+name: postey-ideas
 version: 1.0.0
 description: >
-  Content-ideation flows for Postey: turn something trending into today's posts, or
-  turn one rough idea into a per-platform set. Decides WHAT to post; the postey
-  skill decides how it is written and publishes it.
+  Decide what to post. Turn something trending, or one rough idea, into a per-platform
+  set of drafts — using hooks that earn replies and saves, post structures measured
+  against top-performing accounts, and what actually spreads on each network. Decides
+  WHAT to post; the postey skill decides how it is written and publishes it.
 when_to_use: >
-  Use when the user asks "what should I post today?", wants something trending
-  turned into content, has one rough idea to expand into posts for several
-  platforms, or asks for a content plan rather than a specific caption.
+  Use when the user asks "what should I post today?", "give me content ideas",
+  "what will go viral", "what's trending in my niche", wants something trending turned
+  into content, has one rough idea to expand into posts for several platforms, wants
+  hook or angle options, or asks for a content plan rather than a specific caption.
 
 # Requires the `postey` skill. Not optional: postey carries account selection, the
 # MCP routing, every write path, and the craft layer (caption-playbook,
@@ -74,10 +76,15 @@ Load a flow's file only when the user picks it.
 
 ## Craft comes from the hub
 
-These flows cite `caption-playbook.md`, `hook-formulas.md`, `platform-archetypes.md` and
-`thread-and-video-formats.md`. Those ship in the `postey` skill and are always installed
-alongside this one — they are shared by every flow, so they live in one place rather than being
-copied into each pack.
+These flows cite `caption-playbook.md`, `hook-formulas.md`, `post-structures.md`,
+`platform-archetypes.md` and `thread-and-video-formats.md`. Those ship in the `postey` skill and
+are always installed alongside this one — they are shared by every flow, so they live in one
+place rather than being copied into each pack.
+
+`post-structures.md` is the one to reach for first here. An idea is not yet a post: the structure
+is what decides whether it becomes one line or eight hundred characters, and each entry there
+opens with the condition that selects it. If no condition matches what the user actually has, say
+so and go back for material rather than forcing a shape onto thin content.
 
 If a flow tells you to establish the user's voice first and no brand profile exists, say so and
 offer it. The brand-voice flow ships separately; do not improvise a voice interview inside a

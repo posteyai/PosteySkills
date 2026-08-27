@@ -411,8 +411,8 @@ available — say so and offer the ones that are, rather than improvising the fl
 |------|------------------------------|----------|------|
 | Brand voice | "Learn my voice", "write like me", a handle or website | `postey-voice` | that pack's own flow file |
 | Video everywhere | a video URL, "post this video everywhere" | `postey-video` | that pack's own flow file |
-| Trends | "what should I post today?", "find something trending" | `postey-studio` | that pack's own flow file |
-| Idea to posts | one rough idea, "turn this into posts" | `postey-studio` | that pack's own flow file |
+| Trends | "what should I post today?", "find something trending" | `postey-ideas` | that pack's own flow file |
+| Idea to posts | one rough idea, "turn this into posts" | `postey-ideas` | that pack's own flow file |
 
 **The craft layer always ships here**, in the hub, because every flow cites it — wherever the flow
 itself lives: [references/caption-playbook.md](references/caption-playbook.md) (universal rules and

@@ -524,7 +524,7 @@ wants — a pack the user never asked for is context they pay for on every turn.
 
 | Pack | Install when the user wants to |
 |---|---|
-| `postey-studio` | turn a trend or a rough idea into per-platform posts |
+| `postey-ideas` | turn a trend or a rough idea into per-platform posts |
 | `postey-video` | transcribe a video and cross-post it, or post local video files |
 | `postey-voice` | have the agent learn how they write and keep matching it |
 | `postey-engagement` | reply to comments, or run comment-to-DM funnels |
@@ -533,7 +533,7 @@ wants — a pack the user never asked for is context they pay for on every turn.
 | `postey-teams` | send drafts for review before anything goes out |
 
 ```
-claude plugin install postey-studio@postey-skills
+claude plugin install postey-ideas@postey-skills
 claude plugin install postey-video@postey-skills
 claude plugin install postey-voice@postey-skills
 claude plugin install postey-engagement@postey-skills
@@ -545,7 +545,7 @@ claude plugin install postey-teams@postey-skills
 Every other agent, one `-s` per pack:
 
 ```
-npx -y skills add posteyai/skills -a <agent> -s postey-studio -y
+npx -y skills add posteyai/skills -a <agent> -s postey-ideas -y
 ```
 
 **Verify:** name which packs you installed, or say "hub only" if none.
