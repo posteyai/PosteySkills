@@ -18,7 +18,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -106,6 +106,9 @@ function setMarketplaceVersion(source, skill, version) {
 	const json = JSON.parse(source);
 	const entry = (json.plugins || []).find((p) => p.name === skill);
 	if (!entry) throw new Error(`no plugins[] entry named ${skill}`);
+	if (!entry.version) {
+		throw new Error(`marketplace.json: plugins[] entry "${skill}" has no version field to move`);
+	}
 	if (entry.version === version) return source;
 	// Rewrite textually so key order and formatting survive untouched.
 	const block = new RegExp(
@@ -151,7 +154,11 @@ export function setVersion(version, { skill = 'postey', root = ROOT, check = fal
 	return changed;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+const invokedDirectly =
+	process.argv[1] &&
+	import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href;
+
+if (invokedDirectly) {
 	const args = process.argv.slice(2);
 	const version = args.find((a) => !a.startsWith('--'));
 	const check = args.includes('--check');

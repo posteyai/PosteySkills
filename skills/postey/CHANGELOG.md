@@ -6,6 +6,34 @@ The format is based on Keep a Changelog.
 
 ## 3.1.0
 
+**A fetch-based install of the hub shipped a CLI that could not start.** `pack.json` listed the
+three `scripts/*.js` files but not `capability-snapshot.json`, which `postey.js` requires at load —
+so every command, including `--help`, died with `MODULE_NOT_FOUND`. The manifest now lists it, and a
+test asserts that every runtime `require` of a packaged CLI is itself in the manifest.
+
+**`setup` without `--key` no longer hangs an unattended agent.** It prompts on stdin, and the flag
+that was supposed to prevent that actually meant "a key was supplied", so it could never fire. With
+no TTY the command now fails immediately with a JSON error naming `--key`.
+
+**`auth:logout` now clears the credential `auth:link` writes.** It only ever cleared the OAuth
+session, so a linked CLI reported "nothing to clear" and stayed fully authenticated.
+
+**`config:show` no longer calls a `POSTEY_AUTH_TOKEN`-only caller unconfigured**, and
+`auth:link --claim` no longer destroys the local verifier before the network call succeeds — a
+timeout used to make the code unclaimable from that machine. Inherited property names
+(`__proto__`, `constructor`) are no longer mistaken for a pending link.
+
+**Publishing guidance no longer contradicts itself.** The hub's automation section waived
+confirmation when the user had said "post now" and omitted scheduling entirely; `routing-guide.md`'s
+block labelled "Correct Pattern" ended in an ungated `publish_draft`; and `video-workflow.md` gave a
+publish recipe with no approval step. All three now state the same rule: explicit yes in the current
+turn, on copy the user has actually seen, and scheduling counts as publishing. `video-workflow.md`
+also stopped advertising `--schedule` and `--publish-now`, which the CLI rejects outright.
+
+**Restoring a deleted post is documented, in `postey-ops`.** `post.restore`, `post.restore_many` and
+`post.trash.list` had no owner; they now belong to the pack that triages failures, which previously
+told agents to recreate a post because restore was invisible to it.
+
 **Arming an auto-DM funnel now needs an explicit yes.** `configure_auto_dm` had design rules but no
 approval gate, while `reply_comment` had one. An armed automation messages every person who hits the
 trigger with no further review, so it now requires the same confirmation, naming the trigger word,
@@ -127,9 +155,6 @@ strictly worse than the unreachable destination it fixes. Push `skills/postey/v3
 - **The plugin now registers the MCP server.** `skills/postey/.mcp.json` ships at the plugin root,
   so `claude plugin install postey@postey-skills` registers the server as well as the skill. Claude
   Code users run no `claude mcp add` and cannot hit the `url`-without-`type` trap.
-- **`scripts/set-version.mjs`** writes all seven version declarations from one argument, including
-  the tag inside `pack.json`'s `rawBase`, and **`scripts/check-release-tag.mjs`** asserts that tag
-  exists on the remote and that the shipped content has not moved past it.
 
 ### Changed
 

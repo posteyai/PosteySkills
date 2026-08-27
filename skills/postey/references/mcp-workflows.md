@@ -115,9 +115,9 @@ every client, it works on the hosted server, and it is the only credential-agnos
 a file too large to inline. `upload_media` with `url` or `base64` covers the rest.
 
 Only the last three rows are a reason to install anything. Install it the way
-[`setup.md`](../../../setup.md) Step 5 names for the client — the bare
-`npx skills add posteyai/skills` also installs this repository's skill template as a second
-skill, which is why every documented form carries `-s postey`.
+[`setup.md`](../../../setup.md) Step 4 names for the client — the bare
+`npx skills add posteyai/skills` installs the hub, every optional pack and this repository's skill
+template alongside it, which is why every documented form carries `-s postey`.
 
 Never ask the user to paste a large file's contents, and never reach for `read_file` to get media
 bytes when a path is missing. It returns metadata and the `cdn_url` by design.

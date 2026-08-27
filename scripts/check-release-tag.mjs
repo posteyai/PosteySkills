@@ -24,7 +24,7 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -110,7 +110,11 @@ export function contentDiffersFromTag(skill, version, run = defaultRun, root = R
 /** @returns {string[]} one message per problem; empty when every tag is present and current. */
 export function checkReleaseTags({ root = ROOT, tags, only, run = defaultRun } = {}) {
 	const problems = [];
-	for (const { skill, version } of packagedSkills(root)) {
+	const packaged = packagedSkills(root);
+	if (only && !packaged.some((p) => p.skill === only)) {
+		throw new Error(`no packaged skill named ${only} — the check has nothing to assert, which is a failure`);
+	}
+	for (const { skill, version } of packaged) {
 		if (only && skill !== only) continue;
 		const tag = tagFor(skill, version);
 
@@ -139,7 +143,11 @@ export function checkReleaseTags({ root = ROOT, tags, only, run = defaultRun } =
 	return problems;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+const invokedDirectly =
+	process.argv[1] &&
+	import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href;
+
+if (invokedDirectly) {
 	const only = process.argv.includes('--skill')
 		? process.argv[process.argv.indexOf('--skill') + 1]
 		: undefined;

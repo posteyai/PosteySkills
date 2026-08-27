@@ -66,8 +66,6 @@ ${CLAUDE_SKILL_DIR}/scripts/postey.js video post \
 --youtube-title <str>    YouTube video title
 --title <str>            Internal draft title
 --tags <CSV>             Comma-separated numeric tag IDs
---schedule <iso>         Schedule at ISO-8601 UTC datetime
---publish-now            Publish immediately after creation
 --dry-run                Validate + print payload without calling API
 ```
 
@@ -95,7 +93,10 @@ mcp create_post account_id=317 platform=INSTAGRAM contents=[{text: "<instagram_c
 # mcp update_post post_id=<post_id> platform=LINKEDIN contents=[{text: "<linkedin_caption>"}]
 ```
 
-**Step 4** — Publish or schedule via MCP:
+**Step 4** — Show the user the caption for every platform and wait for an explicit yes. Nothing
+below runs before that. Scheduling counts as publishing: a scheduled post publishes itself.
+
+**Step 5** — Only then, publish or schedule via MCP:
 ```
 mcp publish_draft post_id=<post_id>
 # or

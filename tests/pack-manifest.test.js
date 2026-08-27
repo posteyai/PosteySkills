@@ -88,3 +88,41 @@ for (const { name, dir: ROOT } of skills) {
     );
   });
 }
+
+// The hub's manifest listed the three scripts/*.js files and not the snapshot
+// postey.js require()s at load, so a fetch-based install produced a CLI that
+// died with MODULE_NOT_FOUND on every command — including --help. Listing a
+// file that exists is not the same as listing every file the code needs.
+test('every runtime require of a packaged CLI is itself in the manifest', () => {
+  const skillsDir = path.join(__dirname, '..', 'skills');
+  for (const skill of fs.readdirSync(skillsDir)) {
+    if (skill.startsWith('_')) continue;
+    const dir = path.join(skillsDir, skill);
+    const packPath = path.join(dir, 'pack.json');
+    if (!fs.existsSync(packPath)) continue;
+    const pack = JSON.parse(fs.readFileSync(packPath, 'utf8'));
+    const listed = new Set([...(pack.scripts || []), ...(pack.docs || []), ...(pack.references || [])]);
+
+    for (const rel of pack.scripts || []) {
+      if (!rel.endsWith('.js')) continue;
+      const file = path.join(dir, rel);
+      if (!fs.existsSync(file)) continue;
+      const src = fs.readFileSync(file, 'utf8');
+      for (const m of src.matchAll(/require\(\s*["'](\.[^"']+)["']\s*\)/g)) {
+        const target = path.normalize(path.join(path.dirname(rel), m[1]));
+        // Resolve the way node would, then express it relative to the skill root.
+        const candidates = [target, `${target}.js`, `${target}.json`];
+        const resolved = candidates.find((c) => fs.existsSync(path.join(dir, c)));
+        assert.ok(
+          resolved,
+          `skills/${skill}/${rel} requires ${m[1]}, which does not exist in the skill`
+        );
+        assert.ok(
+          listed.has(resolved),
+          `skills/${skill}/pack.json omits ${resolved}, which ${rel} require()s at load — ` +
+            `a fetch-based install of this skill cannot run`
+        );
+      }
+    }
+  }
+});

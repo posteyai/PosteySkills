@@ -49,8 +49,6 @@ mcp-tools:
     - publish_draft
     - read_file
     - remove_tag
-    - restore_post
-    - restore_posts
     - review_post
     - schedule_post
     - transcribe_video
@@ -76,11 +74,9 @@ mcp-tools:
 # cannot drift into a second hand-kept list (S9.5). `owns` is exclusive: exactly one
 # skill may own a key. `reads` is shared. Contract: docs/skills-mcp-contract.md.
 #
-# Keys absent here are owned by NO skill yet and are tracked as unclaimed until the
-# pillar that covers them ships: analytics.*, post.analytics, comment.*, team.*,
-# automation.list, schedule.auto_dm, notification.list, post.publish_status,
-# post.resolve. Claiming a capability the skill does not actually document would
-# defeat the coverage check.
+# Every capability the server exposes now has an owner; the unclaimed allowlist is
+# empty and check-capability-contract keeps it that way. Claiming a key this skill
+# does not actually document would defeat the coverage check.
 capabilities:
   owns:
     # Accounts, platform truth, setup — the hub's operations layer
@@ -100,9 +96,6 @@ capabilities:
     - post.list
     - post.update
     - post.delete
-    - post.restore
-    - post.restore_many
-    - post.trash.list
     - post.convert
     - post.review
     - post.validate
@@ -257,12 +250,18 @@ paths: <https://raw.githubusercontent.com/posteyai/skills/main/setup.md>. The ke
 2. `POSTEY_AUTH_TOKEN` environment variable — a bearer token the MCP server sets when it runs this
    CLI for an OAuth-authenticated caller. Not something you set by hand.
 3. OAuth session from `postey.js auth:login`
-4. `./.postey/config.json` (project-local)
-5. `~/.config/postey/config.json` (user-global)
+4. A linked credential from `postey.js auth:link` — the CLI copying the access this
+   connection already has. This is what `setup.md` Step 5 sets up.
+5. `./.postey/config.json` (project-local)
+6. `~/.config/postey/config.json` (user-global)
 
 ### When "API key not found" appears
 
-Tell the user to run the setup command interactively — you cannot run it on their behalf. **Stop and wait** for them to confirm setup before proceeding. Do not attempt to find credentials in keychains, `.env` files, or config directories.
+If your client is already connected to the MCP server, run `postey.js auth:link --begin` and call
+the `link_cli` tool with the code it prints — that copies this connection's access to the CLI and
+needs no second sign-in. Otherwise tell the user to run the setup command interactively; you cannot
+run it on their behalf, so **stop and wait**. Never run bare `setup` unattended: it prompts on
+stdin. Do not look for credentials in keychains, `.env` files, or config directories.
 
 ## Account Selection
 
@@ -397,7 +396,8 @@ ${CLAUDE_SKILL_DIR}/scripts/postey.js video post <account_id> \
 
 ## Video → Captions → Cross-Post
 
-For transcription-based workflows, see [video-workflow.md](video-workflow.md).
+Transcription is `postey-video`'s — install that pack for it. Uploading a video or image from local
+disk is this skill's: see [video-workflow.md](video-workflow.md).
 For platform-specific caption rules, see [prompts.md](prompts.md).
 
 ## Content Flows
@@ -458,7 +458,10 @@ short list and run whichever the user picks. Two minutes to a share link is the 
 - No unsolicited automated replies
 - No trending manipulation or fake engagement
 - Respect API rate limits
-- **Always confirm before publishing** unless user explicitly says "post now" or "publish immediately" — drafts are private; publishing is irreversible
+- **Never publish or schedule without the user's explicit yes in the current turn.** Scheduling
+  counts as publishing, because a scheduled post publishes itself. "Post this now" asks for a
+  draft you then show them — it approves the intent, never text they have not seen. Show the
+  exact per-platform copy and wait. Publishing is irreversible and public; drafts are private.
 
 ## Tips
 

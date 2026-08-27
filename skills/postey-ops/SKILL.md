@@ -17,6 +17,11 @@ capabilities:
   owns:
     - notification.list
     - post.publish_status
+    # Recovery. This pack is the one that triages what went wrong, so restoring
+    # something deleted by mistake belongs with it rather than with authoring.
+    - post.restore
+    - post.restore_many
+    - post.trash.list
   reads:
     - post.list
     - post.read
@@ -26,6 +31,7 @@ capabilities:
 mcp-tools:
   resources:
     - postey://accounts
+    - postey://accounts/{account_id}/trash
     - postey://notifications
     - postey://posts/{post_id}/publish-status
     - postey://posts/{post_id}/content/{platform}
@@ -33,6 +39,8 @@ mcp-tools:
     # GENERATED from capabilities: by scripts/gen-mcp-tools.js — do not hand-edit.
     - get_posts
     - get_schedule
+    - restore_post
+    - restore_posts
     # Fallbacks only: each is superseded by a postey:// resource this skill
     # declares. Use them when the client cannot read MCP resources.
     - get_post_content
@@ -96,9 +104,20 @@ post 10168
   THREADS    listed in socials, no publish record
 ```
 
-If something failed, say what to do: reconnect the platform, or recreate and re-schedule. Do not
-retry a publish on the user's behalf without asking — a duplicate post is worse than a late one,
-and the failure may have partially succeeded.
+If something failed, say what to do: reconnect the platform, restore the post if it was deleted, or
+recreate and re-schedule. Do not retry a publish on the user's behalf without asking — a duplicate
+post is worse than a late one, and the failure may have partially succeeded.
+
+## Recovering a deleted post
+
+Read `postey://accounts/{account_id}/trash` before recreating anything. A post the user deleted by
+mistake is still there, and restoring it keeps its id, its per-platform copy and its comment
+history — recreating loses all three.
+
+`restore_post` takes one id; `restore_posts` takes several. Both return the post to DRAFT, never to
+its previous SCHEDULED or PUBLISHED state, so a restored post still needs the user's explicit yes
+before it goes anywhere. Say what you found in the trash and let the user pick; do not restore a
+batch on the assumption every deletion was accidental.
 
 ## Cadence
 

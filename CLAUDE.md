@@ -76,10 +76,11 @@ skills/  (repo: posteyai/skills)
   1. `POSTEY_API_KEY` env var → `X-API-Key`
   2. `POSTEY_AUTH_TOKEN` env var → `Authorization: Bearer`. Set by the MCP server when it shells out for an OAuth caller, and the header a `pat_` agent token uses.
   3. OAuth session in the global config, refreshed when within 60s of expiry
-  4. `./.postey/config.json` (project-local)
-  5. `~/.config/postey/config.json` (user-global)
+  4. `cliToken` in the global config, written by `auth:link`
+  5. `./.postey/config.json` (project-local)
+  6. `~/.config/postey/config.json` (user-global)
 
-  `getApiKey()` and `requireApiKey()` resolve only 1, 4 and 5. A caller authenticated by OAuth alone is therefore told to run `setup`, even though `getAuthHeader()` would have authenticated it.
+  `getApiKey()` and `requireApiKey()` resolve only 1, 5 and 6. A caller authenticated by OAuth or by `auth:link` alone is therefore told to run `setup`, even though `getAuthHeader()` would have authenticated it. `config:show` handles all six; `requireApiKey()` does not.
 - **Platform enum** is defined in one place (`SOCIAL_PLATFORMS`). When adding or removing a platform, also update: `SKILL.md` frontmatter `platforms:` list, `skills/postey/SKILL.md` Platform Names table, `.claude-plugin/marketplace.json` plugin description. Platform truth is checked against the server by `refresh-capability-snapshot.js --check`, not against a second hand-kept copy.
 - **MCP tool list** in `SKILL.md mcp-tools.tools:` must match the `@mcp.tool(name="...")` declarations in `postey-backend/app/core/mcp/tools/*.py`. The CI `check-mcp-tool-sync.js` script enforces this. See "MCP Integration" section below.
 
@@ -141,7 +142,10 @@ There is no build step, no lint config, and no formatter config in this repo.
 
    **After the release merges, push the tag: `git tag skills/postey/vX.Y.Z <merge-sha> && git push origin skills/postey/vX.Y.Z`.** pack.json's `rawBase` pins it, so every fetch-based install 404s until it exists. `scripts/check-release-tag.mjs` asserts this against the remote and runs in CI on `main` only — a release PR legitimately carries a version whose tag is not pushed yet.
 
-   Note the version ceiling: `skills/postey/v3.0.0` and `v3.0.1` are already taken by the `program/postey-skills-pillars` lineage and are not ancestors of `main`. Main's next release is a 2.x.
+   Version lineage: `skills/postey/v3.0.0` and `v3.0.1` were cut on the
+   `program/postey-skills-pillars` branch. That branch is merged, so those tags are ancestors of
+   `main` and the hub continues on 3.x — `set-version.mjs` has no monotonicity check, so writing a
+   2.x here would pass every gate and publish a downgrade to four registries.
 2. **Update `skills/postey/CHANGELOG.md`** for user-facing changes (new commands/flags, behavior changes, bug fixes). Skip internal refactors, test/CI changes, formatting-only edits.
 3. **Keep SKILL.md and CLI in sync**: if you add/rename a command or flag, update `command-reference.md`. The command list in `command-reference.md` is the contract agents read.
 4. **SKILL.md body must stay under 500 lines** — move heavy content to supporting files (`command-reference.md`, `video-workflow.md`, `routing-guide.md`).

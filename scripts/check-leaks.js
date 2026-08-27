@@ -26,7 +26,11 @@ const SKIP_DIR_NAMES = new Set(['node_modules', '.git']);
 // from code that is not in this checkout. That made the gate unusable locally,
 // which is worse than a gap — a check nobody can run is a check nobody runs.
 // Scoped to the root, so a skill shipping its own .claude/ is still scanned.
-const ROOT_SKIP_DIRS = new Set(['tests', '.claude']);
+const ROOT_SKIP_DIRS = new Set(['tests']);
+// .claude/worktrees holds agent worktrees: untracked, and a local run would walk
+// into whatever branch they hold. .claude itself stays scanned — settings.json is
+// committed, and exempting committed content is what this gate exists to prevent.
+const SKIP_REL_DIRS = new Set([path.join('.claude', 'worktrees')]);
 // Unicode-aware: hyphenated, dotted, spaced, underscored, or accented terms
 // become token SEQUENCES ("acme-corp" and "acme_corp" -> ["acme","corp"]) and
 // are matched as n-grams across line breaks. Text is NFKC-normalized with
@@ -150,6 +154,7 @@ function scanTree(rootDir, denylist) {
       if (SKIP_DIR_NAMES.has(entry.name)) continue;
       if (entry.isDirectory()) {
         if (isRoot && ROOT_SKIP_DIRS.has(entry.name)) continue;
+        if (SKIP_REL_DIRS.has(path.relative(rootDir, full))) continue;
         walk(full, false);
       } else if (entry.isFile()) {
         // Symlinks are intentionally not followed: no cycles, no escaping the

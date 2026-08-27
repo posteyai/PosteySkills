@@ -238,6 +238,64 @@ test('setup tightens an existing world-readable config to 0600', async () => {
   }
 });
 
+// setup prompts on stdin when --key is absent. `isNonInteractive` means "a key
+// was supplied", so it cannot answer this — an unattended agent blocked forever.
+test('setup without --key fails fast when stdin is not a TTY', async () => {
+  const sandbox = await makeSandbox();
+  try {
+    const result = await runCli(['setup', '--location', 'global'], {
+      cwd: sandbox.cwd,
+      env: { HOME: sandbox.home },
+      timeoutMs: 4000,
+    });
+    assert.equal(result.code, 1, 'a headless setup with no key must not succeed');
+    const out = parseJsonOrNull(result.stdout);
+    assert.ok(out?.error, 'the failure must be JSON on stdout, not a hang');
+    assert.match(out.error, /--key is required/);
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
+// auth:logout only cleared the OAuth session, so a CLI linked with auth:link
+// reported a clean logout and stayed authenticated.
+test('auth:logout clears a linked cliToken, not just an OAuth session', async () => {
+  const sandbox = await makeSandbox();
+  try {
+    const cfgDir = path.join(sandbox.home, '.config', 'postey');
+    await fs.mkdir(cfgDir, { recursive: true });
+    const cfgPath = path.join(cfgDir, 'config.json');
+    await fs.writeFile(cfgPath, JSON.stringify({ cliToken: 'pat_linked_token' }), { mode: 0o600 });
+
+    const result = await runCli(['auth:logout'], { cwd: sandbox.cwd, env: { HOME: sandbox.home } });
+    assert.equal(result.code, 0);
+    const out = parseJsonOrNull(result.stdout);
+    assert.ok(out.cleared.includes('linked'), `expected the linked token cleared, got ${JSON.stringify(out)}`);
+
+    const after = JSON.parse(await fs.readFile(cfgPath, 'utf8'));
+    assert.equal(after.cliToken, undefined, 'the linked credential survived logout');
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
+// `pending[code]` on a plain object made __proto__ and constructor read as hits.
+test('auth:link --claim rejects an inherited property name', async () => {
+  const sandbox = await makeSandbox();
+  try {
+    for (const code of ['__proto__', 'constructor', 'toString']) {
+      const result = await runCli(['auth:link', '--claim', code], {
+        cwd: sandbox.cwd,
+        env: { HOME: sandbox.home },
+      });
+      const out = parseJsonOrNull(result.stdout);
+      assert.match(out?.error ?? '', /No pending link/, `${code} was treated as a pending link`);
+    }
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
 test('setup writes local config and .gitignore entry', async () => {
   const sandbox = await makeSandbox();
   try {

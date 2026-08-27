@@ -19,23 +19,29 @@ function parseFrontmatterVersion(skillMdPath) {
   return match ? match[1].trim() : null;
 }
 
+// A malformed manifest is a finding, not a crash: the message has to name the
+// file, or a stray trailing comma surfaces as a bare SyntaxError stack.
+function readJson(file) {
+  if (!fs.existsSync(file)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (err) {
+    fail(`${path.relative(ROOT, file)} is not valid JSON: ${err.message}`);
+    return null;
+  }
+}
+
 function parsePluginJsonVersion(pluginJsonPath) {
-  if (!fs.existsSync(pluginJsonPath)) return null;
-  const json = JSON.parse(fs.readFileSync(pluginJsonPath, 'utf8'));
-  return json.version || null;
+  return readJson(pluginJsonPath)?.version || null;
 }
 
 function parseMarketplaceVersion(marketplacePath, pluginName) {
-  if (!fs.existsSync(marketplacePath)) return null;
-  const json = JSON.parse(fs.readFileSync(marketplacePath, 'utf8'));
-  const entry = (json.plugins || []).find(p => p.name === pluginName);
-  return entry ? entry.version : null;
+  const json = readJson(marketplacePath);
+  return json ? (json.plugins || []).find(p => p.name === pluginName)?.version || null : null;
 }
 
 function parsePackJsonVersion(packJsonPath) {
-  if (!fs.existsSync(packJsonPath)) return null;
-  const json = JSON.parse(fs.readFileSync(packJsonPath, 'utf8'));
-  return json.version || null;
+  return readJson(packJsonPath)?.version || null;
 }
 
 // REGISTRY.md table row: | [name](name/) | ... | status | version |
@@ -58,8 +64,9 @@ function parseReadmeBadgeVersion(readmePath) {
 // Which skill each README badge tracks. The repo-level README badge tracks
 // `postey`; a skill absent from this map has no badge to check. Add an entry
 // when a skill gets its own badge — data, not a branch.
+const HUB_SKILL = 'postey';
 const README_BADGES = {
-  postey: 'README.md',
+  [HUB_SKILL]: 'README.md',
 };
 
 const skillsDir = path.join(ROOT, 'skills');
@@ -88,61 +95,38 @@ for (const { name: skill, dir: skillDir } of skills) {
     continue;
   }
 
-  // Every skill must carry all four of these (CLAUDE.md, "Adding a New Skill").
-  // Absent is therefore a broken skill, not an exempt one — and skipping it is
-  // how a version place goes stale without any gate noticing.
-  if (!pluginJsonVersion) {
-    fail(`skills/${skill}/.claude-plugin/plugin.json is missing or carries no version`);
-  } else if (pluginJsonVersion !== frontmatterVersion) {
-    fail(`skills/${skill}: plugin.json version (${pluginJsonVersion}) != SKILL.md version (${frontmatterVersion})`);
-  }
+  // Every version place, as data. Each row is asserted the same way: declared
+  // but unreadable is a failure, never a skip — that is how a place goes stale
+  // with the gate green. `hubOnly` rows are keyed to the hub because that is the
+  // plugin Codex and Cursor install; a pack ships inside it, not as its own
+  // listing. Keeping this a table (rather than a block per place) is what stops
+  // a new place from being added to the writer and forgotten here.
+  const isHub = skill === HUB_SKILL;
+  const places = [
+    [`skills/${skill}/.claude-plugin/plugin.json`, pluginJsonVersion],
+    ['.claude-plugin/marketplace.json', marketplaceVersion],
+    [`skills/${skill}/pack.json`, parsePackJsonVersion(path.join(skillDir, 'pack.json'))],
+    ['skills/REGISTRY.md', parseRegistryVersion(path.join(skillsDir, 'REGISTRY.md'), skill)],
+    // Two independent rules, kept independent: a badge belongs to whichever skill
+    // README_BADGES names, while the Codex and Cursor manifests always track the
+    // hub. Deriving the second from the first is what let both rows switch off
+    // together when the badge entry was the only thing turning them on.
+    ...(README_BADGES[skill]
+      ? [[README_BADGES[skill], parseReadmeBadgeVersion(path.join(ROOT, README_BADGES[skill]))]]
+      : []),
+    ...(isHub
+      ? ['.codex-plugin/plugin.json', '.cursor-plugin/plugin.json'].map((m) => [
+          m,
+          parsePluginJsonVersion(path.join(ROOT, m)),
+        ])
+      : []),
+  ];
 
-  if (!marketplaceVersion) {
-    fail(`skills/${skill}: no entry with a version in .claude-plugin/marketplace.json`);
-  } else if (marketplaceVersion !== frontmatterVersion) {
-    fail(`skills/${skill}: marketplace.json version (${marketplaceVersion}) != SKILL.md version (${frontmatterVersion})`);
-  }
-
-  const packVersion = parsePackJsonVersion(path.join(skillDir, 'pack.json'));
-  if (!packVersion) {
-    fail(`skills/${skill}/pack.json is missing or carries no version — fetch-based installs read it`);
-  }
-  if (packVersion && packVersion !== frontmatterVersion) {
-    fail(`skills/${skill}: pack.json version (${packVersion}) != SKILL.md version (${frontmatterVersion})`);
-  }
-
-  const registryVersion = parseRegistryVersion(path.join(skillsDir, 'REGISTRY.md'), skill);
-  if (!registryVersion) {
-    fail(`skills/${skill}: no row in skills/REGISTRY.md — the index is how a skill is found`);
-  } else if (registryVersion !== frontmatterVersion) {
-    fail(`skills/${skill}: REGISTRY.md version (${registryVersion}) != SKILL.md version (${frontmatterVersion})`);
-  }
-
-  const badgeFile = README_BADGES[skill];
-  if (badgeFile) {
-    const badgeVersion = parseReadmeBadgeVersion(path.join(ROOT, badgeFile));
-    // README_BADGES names this file, so an unreadable badge is a broken
-    // assertion, not an absent one.
-    if (!badgeVersion) {
-      fail(`${badgeFile} declares a version badge for skills/${skill}, but none could be read from it`);
-    } else if (badgeVersion !== frontmatterVersion) {
-      fail(`${badgeFile} badge version (${badgeVersion}) != skills/${skill} SKILL.md version (${frontmatterVersion})`);
-    }
-
-    // Codex and Cursor read their own root manifests, and each carries its own
-    // copy of the version. They are keyed to the hub because that is the plugin
-    // both agents install; a pack ships inside it, not as a separate listing.
-    // Unpinned, they silently advertise a stale version to two whole ecosystems.
-    for (const manifest of ['.codex-plugin/plugin.json', '.cursor-plugin/plugin.json']) {
-      const manifestVersion = parsePluginJsonVersion(path.join(ROOT, manifest));
-      // Absent is the failure this check exists for: set-version.mjs writes both
-      // manifests, so one that cannot be read is either deleted or malformed,
-      // and skipping it ships a stale version to that ecosystem silently.
-      if (!manifestVersion) {
-        fail(`${manifest} is missing or carries no version — it must track skills/${skill} (${frontmatterVersion})`);
-      } else if (manifestVersion !== frontmatterVersion) {
-        fail(`${manifest} version (${manifestVersion}) != SKILL.md version (${frontmatterVersion})`);
-      }
+  for (const [where, actual] of places) {
+    if (!actual) {
+      fail(`${where}: missing or carries no version — skills/${skill} declares ${frontmatterVersion}`);
+    } else if (actual !== frontmatterVersion) {
+      fail(`${where}: ${actual} != skills/${skill} SKILL.md version (${frontmatterVersion})`);
     }
   }
 

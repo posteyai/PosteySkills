@@ -14,6 +14,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        # check-release-tag compares shipped content against the tag pack.json
+        # pins. That comparison reads local refs, so without full history and
+        # tags it returns "cannot compare" and the drift half never fires.
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup Node
         uses: actions/setup-node@v4

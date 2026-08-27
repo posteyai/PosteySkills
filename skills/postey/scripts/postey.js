@@ -816,8 +816,6 @@ Optional:
   --youtube-title <str>    YouTube video title
   --title <str>            Internal draft title (default: "Untitled Draft")
   --tags <CSV>             Comma-separated numeric tag IDs
-  --schedule <iso>         Schedule at ISO-8601 UTC datetime
-  --publish-now            Publish immediately after creation
   --dry-run                Validate + show payload without calling API
 `,
   trim: `\
@@ -1339,13 +1337,28 @@ async function cmdAuthLogin(args) {
 
 async function cmdAuthLogout() {
   const oauth = getOAuthConfig();
-  if (!oauth) {
-    output({ success: true, message: "No OAuth session found — nothing to clear." });
+  // auth:link stores a cliToken rather than an OAuth session. Clearing only the
+  // session left the CLI fully authenticated while reporting a clean logout.
+  const existing = readConfigFile(GLOBAL_CONFIG_FILE) || {};
+  const hadLinked = Boolean(existing.cliToken);
+  const cleared = [];
+
+  if (oauth) {
+    clearOAuthConfig();
+    cleared.push("oauth");
+  }
+  if (hadLinked || existing.pendingLinks) {
+    const { cliToken, pendingLinks, ...rest } = readConfigFile(GLOBAL_CONFIG_FILE) || {};
+    writeConfig(GLOBAL_CONFIG_FILE, rest);
+    if (hadLinked) cleared.push("linked");
+  }
+
+  if (cleared.length === 0) {
+    output({ success: true, cleared, message: "No local credential found — nothing to clear." });
     return;
   }
-  clearOAuthConfig();
-  console.error(fmt.success("OAuth tokens cleared from config."));
-  output({ success: true, message: "Logged out" });
+  console.error(fmt.success(`Cleared from config: ${cleared.join(", ")}.`));
+  output({ success: true, cleared, message: "Logged out" });
 }
 
 
@@ -1381,6 +1394,15 @@ function writeConfig(configPath, config) {
 
 async function _promptApiKey(parsed, isNonInteractive) {
   let apiKey = parsed._positional[0] || parsed.key;
+  // `isNonInteractive` means "a key was supplied", so it cannot answer this.
+  // The prompt below reads stdin; with no TTY there is nobody to answer it, and
+  // an unattended agent blocks forever instead of failing.
+  if (!apiKey && !process.stdin.isTTY) {
+    error("--key is required: stdin is not a terminal, so there is nobody to prompt", {
+      actions: ["postey.js setup --key <the key> --location global"],
+      api_key_url: API_KEY_URL,
+    });
+  }
   if (!apiKey) {
     console.error("");
     console.error(fmt.title("Postey CLI Setup"));
@@ -1484,7 +1506,7 @@ async function cmdConfigShow() {
   // session, and is nonetheless fully authenticated.
   const linkedToken = readConfigFile(GLOBAL_CONFIG_FILE)?.cliToken || null;
 
-  if (!result && !oauth && !linkedToken) {
+  if (!result && !oauth && !linkedToken && !process.env.POSTEY_AUTH_TOKEN) {
     output({
       configured: false,
       hint: "Run: postey.js auth:login  (OAuth)  or  postey.js setup  (API key)",
@@ -1710,27 +1732,29 @@ function s256Challenge(verifier) {
   return b64url(createHash("sha256").update(verifier, "ascii").digest());
 }
 
-/** Pending verifiers, keyed by the code they belong to. */
-function readPendingLinks() {
-  return readConfigFile(GLOBAL_CONFIG_FILE)?.pendingLinks || {};
-}
-
+// One at a time. A stale verifier is useless once its code expires, and keeping
+// a pile of them is just more secret material at rest.
 function savePendingLink(code, verifier) {
   const existing = readConfigFile(GLOBAL_CONFIG_FILE) || {};
-  const pending = { ...(existing.pendingLinks || {}) };
-  // One at a time. A stale verifier is useless once its code expires, and
-  // keeping a pile of them is just more secret material at rest.
-  pending[code] = { verifier, created_at: new Date().toISOString() };
-  writeConfig(GLOBAL_CONFIG_FILE, { ...existing, pendingLinks: { [code]: pending[code] } });
+  const entry = { verifier, created_at: new Date().toISOString() };
+  writeConfig(GLOBAL_CONFIG_FILE, { ...existing, pendingLinks: { [code]: entry } });
 }
 
-function takePendingLink(code) {
+function peekPendingLink(code) {
+  const pending = readConfigFile(GLOBAL_CONFIG_FILE)?.pendingLinks || {};
+  // hasOwnProperty, not `pending[code]`: inherited keys such as `__proto__` and
+  // `constructor` are truthy on a plain object and read as a hit.
+  return Object.prototype.hasOwnProperty.call(pending, code) ? pending[code] : null;
+}
+
+// Only after the claim succeeds. Dropping it first meant a transient failure
+// destroyed the verifier while the server-side code was still claimable.
+function dropPendingLink(code) {
   const existing = readConfigFile(GLOBAL_CONFIG_FILE) || {};
-  const pending = existing.pendingLinks || {};
-  const entry = pending[code];
+  if (!existing.pendingLinks) return;
+  const pending = { ...existing.pendingLinks };
   delete pending[code];
   writeConfig(GLOBAL_CONFIG_FILE, { ...existing, pendingLinks: pending });
-  return entry || null;
 }
 
 function saveCliToken(token) {
@@ -1765,7 +1789,7 @@ async function cmdAuthLink(args) {
     });
   }
 
-  const pending = takePendingLink(code);
+  const pending = peekPendingLink(code);
   if (!pending) {
     error("No pending link for that code on this machine. Start again.", {
       actions: ["postey.js auth:link --begin"],
@@ -1791,6 +1815,7 @@ async function cmdAuthLink(args) {
   }
 
   saveCliToken(data.token);
+  dropPendingLink(code);
   // The token is never printed. Its prefix is enough to identify the row in
   // Connected agents, and enough for a human to confirm something happened.
   output({

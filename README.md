@@ -6,7 +6,7 @@
 
 AI agent skills for drafting, scheduling, and managing social media posts on every platform Postey connects.
 
-One install gives your agent four guided content flows: **Brand voice** (learn a brand's voice from a handle or website), **Video everywhere** (any video URL becomes a per-platform multi-draft), **Trends** (fresh niche content daily), and **Idea to posts** (one idea, every platform, scheduled). No plugin system? Any connected agent can self-install with the one-paste prompt in [`skills/postey/bootstrap-prompt.md`](skills/postey/bootstrap-prompt.md), which fetches [`skills/postey/pack.json`](skills/postey/pack.json).
+One install gives your agent the hub: routing, accounts, platform truth and the craft layer that decides how a post is written. Content flows ship as optional packs you add only if you want them — **postey-voice** (learn a brand's voice), **postey-video** (any video becomes a per-platform multi-draft), **postey-ideas** (a trend or one idea into drafts), plus engagement, analytics, ops and teams. A solo creator can stop at the hub. No plugin system? Any connected agent can self-install with the one-paste prompt in [`skills/postey/bootstrap-prompt.md`](skills/postey/bootstrap-prompt.md), which fetches [`skills/postey/pack.json`](skills/postey/pack.json).
 
 ## The Postey MCP server
 

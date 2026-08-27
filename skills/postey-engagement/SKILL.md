@@ -134,5 +134,6 @@ name every active one, not just the one being changed.
 **Arming one needs an explicit yes, in the turn you arm it.** `configure_auto_dm` is not a draft.
 Once it is live it messages every person who hits the trigger, with no further review, for as long
 as it stays on. Show the user the trigger word, the exact payload, the account and the post it
-attaches to, and wait for them to approve that — the same gate `reply_comment` gets, for a wider
-blast radius. A request to "set up a funnel" is not approval of the message it will send.
+attaches to, and wait for them to approve that. This is a stricter gate than replies get: a batch of replies is a
+finite list the user can read, while one armed funnel keeps messaging strangers after the
+conversation ends. One arming, one yes — batch approval does not carry here. A request to "set up a funnel" is not approval of the message it will send.

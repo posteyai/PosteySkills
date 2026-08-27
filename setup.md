@@ -428,7 +428,7 @@ Three more rules bind the credential.
 
 ## Step 4 — Install the Postey skill
 
-Steps 0 to 4 gave you everything the server does: reading accounts, posts and
+Steps 0 to 3 gave you everything the server does: reading accounts, posts and
 schedules, and creating, updating, publishing and scheduling them.
 
 The skill adds only what a server cannot reach, which is your machine:
@@ -537,6 +537,8 @@ a skill command to reach an effect the server already provides. See
 | `Invalid agents: hermes` | The identifier is wrong | Use `hermes-agent` |
 | The skill installs but the tools are missing | Step 2 is incomplete | Redo Step 2, then Step 8 |
 | A skill command reports `Unknown command` | The server owns that effect | Use the server tool the error names, or read `CHANGELOG.md` |
+| `API key not found` | The skill's own tool has no credential | Track C: export `POSTEY_API_KEY`. Track A: do Step 5 |
+| `setup` waits and never returns | It prompts on stdin, and nothing is answering | Re-run with `--key <the key>`; never run bare `setup` unattended |
 
 ---
 

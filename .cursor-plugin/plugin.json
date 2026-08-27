@@ -12,7 +12,6 @@
   "homepage": "https://postey.ai",
   "repository": "https://github.com/posteyai/skills",
   "license": "MIT",
-  "logo": "assets/logo.png",
   "category": "productivity",
   "keywords": [
     "postey",
