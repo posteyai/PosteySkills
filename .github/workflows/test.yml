@@ -104,6 +104,15 @@ jobs:
       - name: Check no skill references a file it does not ship
         run: node scripts/check-cross-skill-links.js
 
+      # check-server-card.js existed, was wired to an npm script, and was invoked
+      # by nothing — its own header says the drift it was written for went
+      # unnoticed "because the only thing that could have caught it never ran".
+      # Needs the network, so it is allowed to fail without failing the build;
+      # a missing server card must not red a fork PR.
+      - name: Check the published server card matches the snapshot
+        run: node scripts/check-server-card.js
+        continue-on-error: true
+
       # S9.6 — enforcement. The responsibility contract is prose until a build
       # fails on it. Offline: reads the committed snapshot, so it runs on forks.
       - name: Check skill/MCP capability overlap

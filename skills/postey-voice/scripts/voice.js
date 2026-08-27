@@ -11,7 +11,7 @@
  *       Bulk-ingest local content — a directory, a file, or a Postey/JSON export
  *       — and emit countable features plus rule observations.
  *       --account names the account this profile is FOR, and defaults the output
- *       to voice-profile-<id>.json so two accounts cannot overwrite each other.
+ *       to voice-profile-<id>.json. --out overrides that name, and says so.
  *       Without it the profile is written with profile_for: null and must not be
  *       applied to a named account.
  *
@@ -32,6 +32,9 @@ const MAX_BYTES = 2 * 1024 * 1024; // a 2 MB "post" is not a post
 
 const out = data => process.stdout.write(JSON.stringify(data, null, 2) + '\n');
 const note = msg => { if (process.stderr.isTTY) process.stderr.write(`${msg}\n`); };
+// A safety warning must reach an agent, which has no TTY. note() is for chrome;
+// this is for things the caller must not miss.
+const warn = msg => process.stderr.write(`${msg}\n`);
 const die = (msg, hint) => {
   process.stdout.write(JSON.stringify({ error: msg, ...(hint && { hint }) }, null, 2) + '\n');
   process.exit(1);
@@ -79,6 +82,7 @@ function documentsFrom(file) {
         id: row.post_id ?? row.id ?? `${path.basename(file)}#${i}`,
         text: row.text ?? row.content ?? row.caption ?? '',
         scope: row.platform ?? null,
+        account: row.account_id ?? row.account ?? null,
         ts: row.published_at ?? row.created_at ?? row.ts ?? null,
       }))
       .filter(d => String(d.text).trim());
@@ -104,8 +108,27 @@ function cmdIngest(args) {
     die(`--account must be an account id, got: ${account}`, 'voice.js ingest ./posts --account 317');
   }
   // `--out` wins when given. Otherwise an account id names the file, so two
-  // accounts cannot silently overwrite each other's profile.
-  const outFile = flag(args, 'out') || (account ? `voice-profile-${account}.json` : null);
+  // accounts cannot silently overwrite each other's profile. --out still wins,
+  // and warns when it does.
+  const rawOut = flag(args, 'out');
+  // --account is regex-guarded because it names a file; --out bypassed that
+  // entirely and took any path, so `--out ../../elsewhere.json` wrote outside
+  // the tree. Contain it to the working directory.
+  // --out is the caller's own choice of path, like a shell redirect, so it is
+  // not restricted. It is worth saying out loud when it leaves the tree, because
+  // the file it overwrites is chosen by a flag and not by the account.
+  if (rawOut) {
+    const resolved = path.resolve(rawOut);
+    const cwd = path.resolve(process.cwd());
+    if (resolved !== cwd && !resolved.startsWith(cwd + path.sep)) {
+      note(`  --out writes outside the working directory: ${resolved}`);
+    }
+  }
+  const outFile = rawOut || (account ? `voice-profile-${account}.json` : null);
+  if (rawOut && account && path.basename(rawOut) !== `voice-profile-${account}.json`) {
+    warn(`  --out overrides the per-account filename. This profile is for account ${account};`);
+    warn(`  writing it to ${rawOut} means the filename no longer says so.`);
+  }
   // Undated documents still need a timestamp for the thresholds. Falling back to
   // the file's mtime keeps ordering real rather than inventing one.
   const docs = [];
@@ -137,6 +160,10 @@ function cmdIngest(args) {
       profile_for: account,
       documents: kept.length,
       scopes: [...new Set(kept.map(d => d.scope))].sort(),
+      // Which accounts the evidence was read FROM, as against profile_for, which
+      // is the account it is FOR. A mismatch is how one client's corpus ends up
+      // writing another client's posts.
+      accounts: [...new Set(kept.map(d => d.account).filter(Boolean))].sort(),
       window: [
         kept.reduce((a, d) => (a < d.ts ? a : d.ts), kept[0].ts),
         kept.reduce((a, d) => (a > d.ts ? a : d.ts), kept[0].ts),
@@ -149,10 +176,18 @@ function cmdIngest(args) {
   if (outFile) {
     fs.writeFileSync(outFile, JSON.stringify(result, null, 2) + '\n');
     note(`wrote ${outFile}`);
-    if (!account) {
-      note('  no --account given: this profile is unscoped. Do not apply it to a');
-      note('  specific account without re-running with --account <id>.');
-    }
+  }
+  // Outside the outFile branch: a profile printed to stdout is the common case,
+  // and it was the one that never warned. profile_for: null must not be applied
+  // to a named account, however the caller received it.
+  if (!account) {
+    warn('  no --account given: this profile is unscoped (profile_for: null). Do not apply it');
+    warn('  to a specific account without re-running with --account <id>.');
+  }
+  const from = result.corpus.accounts;
+  if (account && from.length && !from.includes(String(account))) {
+    warn(`  corpus.accounts is [${from.join(', ')}] but this profile is for ${account}.`);
+    warn('  The evidence was read from a different account than the one it is scoped to.');
   }
   out(result);
 }

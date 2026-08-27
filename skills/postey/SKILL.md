@@ -1,6 +1,6 @@
 ---
 name: postey
-version: 3.1.0
+version: 3.2.0
 # No `platforms:` list. The platform set lives on the server and is mirrored into
 # capability-snapshot.json by scripts/refresh-capability-snapshot.js. A copy here
 # would be a fourth hand-maintained list agreeing with the other three and with
@@ -252,7 +252,10 @@ paths: <https://raw.githubusercontent.com/posteyai/skills/main/setup.md>. The ke
 3. OAuth session from `postey.js auth:login`
 4. A linked credential from `postey.js auth:link` — the CLI copying the access this
    connection already has. This is what `setup.md` Step 5 sets up.
-5. `./.postey/config.json` (project-local)
+5. `./.postey/config.json` (project-local) — only honoured in the directory it was created for.
+   A config that arrived by clone or copy is ignored, because a repo that commits one would
+   otherwise supply the credential and the default account silently. Re-run
+   `setup --key <key> --location local` there, or set `POSTEY_TRUST_LOCAL_CONFIG=1`.
 6. `~/.config/postey/config.json` (user-global)
 
 ### When "API key not found" appears

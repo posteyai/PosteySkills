@@ -20,7 +20,16 @@ let stale = 0;
 for (const skill of discoverSkills(path.join(ROOT, 'skills'))) {
   const file = path.join(skill.dir, 'SKILL.md');
   const caps = readCapabilities(skill.dir);
-  const { changed } = rewriteFile(file, caps, snapshot, { write: !check });
+  let changed;
+  try {
+    ({ changed } = rewriteFile(file, caps, snapshot, { write: !check }));
+  } catch (err) {
+    // A structural problem in the file, not drift. Name the skill and keep going
+    // so one broken SKILL.md does not hide the state of the other seven.
+    console.error(`✗ ${skill.name}: ${err.message}`);
+    stale++;
+    continue;
+  }
 
   if (!changed) {
     console.log(`✓ ${skill.name}: mcp-tools.tools: matches capabilities:`);

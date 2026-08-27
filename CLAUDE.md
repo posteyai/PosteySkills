@@ -77,7 +77,7 @@ skills/  (repo: posteyai/skills)
   2. `POSTEY_AUTH_TOKEN` env var → `Authorization: Bearer`. Set by the MCP server when it shells out for an OAuth caller, and the header a `pat_` agent token uses.
   3. OAuth session in the global config, refreshed when within 60s of expiry
   4. `cliToken` in the global config, written by `auth:link`
-  5. `./.postey/config.json` (project-local)
+  5. `./.postey/config.json` (project-local) — trusted only in the directory it was stamped for (`scope_path`), or with `POSTEY_TRUST_LOCAL_CONFIG=1`
   6. `~/.config/postey/config.json` (user-global)
 
   `getApiKey()` and `requireApiKey()` resolve only 1, 5 and 6. A caller authenticated by OAuth or by `auth:link` alone is therefore told to run `setup`, even though `getAuthHeader()` would have authenticated it. `config:show` handles all six; `requireApiKey()` does not.

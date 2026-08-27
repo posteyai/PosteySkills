@@ -101,6 +101,7 @@ for (const { name: skill, dir: skillDir } of skills) {
   // plugin Codex and Cursor install; a pack ships inside it, not as its own
   // listing. Keeping this a table (rather than a block per place) is what stops
   // a new place from being added to the writer and forgotten here.
+  const errorsBefore = errors;
   const isHub = skill === HUB_SKILL;
   const places = [
     [`skills/${skill}/.claude-plugin/plugin.json`, pluginJsonVersion],
@@ -130,7 +131,7 @@ for (const { name: skill, dir: skillDir } of skills) {
     }
   }
 
-  if (!errors) {
+  if (errors === errorsBefore) {
     console.log(`✓ ${skill}: version ${frontmatterVersion} consistent`);
   }
 }

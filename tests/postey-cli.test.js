@@ -162,8 +162,29 @@ test('help command prints usage and exits 0', async () => {
       env: { HOME: sandbox.home, POSTEY_API_KEY: '' },
     });
     assert.equal(result.code, 0);
-    assert.ok(result.stdout.includes('Postey CLI - Manage social media posts'));
-    assert.ok(result.stdout.includes('USAGE:'));
+    // Help is human chrome, so it goes to stderr. stdout is JSON-only
+    // (CLAUDE.md); `postey.js` with no arguments defaults to help, and an agent
+    // wrapper that JSON.parses stdout used to throw on it.
+    assert.ok(result.stderr.includes('Postey CLI - Manage social media posts'));
+    assert.ok(result.stderr.includes('USAGE:'));
+    assert.equal(result.stdout.trim(), '', 'help must not write to stdout');
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
+test('stdout is JSON or empty for every command, including the no-arg default', async () => {
+  const sandbox = await makeSandbox();
+  try {
+    for (const args of [[], ['help'], ['--help'], ['config:show'], ['nonsense:command']]) {
+      const r = await runCli(args, { cwd: sandbox.cwd, env: { HOME: sandbox.home, POSTEY_API_KEY: '' } });
+      const t = r.stdout.trim();
+      if (t === '') continue;
+      assert.doesNotThrow(
+        () => JSON.parse(t),
+        `stdout was not JSON for: postey.js ${args.join(' ') || '<no args>'}`
+      );
+    }
   } finally {
     await sandbox.cleanup();
   }
@@ -187,6 +208,53 @@ test('config:show returns configured=false when no API key configured', async ()
   }
 });
 
+// A repo can commit .postey/config.json. It used to be read straight out of
+// cwd with no trust check, supplying both the credential and the default
+// account — so a clone silently uploaded the user's media to someone else.
+test('a local config created for another directory is refused', async () => {
+  const sandbox = await makeSandbox();
+  try {
+    const cfgDir = path.join(sandbox.cwd, '.postey');
+    await fs.mkdir(cfgDir, { recursive: true });
+    await fs.writeFile(
+      path.join(cfgDir, 'config.json'),
+      JSON.stringify({ scope_path: '/somewhere/else', apiKey: 'mk_attacker', defaultAccountId: '999' })
+    );
+
+    const result = await runCli(['config:show'], {
+      cwd: sandbox.cwd,
+      env: { HOME: sandbox.home, POSTEY_API_KEY: '' },
+    });
+    const out = parseJsonOrNull(result.stdout);
+    assert.equal(out.configured, false, "an unowned local config must not authenticate");
+    assert.match(result.stderr, /not created for this directory/);
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
+test('an unstamped local config is refused unless explicitly trusted', async () => {
+  const sandbox = await makeSandbox();
+  try {
+    const cfgDir = path.join(sandbox.cwd, '.postey');
+    await fs.mkdir(cfgDir, { recursive: true });
+    await fs.writeFile(path.join(cfgDir, 'config.json'), JSON.stringify({ apiKey: 'mk_unstamped' }));
+
+    const base = { HOME: sandbox.home, POSTEY_API_KEY: '' };
+    const refused = await runCli(['config:show'], { cwd: sandbox.cwd, env: base });
+    assert.equal(parseJsonOrNull(refused.stdout).configured, false);
+
+    // The escape hatch the warning names, for a config the user knows is theirs.
+    const trusted = await runCli(['config:show'], {
+      cwd: sandbox.cwd,
+      env: { ...base, POSTEY_TRUST_LOCAL_CONFIG: '1' },
+    });
+    assert.equal(parseJsonOrNull(trusted.stdout).configured, true);
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
 test('config:show reads local config and reports default account source', async () => {
   const sandbox = await makeSandbox();
   try {
@@ -194,7 +262,13 @@ test('config:show reads local config and reports default account source', async 
     await fs.mkdir(cfgDir, { recursive: true });
     await fs.writeFile(
       path.join(cfgDir, 'config.json'),
-      JSON.stringify({ apiKey: 'typ_local_key', defaultAccountId: '123' }, null, 2)
+      // scope_path is what binds a local config to its directory. Without it the
+      // CLI refuses the file, which is the point — see the trust test below.
+      JSON.stringify(
+        { scope_path: sandbox.cwd, apiKey: 'typ_local_key', defaultAccountId: '123' },
+        null,
+        2
+      )
     );
 
     const result = await runCli(['config:show'], {

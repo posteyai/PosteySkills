@@ -64,8 +64,25 @@ function renderToolsBlock(caps, snapshot, indent = '  ') {
 function rewriteSkillMd(content, caps, snapshot) {
   const lines = content.split('\n');
 
-  const start = lines.findIndex(l => /^\s+tools:\s*$/.test(l));
-  if (start === -1) return content;
+  // Scope the search to the frontmatter. Searching the whole file meant a fenced
+  // yaml example in the body containing an indented `tools:` was rewritten with
+  // the generated list, and --check then reported the body stale forever.
+  const fmEnd = lines.indexOf('---', lines[0] === '---' ? 1 : 0);
+  const limit = fmEnd === -1 ? lines.length : fmEnd;
+
+  const start = lines.slice(0, limit).findIndex(l => /^\s+tools:\s*$/.test(l));
+  if (start === -1) {
+    // A skill that owns or reads capabilities but declares no tools: block grants
+    // zero tools at runtime. Reporting "matches" for that is the vacuous pass
+    // this check exists to prevent.
+    const { primary = [], fallback = [] } = toolsFor(caps, snapshot);
+    if (primary.length + fallback.length > 0) {
+      throw new Error(
+        'capabilities: names tools but the frontmatter has no `  tools:` line to generate into'
+      );
+    }
+    return content;
+  }
   const indent = lines[start].match(/^(\s*)/)[1];
 
   let end = start + 1;
