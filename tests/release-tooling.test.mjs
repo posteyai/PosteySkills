@@ -9,11 +9,15 @@ import assert from 'node:assert';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { setVersion } from '../scripts/set-version.mjs';
 import { checkReleaseTags, packagedSkills, remoteTags, tagFor } from '../scripts/check-release-tag.mjs';
 
-const REAL_ROOT = path.join(import.meta.dirname, '..');
+// Not `import.meta.dirname`: that landed in Node 20.11 and is undefined on 18,
+// which this repo supports and CI still runs on. It fails there as a bare
+// ERR_INVALID_ARG_TYPE out of path.join, naming neither the file nor the version.
+const REAL_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /** A miniature repo carrying every file the fan-out writes. */
 function fixtureRoot({ version = '1.0.0', omit = [] } = {}) {
