@@ -13,7 +13,7 @@
       "name": "postey",
       "source": "./skills/postey",
       "description": "Draft, schedule and manage social media posts across every network Postey supports. The hub: routing, accounts, platform truth and the shared craft layer. Content flows ship as optional packs.",
-      "version": "3.0.1",
+      "version": "3.1.0",
       "author": {
         "name": "Postey",
         "url": "https://postey.ai"

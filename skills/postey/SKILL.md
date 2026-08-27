@@ -1,6 +1,6 @@
 ---
 name: postey
-version: 3.0.1
+version: 3.1.0
 # No `platforms:` list. The platform set lives on the server and is mirrored into
 # capability-snapshot.json by scripts/refresh-capability-snapshot.js. A copy here
 # would be a fourth hand-maintained list agreeing with the other three and with
@@ -417,6 +417,8 @@ available — say so and offer the ones that are, rather than improvising the fl
 **The craft layer always ships here**, in the hub, because every flow cites it — wherever the flow
 itself lives: [references/caption-playbook.md](references/caption-playbook.md) (universal rules and
 pre-upload checklist), [references/platform-archetypes.md](references/platform-archetypes.md),
+[references/post-structures.md](references/post-structures.md) (the 18 structures, each with the
+condition that selects it and the way it fails — read this when choosing a shape, before drafting),
 [references/hook-formulas.md](references/hook-formulas.md), [references/x-algorithm.md](references/x-algorithm.md),
 [references/thread-and-video-formats.md](references/thread-and-video-formats.md), and
 [references/brand-profile-template.md](references/brand-profile-template.md) (the schema for the
