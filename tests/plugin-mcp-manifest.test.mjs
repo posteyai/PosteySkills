@@ -16,8 +16,12 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = path.join(import.meta.dirname, '..');
+// Not `import.meta.dirname`: that landed in Node 20.11 and is undefined on 18,
+// which this repo supports and CI still runs on. It fails there as a bare
+// ERR_INVALID_ARG_TYPE out of path.join, naming neither the file nor the version.
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PLUGIN_ROOT = path.join(ROOT, 'skills', 'postey');
 const MANIFEST = path.join(PLUGIN_ROOT, '.mcp.json');
 
