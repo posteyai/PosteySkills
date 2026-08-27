@@ -43,7 +43,7 @@ command not in it is a bug.
      - Post content → postey://posts/{id}/content/{platform}
 
 4. Is the task CONTENT VALIDATION or VIRALITY REVIEW before publishing?
-   → MCP tools: validate_post_content, review_post_content_and_add_comments_for_virality
+   → MCP tools: validate_post_content, review_post
      No CLI equivalent — do not skip in any MCP-capable session.
 
 5. Is it a WRITE (create, update, publish, schedule, delete, tag, upload by URL)?
@@ -74,7 +74,7 @@ These operations have no CLI equivalent and **must** use MCP tools:
 
 - Every write — creating, updating, publishing, scheduling, deleting and tagging posts
 - `validate_post_content` — validate before creating a draft
-- `review_post_content_and_add_comments_for_virality` — virality coaching
+- `review_post` — virality coaching
 - Reading resources: `postey://accounts`, `postey://teams`, `postey://posts/{id}/content/{platform}`
 
 ## Layered Workflow (Correct Pattern)

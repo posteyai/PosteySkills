@@ -1806,7 +1806,7 @@ const COMMANDS = {
   "auth:logout":   cmdAuthLogout,
   setup:           cmdSetup,
   // No drafts:get / posts:create — reading and creating posts are MCP's
-  // (get_specific_post_content, create_post). See docs/skills-mcp-contract.md.
+  // (get_post_content, create_post). See docs/skills-mcp-contract.md.
   "media:upload":  cmdMediaUpload,
   video:           cmdVideoGroup,
   "config:show":   cmdConfigShow,
