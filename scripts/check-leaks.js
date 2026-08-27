@@ -12,7 +12,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
-// Directory names skipped at any depth: never shipped, never scanned.
+// Names skipped at any depth: never shipped, never scanned. Matched by name
+// before type, because `.git` is a FILE in a linked worktree — it holds a
+// `gitdir:` line pointing at the real repository. Skipping it only when it is a
+// directory means every run inside a worktree scans that absolute path, which
+// is exactly the workflow this repo documents.
 const SKIP_DIR_NAMES = new Set(['node_modules', '.git']);
 // Skipped only when directly under the scan root: the repo-level tests/
 // directory holds synthetic secret-shaped fixtures. A tests/ directory nested
@@ -136,8 +140,8 @@ function scanTree(rootDir, denylist) {
   (function walk(dir, isRoot) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
+      if (SKIP_DIR_NAMES.has(entry.name)) continue;
       if (entry.isDirectory()) {
-        if (SKIP_DIR_NAMES.has(entry.name)) continue;
         if (isRoot && ROOT_SKIP_DIRS.has(entry.name)) continue;
         walk(full, false);
       } else if (entry.isFile()) {
