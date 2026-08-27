@@ -225,3 +225,44 @@ describe('check-setup-doc', () => {
 		assert.deepEqual(checkSetupDoc(doc), []);
 	});
 });
+
+
+// ── the real document, not a fixture ─────────────────────────────────────────
+//
+// Two rules in check-setup-doc select the sections they police by matching a
+// heading. A rule whose heading match fails scans nothing and reports clean,
+// which is indistinguishable from a passing document. Both were anchored on
+// presentation and both broke when the document was reordered: the load-section
+// rule matched `### Load the server` and went inert the moment that section
+// became `## Step 7 — Load the server`, and the required-step rule selected by
+// `^Step (2|6)`, so a renumbering dropped a section out of the check silently.
+//
+// The linter cannot assert this itself — it also runs against minimal fixtures
+// that legitimately lack those sections. So it is asserted here, against the
+// file that ships.
+
+import { readFileSync } from 'node:fs';
+import { loadSectionSeen } from '../scripts/check-setup-doc.mjs';
+
+const REAL = readFileSync(new URL('../setup.md', import.meta.url), 'utf8');
+
+test('the shipped document has a Load the server section, whatever its number', () => {
+	checkSetupDoc(REAL);
+	assert.equal(loadSectionSeen, true, 'the load-section rule scanned nothing');
+});
+
+test('the shipped document still has both required sections', () => {
+	const headings = REAL.split('\n').filter((l) => /^##\s/.test(l));
+	assert.ok(
+		headings.some((h) => /Register the Postey MCP server/.test(h)),
+		'no registration section — every agent named in Step 0 is checked against one fewer step'
+	);
+	assert.ok(
+		headings.some((h) => /Record usage rules/.test(h)),
+		'no rules section — same'
+	);
+});
+
+test('the shipped document is clean', () => {
+	assert.deepEqual(checkSetupDoc(REAL), []);
+});
