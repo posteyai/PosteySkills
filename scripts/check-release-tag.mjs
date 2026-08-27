@@ -158,7 +158,33 @@ if (invokedDirectly) {
 		console.error(`✗ check-release-tag could not run: ${err.message}`);
 		process.exit(2);
 	}
-	for (const p of problems) console.error(`✗ ${p}`);
+	// A tag can only point at the merge commit, so it is pushed *after* the merge.
+	// On push-to-main that leaves a window where this check is legitimately red,
+	// and a gate that is red on every release is one people learn to re-run
+	// without reading. Inside the window a missing tag is a warning; the
+	// scheduled run has no grace, so a tag nobody ever pushed still fails.
+	const graceArg = process.argv.indexOf('--grace-minutes');
+	const graceMin = graceArg === -1 ? 0 : Number(process.argv[graceArg + 1]);
+	let headAgeMin = Infinity;
+	if (graceMin > 0) {
+		try {
+			const iso = defaultRun('git', ['log', '-1', '--format=%cI']).trim();
+			headAgeMin = (Date.now() - new Date(iso).getTime()) / 60000;
+		} catch {
+			headAgeMin = Infinity;
+		}
+	}
+	const withinGrace = graceMin > 0 && headAgeMin < graceMin;
+
+	for (const p of problems) console.error(`${withinGrace ? '⚠' : '✗'} ${p}`);
+	if (problems.length && withinGrace) {
+		console.error(
+			`\ncheck-release-tag: HEAD is ${headAgeMin.toFixed(1)} min old, inside the ` +
+				`${graceMin} min grace window — treating the above as pending, not failed. ` +
+				`Push the tags now; the scheduled run does not grant grace.`
+		);
+		process.exit(0);
+	}
 	if (problems.length) process.exit(1);
 	console.log('check-release-tag: every packaged version has its tag');
 }

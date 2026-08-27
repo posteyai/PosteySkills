@@ -1,0 +1,25 @@
+name: release-tags
+
+# The no-grace half of the tag check. test.yml grants a 30-minute window on
+# push-to-main because the tag legitimately lands after the merge; this one does
+# not, so a version whose tag nobody ever pushed fails here within the hour.
+# Every fetch-based install of that version 404s until it exists.
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+jobs:
+  tags:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - name: Every released version has its tag on the remote
+        run: node scripts/check-release-tag.mjs
