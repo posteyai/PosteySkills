@@ -14,10 +14,21 @@ or by the user directly. Do not restate them here; read them from the hub.
 
 ## The observed half — added by this pack
 
+A profile is **for exactly one account.** `profile_for` says which, and it is the first field to
+read — applying one account's voice to another is the failure this field exists to prevent.
+
+A profile derived from local files with no account named carries `profile_for: null`. That profile
+is unscoped: it must not be applied to a named account without re-deriving with the account set.
+
+`corpus.accounts` answers a different question — which accounts the evidence was *read from*.
+Usually that is the single account in `profile_for`. When it is not, say so before applying the
+profile to any one of them.
+
 ```
 observed:
+  profile_for:     317                    # the account this profile is FOR
   corpus:
-    accounts:      [317]
+    accounts:      [317]                  # the accounts evidence was READ FROM
     posts_read:    48
     window:        2026-02-01 .. 2026-08-01
     last_pass:     2026-08-02

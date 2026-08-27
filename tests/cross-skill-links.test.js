@@ -58,7 +58,7 @@ test('http(s) links are ignored', () => {
   assert.deepStrictEqual(find('external-url'), []);
 });
 
-// A changelog must be able to say "this moved to postey-studio" by name.
+// A changelog must be able to say "this moved to postey-ideas" by name.
 test('CHANGELOG.md is exempt from the backtick rule but not from the link rule', () => {
   const fs = require('node:fs');
   const dir = path.join(FIXTURES, 'changelog-history', 'skills');

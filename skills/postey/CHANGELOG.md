@@ -4,6 +4,24 @@ All notable user-facing changes to the Postey skill and its CLI are documented h
 
 The format is based on Keep a Changelog.
 
+## 3.1.0
+
+**New: `references/post-structures.md`** — eighteen post structures in the craft layer, each with
+the condition that selects it, its shape, a length rule, and the way it typically fails. Derived
+from measured top-vs-bottom quintile analysis of high-performing operator accounts on X.
+
+Adds two things the craft layer did not carry:
+
+- **The density rule.** Two lengths perform — under ~140 characters, or over ~600 with new facts
+  throughout. Between 200 and 500 is a dead zone, and a draft landing there needs compressing or
+  more material, not trimming.
+- **Portability off X.** Which structures survive on LinkedIn, Instagram and TikTok, which are
+  X-and-Threads only, and the two that do not port at all. On Instagram and TikTok the structure
+  governs the spoken hook, not the caption.
+
+Every flow that already cites `hook-formulas.md` and `platform-archetypes.md` can now cite a named
+structure and its failure mode instead of choosing a shape implicitly.
+
 ## 3.0.0
 
 **Breaking — the content flows now ship as separate, optional packs.** The hub keeps routing,
@@ -12,7 +30,7 @@ flow:
 
 | Flow | Pack |
 |---|---|
-| Trends to posts · idea to posts | `postey-studio` |
+| Trends to posts · idea to posts | `postey-ideas` |
 | Video everywhere | `postey-video` |
 | Brand voice | `postey-voice` |
 
@@ -36,7 +54,7 @@ had been missing.
 
 - **`references/mcp-authentication.md`** — the auth guidance this line has never shipped. The 3.0.0
   consolidation cut the hub's references from eleven to seven, correctly: the four it dropped were
-  content flows that moved to `postey-studio`, `postey-video` and `postey-voice`. Auth was not one of
+  content flows that moved to `postey-ideas`, `postey-video` and `postey-voice`. Auth was not one of
   them — it was never a reference here at all. The MCP instruction block relocated the OAuth scope
   list, the MCP-key path and the two agent-token mint endpoints out to this path on 2026-08-24
   (mcp-northstar N1.4) and the file did not exist on either line, so `skills/postey/v3.0.0` is a

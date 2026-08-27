@@ -44,7 +44,10 @@ it, use MCP. Never reach for a skill command to reach an effect MCP owns.
 4. Start: tell me which platforms I have connected, then offer me
    these and run whichever I pick.
    - Brand voice: I give you my website or handle; you learn my voice
-     and draft content that sounds like me.
+     and draft content that sounds like me. If I have more than one
+     account connected, ask which account the voice is for before you
+     start - a profile belongs to one account, and putting one
+     account's voice in another's post is the mistake to avoid.
    - Video everywhere: I drop a video link; you turn it into a post
      for every platform.
    - Trends: you find what's hot in my niche today and draft posts.

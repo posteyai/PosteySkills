@@ -1,6 +1,6 @@
 ---
 name: postey-voice
-version: 1.0.0
+version: 1.1.0
 description: >
   Learn how the user actually writes — from the posts they published, and from
   what they approved, edited or rejected — and keep a brand profile that gets
@@ -61,8 +61,37 @@ routing:
 
 Two ways to learn a voice, and they compose:
 
-- **Cold start** — read what the user has already published and derive the observable habits.
-- **Warm loop** — record what happens to every draft, and let the corrections teach.
+| | Cold start | Warm loop |
+|---|---|---|
+| **What it reads** | Posts already published | What happens to each draft — edits, approvals, deletions |
+| **When it runs** | Once, on first use | Every time a draft is acted on |
+| **Needs history?** | Yes — nothing to read on a new account | No, it builds its own |
+| **Produces** | The initial profile | Rules appended to the ledger |
+| **Recoverable later?** | Yes, published posts persist | **No** — capture live or lose it |
+
+## One profile per account — ask first
+
+**Read `postey://accounts` and, if more than one is connected, ask which account this profile is
+for. Never derive a voice without naming the account.**
+
+A creator with one account, a brand with three, and an agency with twelve are the same code path
+and different failure costs. For the agency, applying one profile to the wrong account puts a
+client's voice in another client's post.
+
+| Situation | What to do |
+|---|---|
+| One account connected | Use it, and say which one you used |
+| Several connected, user named one | Use that one |
+| Several connected, user named none | **Ask.** Do not infer from the most recent post or the first in the list |
+| Deriving from local files, no account in play | Allowed, but the profile is unscoped — say so |
+
+Every profile carries `profile_for`. A profile whose `profile_for` is `null` was derived without
+an account and **must not be applied to a named account** — re-derive with the account set.
+`corpus.accounts` is a separate field: the accounts the evidence was read *from*.
+
+The CLI mirrors this. `--account <id>` records the scope and names the output
+`voice-profile-<id>.json`, so two accounts cannot overwrite each other's profile. Omitting it
+writes `profile_for: null` and warns.
 
 ## What this skill cannot know
 
@@ -86,14 +115,18 @@ agent created in-session can be tracked through to their verdict.
 Fastest path to a first profile, and it needs no account access at all:
 
 ```bash
-${CLAUDE_SKILL_DIR}/scripts/voice.js ingest ./their-writing --out ./voice-ledger.json
+${CLAUDE_SKILL_DIR}/scripts/voice.js ingest ./their-writing --account 317
 ```
+
+Pass `--account` whenever the profile is for a connected account — it names the output
+`voice-profile-317.json` and records the scope. Omit it only when the corpus genuinely belongs to
+no account yet; the result is then explicitly unscoped.
 
 Accepts a directory, a single file, or a JSON export (`.md`, `.txt`, `.json`; a bare array,
 `{posts:[…]}` or `{data:[…]}`). A JSON export becomes one document per row, keeping `post_id`,
 `platform` and `published_at`; a text file becomes one document dated by its mtime.
 
-Useful flags: `--scope LINKEDIN` to attribute everything to one platform, `--since <ISO>` to ignore
+Useful flags: `--account <id>` to scope the profile, `--scope LINKEDIN` to attribute everything to one platform, `--since <ISO>` to ignore
 old work, `--out <file>` to write the ledger.
 
 It emits countable features and rule observations — never an opinion. Judgements like "warm but

@@ -1,6 +1,6 @@
 ---
 name: postey
-version: 3.0.1
+version: 3.1.0
 # No `platforms:` list. The platform set lives on the server and is mirrored into
 # capability-snapshot.json by scripts/refresh-capability-snapshot.js. A copy here
 # would be a fourth hand-maintained list agreeing with the other three and with
@@ -119,7 +119,7 @@ routing:
   platform-limits:     mcp-resource  # postey://platform-limits / postey://platforms/{p}/rules
   analytics:           mcp-resource  # postey://posts/{id}/analytics
   validation:          mcp-tool      # validate_post_content (no CLI equivalent)
-  virality-review:     mcp-tool      # review_post_content_and_add_comments_for_virality
+  virality-review:     mcp-tool      # review_post
   comment-read:        mcp-tool      # get_platform_comments / get_internal_comments
   convert-content:     mcp-tool      # convert_post_content
   write-post:          mcp-tool      # create/update/publish/schedule/delete → MCP tools, in EVERY environment
@@ -185,7 +185,7 @@ here that reaches Postey state, so looking for one wastes the user's time.
      `get_posts`) always use the tool.
 
 4. **Content validation or virality review** before publishing?
-   → **MCP tools** — `validate_post_content`, `review_post_content_and_add_comments_for_virality` — no CLI equivalent; do not skip these in any MCP-capable session.
+   → **MCP tools** — `validate_post_content`, `review_post` — no CLI equivalent; do not skip these in any MCP-capable session.
 
 5. **All other writes** (create, update, publish, schedule, delete, tag, upload by URL)?
    → **MCP tools, in every environment** — `create_post`, `update_post`, `publish_draft`, `schedule_post`, `delete_draft`.
@@ -202,14 +202,14 @@ here that reaches Postey state, so looking for one wastes the user's time.
 | Validate content before posting | MCP tool | No CLI equivalent |
 | Virality review | MCP tool | No CLI equivalent |
 | Create / update / publish / schedule / delete | MCP tool | `create_post`, `update_post`, `publish_draft`, `schedule_post`, `delete_draft` |
-| Get single draft content | MCP | `postey://posts/{id}/content/{platform}`, or `get_specific_post_content` |
+| Get single draft content | MCP | `postey://posts/{id}/content/{platform}`, or `get_post_content` |
 | Cursor, SDK agent, CI/CD environment | Same as above — unchanged | The environment decides whether the CLI is *available*, never who owns the operation |
 
 ### Anti-Patterns
 
 - **Never** call `get_accounts` when your client can read MCP resources — read `postey://accounts` instead. Resource-blind clients (many hosted connectors) may use the tool.
 - **Never** call `upload_media` for a local file — it accepts URLs only.
-- **Never** skip `validate_post_content` / `review_post_content_and_add_comments_for_virality` in any MCP-capable session.
+- **Never** skip `validate_post_content` / `review_post` in any MCP-capable session.
 - **Never** use CLI `drafts:create` / `drafts:publish` / `drafts:schedule` — these commands are removed; use MCP tools. The same holds in CI/CD, Cursor, Windsurf and SDK agents: without an MCP server there is no write path, not a CLI one.
 - **Never** call REST endpoints directly (e.g. `GET /accounts`) — always use MCP resources or tools.
 - **Never** guess or invent an `account_id` — always read the accounts (`postey://accounts`, or `get_accounts` for resource-blind clients) and confirm with the user.
@@ -394,7 +394,7 @@ House rules for every flow (non-negotiable):
    platform with its caption, then one `update_post` per remaining platform with that platform's
    caption — same `post_id` throughout.
 4. Verify each platform after creating — read `postey://posts/{id}/content/{platform}` (or call
-   `get_specific_post_content` if your client cannot read resources) — and run
+   `get_post_content` if your client cannot read resources) — and run
    `validate_post_content` per platform, then fix before presenting.
 5. End every flow by giving the user the draft's share link.
 6. Tag agent-created posts: an agent tag (default `Agent`, ask the user once if they prefer
@@ -411,12 +411,14 @@ available — say so and offer the ones that are, rather than improvising the fl
 |------|------------------------------|----------|------|
 | Brand voice | "Learn my voice", "write like me", a handle or website | `postey-voice` | that pack's own flow file |
 | Video everywhere | a video URL, "post this video everywhere" | `postey-video` | that pack's own flow file |
-| Trends | "what should I post today?", "find something trending" | `postey-studio` | that pack's own flow file |
-| Idea to posts | one rough idea, "turn this into posts" | `postey-studio` | that pack's own flow file |
+| Trends | "what should I post today?", "find something trending" | `postey-ideas` | that pack's own flow file |
+| Idea to posts | one rough idea, "turn this into posts" | `postey-ideas` | that pack's own flow file |
 
 **The craft layer always ships here**, in the hub, because every flow cites it — wherever the flow
 itself lives: [references/caption-playbook.md](references/caption-playbook.md) (universal rules and
 pre-upload checklist), [references/platform-archetypes.md](references/platform-archetypes.md),
+[references/post-structures.md](references/post-structures.md) (the 18 structures, each with the
+condition that selects it and the way it fails — read this when choosing a shape, before drafting),
 [references/hook-formulas.md](references/hook-formulas.md), [references/x-algorithm.md](references/x-algorithm.md),
 [references/thread-and-video-formats.md](references/thread-and-video-formats.md), and
 [references/brand-profile-template.md](references/brand-profile-template.md) (the schema for the

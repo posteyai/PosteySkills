@@ -7,9 +7,13 @@
  * It calls no Postey API and creates nothing — the agent still does every write
  * through MCP.
  *
- *   voice.js ingest <path...> [--scope X] [--since ISO] [--out FILE]
+ *   voice.js ingest <path...> [--account ID] [--scope X] [--since ISO] [--out FILE]
  *       Bulk-ingest local content — a directory, a file, or a Postey/JSON export
  *       — and emit countable features plus rule observations.
+ *       --account names the account this profile is FOR, and defaults the output
+ *       to voice-profile-<id>.json so two accounts cannot overwrite each other.
+ *       Without it the profile is written with profile_for: null and must not be
+ *       applied to a named account.
  *
  *   voice.js compile <ledger.json> [--now ISO]
  *       Apply the rules-ledger thresholds and emit the compiled profile.
@@ -92,7 +96,16 @@ function cmdIngest(args) {
 
   const scope = flag(args, 'scope');
   const since = flag(args, 'since');
-  const outFile = flag(args, 'out');
+  const account = flag(args, 'account');
+  // A profile with no account behind it must stay visibly unscoped. The same rule
+  // the schema applies to features without post ids: a later session cannot tell
+  // a guess from evidence, so never let one look like the other.
+  if (account !== null && !/^[A-Za-z0-9_-]+$/.test(account)) {
+    die(`--account must be an account id, got: ${account}`, 'voice.js ingest ./posts --account 317');
+  }
+  // `--out` wins when given. Otherwise an account id names the file, so two
+  // accounts cannot silently overwrite each other's profile.
+  const outFile = flag(args, 'out') || (account ? `voice-profile-${account}.json` : null);
   // Undated documents still need a timestamp for the thresholds. Falling back to
   // the file's mtime keeps ordering real rather than inventing one.
   const docs = [];
@@ -119,6 +132,9 @@ function cmdIngest(args) {
 
   const result = {
     corpus: {
+      // Which account this profile is FOR. null means unscoped — derived from
+      // local files with no account named. Never treat null as "the only account".
+      profile_for: account,
       documents: kept.length,
       scopes: [...new Set(kept.map(d => d.scope))].sort(),
       window: [
@@ -133,6 +149,10 @@ function cmdIngest(args) {
   if (outFile) {
     fs.writeFileSync(outFile, JSON.stringify(result, null, 2) + '\n');
     note(`wrote ${outFile}`);
+    if (!account) {
+      note('  no --account given: this profile is unscoped. Do not apply it to a');
+      note('  specific account without re-running with --account <id>.');
+    }
   }
   out(result);
 }

@@ -167,3 +167,60 @@ test('compile is reproducible for a fixed --now', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('--account is recorded as the account the profile is for', () => {
+  const dir = scratchCorpus();
+  try {
+    const out = path.join(dir, 'p.json');
+    assert.strictEqual(run(['ingest', dir, '--account', '317', '--out', out]).corpus.profile_for, '317');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('without --account the profile is explicitly unscoped, never silently account-shaped', () => {
+  const dir = scratchCorpus();
+  try {
+    const r = run(['ingest', dir]);
+    assert.ok('profile_for' in r.corpus, 'profile_for must always be present');
+    assert.strictEqual(r.corpus.profile_for, null);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('--account names the output file, so two accounts cannot overwrite each other', () => {
+  const dir = scratchCorpus();
+  const cwd = process.cwd();
+  try {
+    process.chdir(dir);
+    run(['ingest', dir, '--account', '317']);
+    run(['ingest', dir, '--account', '482']);
+    assert.ok(fs.existsSync(path.join(dir, 'voice-profile-317.json')));
+    assert.ok(fs.existsSync(path.join(dir, 'voice-profile-482.json')));
+  } finally {
+    process.chdir(cwd);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('an explicit --out still wins over the account-derived name', () => {
+  const dir = scratchCorpus();
+  try {
+    const custom = path.join(dir, 'chosen.json');
+    run(['ingest', dir, '--account', '317', '--out', custom]);
+    assert.ok(fs.existsSync(custom));
+    assert.strictEqual(JSON.parse(fs.readFileSync(custom, 'utf8')).corpus.profile_for, '317');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a malformed account id is rejected rather than becoming a filename', () => {
+  const dir = scratchCorpus();
+  try {
+    assert.throws(() => run(['ingest', dir, '--account', '../../etc/passwd']));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

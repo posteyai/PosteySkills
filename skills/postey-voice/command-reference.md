@@ -11,6 +11,7 @@ the output is safe to pipe.
 Bulk-ingest local content into countable features and rule observations.
 
 ```bash
+${CLAUDE_SKILL_DIR}/scripts/voice.js ingest ./their-writing --account 317
 ${CLAUDE_SKILL_DIR}/scripts/voice.js ingest ./their-writing --out ./voice-ledger.json
 ${CLAUDE_SKILL_DIR}/scripts/voice.js ingest ./export.json --scope LINKEDIN
 ${CLAUDE_SKILL_DIR}/scripts/voice.js ingest ./posts ./newsletter --since 2026-01-01T00:00:00Z
@@ -27,6 +28,7 @@ From a JSON row it reads `post_id`/`id`, `text`/`content`/`caption`, `platform`,
 
 | Flag | Effect |
 |---|---|
+| `--account <id>` | the account this profile is **for**. Names the output `voice-profile-<id>.json`. Omitting it writes `profile_for: null` — an unscoped profile that must not be applied to a named account |
 | `--scope <PLATFORM>` | attribute every document to one platform, overriding what the export says |
 | `--since <ISO>` | ignore documents older than this |
 | `--out <file>` | also write the result to a file |
@@ -39,7 +41,7 @@ an error: an empty success would look like "this person has no habits".
 
 ```json
 {
-  "corpus":  { "documents": 5, "scopes": ["LINKEDIN", "all"], "window": ["…", "…"] },
+  "corpus":  { "profile_for": "317", "documents": 5, "scopes": ["LINKEDIN", "all"], "window": ["…", "…"] },
   "features":     [ { "feature": "emoji rate", "value": "0 per post", "from": [1180, 1194] } ],
   "observations": [ { "rule": "no emoji", "scope": "all", "post_id": 1180, "supports": true, "ts": "…" } ]
 }

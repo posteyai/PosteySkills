@@ -59,12 +59,11 @@ PUBLISHED`. Nothing in the system records that a human said yes.
 
 That has three consequences, and getting them wrong is how content goes out unreviewed:
 
-1. **A draft carries no approval flag.** Approval lives in an internal comment, a message, or a
-   conversation. Read it; do not infer it.
-2. **A draft with no objections is not an approved draft.** Silence is silence. If the user asks
-   whether something is cleared, say who said what and when — not "no objections were raised".
-3. **Nothing stops a `DRAFT` being published.** The state does not protect it. Only the rule that
-   publishing needs explicit instruction does, and that rule lives in the agent, not the server.
+| What is true | What it means for you | The failure it prevents |
+|---|---|---|
+| A draft carries no approval flag | Approval lives in an internal comment, a message, or a conversation. Read it; never infer it. | Treating a status as consent |
+| Silence is not approval | If asked whether something is cleared, say who said what and when — never "no objections were raised" | Reporting absence of dissent as sign-off |
+| Nothing stops a `DRAFT` publishing | The status does not protect it. Only the rule that publishing needs explicit instruction does, and that rule lives in the agent, not the server. | Assuming the server will catch you |
 
 When the user says "it's approved", that is the approval. Take it from them, and say whose approval
 you are acting on.
@@ -77,13 +76,20 @@ published. They work on a post in any status, not just drafts.
 Read them **before** drafting a revision. The most common failure in a review loop is rewriting a
 post while ignoring the note that says what was wrong with it.
 
-Internal comments are not audience comments. Real replies from real people on the live post are
-`get_platform_comments`, and belong to `postey-engagement`. Confusing the two means either treating
-a colleague's note as public feedback, or worse, drafting a public reply to an internal note.
+Internal comments are not audience comments. Confusing the two means treating a colleague's note
+as public feedback — or worse, drafting a public reply to an internal note.
+
+| | Internal comments | Audience comments |
+|---|---|---|
+| **Who wrote it** | A teammate or client, inside Postey | A real person on the live post |
+| **Reach** | Never published | Public |
+| **Read via** | `postey://posts/{post_id}/comments/{platform}` | `get_platform_comments` |
+| **Owned by** | This skill | `postey-engagement` |
+| **A reply goes** | Back into Postey | Out to the public |
 
 ## Share links
 
-`get_post_by_share_link` resolves a Postey share URL or `share_id` to the underlying post. Use it
+`resolve_share_link` resolves a Postey share URL or `share_id` to the underlying post. Use it
 when someone pastes a link — the reviewer often has only that.
 
 A share link is how a client who has no Postey account sees a draft. Two things follow: the
