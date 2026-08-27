@@ -1,6 +1,6 @@
 ---
 name: postey-video
-version: 1.0.0
+version: 1.0.1
 description: >
   Turn one video into posts everywhere with Postey: transcribe it, write a caption
   per platform, upload with a cover frame, and leave drafts ready for approval.

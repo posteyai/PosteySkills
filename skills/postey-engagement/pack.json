@@ -1,10 +1,10 @@
 {
   "name": "postey-engagement",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Engagement pack for Postey: comment triage, replies and auto-DM funnels. Requires the postey skill.",
   "skill": "SKILL.md",
   "docs": [],
   "scripts": [],
   "references": [],
-  "rawBase": "https://raw.githubusercontent.com/posteyai/skills/refs/tags/skills/postey-engagement/v1.0.0/skills/postey-engagement/"
+  "rawBase": "https://raw.githubusercontent.com/posteyai/skills/refs/tags/skills/postey-engagement/v1.1.0/skills/postey-engagement/"
 }

@@ -1,10 +1,10 @@
 {
   "name": "postey-teams",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Teams pack for Postey: review workflow, internal comments and share links. Requires the postey skill.",
   "skill": "SKILL.md",
   "docs": [],
   "scripts": [],
   "references": [],
-  "rawBase": "https://raw.githubusercontent.com/posteyai/skills/refs/tags/skills/postey-teams/v1.0.0/skills/postey-teams/"
+  "rawBase": "https://raw.githubusercontent.com/posteyai/skills/refs/tags/skills/postey-teams/v1.0.1/skills/postey-teams/"
 }

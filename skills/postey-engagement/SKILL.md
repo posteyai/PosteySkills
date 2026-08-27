@@ -1,6 +1,6 @@
 ---
 name: postey-engagement
-version: 1.0.0
+version: 1.1.0
 description: >
   Read and reply to the comments your posts actually got, and run comment-to-DM
   automations, without sounding like a bot. Covers triage, tone, escalation and

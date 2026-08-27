@@ -1,6 +1,6 @@
 ---
 name: postey-analytics
-version: 1.0.0
+version: 1.0.1
 description: >
   Read what a post or an account actually did, say what the numbers support, and
   turn that into the next content decision. Includes the checks that stop a

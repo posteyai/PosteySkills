@@ -1,6 +1,6 @@
 ---
 name: postey-ops
-version: 1.0.0
+version: 1.0.1
 description: >
   Know whether the things you scheduled actually went out, find the ones that
   failed, and fix them. Publishing is asynchronous — created is not published,

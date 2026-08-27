@@ -1,6 +1,6 @@
 ---
 name: postey-teams
-version: 1.0.0
+version: 1.0.1
 description: >
   Run content past a reviewer before it goes out: who is on the team, what they
   said on a draft, how a share link gets a client's approval, and what "approved"
