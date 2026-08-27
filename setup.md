@@ -7,8 +7,13 @@ table and stop. Do not guess.
 Re-running this document is safe. If a step reports that something already exists,
 that is success. Read on and continue.
 
-This document connects you, and it only ever reads. No step here creates, publishes,
-schedules or deletes anything — not even a draft it cleans up afterwards.
+This document touches none of your content. No step here creates, publishes,
+schedules or deletes a post — not even a draft it cleans up afterwards.
+
+It does create one thing, and only one: Step 5 issues the skill its own
+credential, which appears in Postey settings under Connected agents as
+**Postey CLI** and can be revoked there. Nothing else in this document writes
+anything.
 
 Steps 1 to 6 run in one go. Step 7 is a reload, and it is the only point where this
 document hands control back. Once Step 9 passes, hand off to
@@ -508,8 +513,12 @@ not that tool. Link it now, or every local-file command fails: uploading a video
 an image from disk, trimming, transcription.
 
 One connection, one credential. The link copies the access this connection already
-has — never more — so there is no second sign-in and no second thing to revoke
-separately.
+has — never more — so there is no second sign-in.
+
+This is the one step in this document that creates anything. It issues a
+credential, which shows up in Postey settings under Connected agents as
+**Postey CLI**. Revoking it there stops the skill and leaves your client's own
+connection working.
 
 ### Track C — nothing to do
 
