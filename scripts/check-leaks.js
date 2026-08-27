@@ -21,7 +21,12 @@ const SKIP_DIR_NAMES = new Set(['node_modules', '.git']);
 // Skipped only when directly under the scan root: the repo-level tests/
 // directory holds synthetic secret-shaped fixtures. A tests/ directory nested
 // inside shipped skill content is NOT exempt — shipped content is always scanned.
-const ROOT_SKIP_DIRS = new Set(['tests']);
+// .claude/ holds agent worktrees. They are untracked, so CI never sees them,
+// but a local run walks into whatever branch they hold and reports findings
+// from code that is not in this checkout. That made the gate unusable locally,
+// which is worse than a gap — a check nobody can run is a check nobody runs.
+// Scoped to the root, so a skill shipping its own .claude/ is still scanned.
+const ROOT_SKIP_DIRS = new Set(['tests', '.claude']);
 // Unicode-aware: hyphenated, dotted, spaced, underscored, or accented terms
 // become token SEQUENCES ("acme-corp" and "acme_corp" -> ["acme","corp"]) and
 // are matched as n-grams across line breaks. Text is NFKC-normalized with

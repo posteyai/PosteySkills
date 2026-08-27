@@ -23,3 +23,12 @@ coverage/
 # Postey config (contains API key)
 .postey/
 node_modules/
+
+# Agent worktrees. Not ignoring these makes check-leaks unusable locally: the
+# scanner walks into them and reports findings from whatever branch they hold,
+# which CI never sees because they are untracked.
+.claude/worktrees/
+
+# Voice profiles. voice.js names its output after the account id, and a run
+# from the repo root would otherwise leave one behind.
+voice-profile-*.json
