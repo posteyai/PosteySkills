@@ -2,6 +2,9 @@
 
 Index of all skills in this repository.
 
+> External distribution — where Postey is registered so agents can find it — is tracked in
+> [`DISTRIBUTION.md`](../DISTRIBUTION.md), not here.
+
 | Skill | Description | Status | Version |
 |-------|-------------|--------|---------|
 | [postey](postey/) | The hub: routing, accounts, platform truth and the shared craft layer | stable | 3.1.0 |

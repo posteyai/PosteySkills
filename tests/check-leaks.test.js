@@ -183,6 +183,22 @@ test('.git is skipped whether it is a directory or a worktree gitdir file', () =
   }
 });
 
+// The companion case: skipping `.git` by name must not become so broad that a
+// look-alike sibling directory stops being scanned.
+test('a linked worktree .git FILE is skipped, but a look-alike directory is not', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'leakworktree-'));
+  try {
+    fs.writeFileSync(path.join(dir, '.git'), 'gitdir: /somewhere/zzsecretname/.git/worktrees/task\n');
+    fs.mkdirSync(path.join(dir, '.git-notes'));
+    fs.writeFileSync(path.join(dir, '.git-notes', 'real.md'), 'zzsecretname');
+    const finds = scanTree(dir, dl);
+    assert.strictEqual(finds.length, 1, '.git file skipped; a look-alike directory still scanned');
+    assert.ok(finds[0].file.includes('.git-notes'), 'the look-alike is the finding');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('real denylist + shipped skill content is clean', () => {
   const real = loadDenylist(path.join(__dirname, '..', 'scripts', 'leak-denylist.json'));
   const finds = scanTree(path.join(__dirname, '..', 'skills'), real);

@@ -1,0 +1,23 @@
+# Review routing. A path with no owner here gets no automatic reviewer.
+
+# Everything, unless overridden below.
+*                           @posteyai
+
+# The CLI runs on a user's machine and resolves API keys from five locations.
+/skills/*/scripts/          @posteyai
+
+# CI gates. A weakened check is invisible in a green build, which is exactly
+# when it matters most — check-leaks is the only thing standing between a
+# committed credential and a public repo.
+/scripts/                   @posteyai
+/.github/workflows/         @posteyai
+
+# Agent manifests. Each is a public listing for a different ecosystem, and a
+# name or version here is what those registries advertise.
+/.claude-plugin/            @posteyai
+/.codex-plugin/             @posteyai
+/.cursor-plugin/            @posteyai
+/.clawhubignore             @posteyai
+
+# Security policy.
+/SECURITY.md                @posteyai

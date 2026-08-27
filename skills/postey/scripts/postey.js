@@ -22,7 +22,7 @@ const GLOBAL_CONFIG_DIR = path.join(os.homedir(), ".config", "postey");
 const GLOBAL_CONFIG_FILE = path.join(GLOBAL_CONFIG_DIR, "config.json");
 const LOCAL_CONFIG_DIR = ".postey";
 const LOCAL_CONFIG_FILE = path.join(LOCAL_CONFIG_DIR, "config.json");
-const API_KEY_URL = "https://app.postey.ai?settings=api";
+const API_KEY_URL = "https://app.postey.ai?settings=agents&section=advanced";
 
 // ── OAuth 2.1 / PKCE constants ────────────────────────────────────────────────
 // auth:login uses Dynamic Client Registration (DCR) so no static client ID is
@@ -261,7 +261,17 @@ async function getAuthHeader() {
     }
   }
 
-  // 3. API key in config files
+  // 3. The credential this CLI was linked with (auth:link). A pat_ agent token,
+  // so it goes in Authorization, never X-API-Key — that header is for mk_ keys
+  // and the server resolves the two by different paths.
+  //
+  // Ranked below the CLI's own OAuth session because a user who ran auth:login
+  // on this machine chose that identity explicitly; the linked token is the
+  // quieter default that setup arranges on their behalf.
+  const linked = readConfigFile(GLOBAL_CONFIG_FILE)?.cliToken;
+  if (linked) return { header: "Authorization", value: `Bearer ${linked}` };
+
+  // 4. API key in config files
   const localConfigPath = path.join(process.cwd(), LOCAL_CONFIG_FILE);
   const localConfig = readConfigFile(localConfigPath);
   if (localConfig?.apiKey) return { header: "X-API-Key", value: localConfig.apiKey };
@@ -1464,8 +1474,11 @@ async function cmdSetup(args) {
 async function cmdConfigShow() {
   const result  = getApiKey();
   const oauth   = getOAuthConfig();
+  // A CLI linked with auth:link holds neither an API key nor its own OAuth
+  // session, and is nonetheless fully authenticated.
+  const linkedToken = readConfigFile(GLOBAL_CONFIG_FILE)?.cliToken || null;
 
-  if (!result && !oauth) {
+  if (!result && !oauth && !linkedToken) {
     output({
       configured: false,
       hint: "Run: postey.js auth:login  (OAuth)  or  postey.js setup  (API key)",
@@ -1496,6 +1509,12 @@ async function cmdConfigShow() {
     const expired   = Date.now() / 1000 > expiresAt;
     authMethod  = expired ? "oauth (expired — run auth:login)" : "oauth";
     authPreview = payload?.sub || payload?.username || "unknown";
+  } else if (globalConfig?.cliToken) {
+    // Mirrors getAuthHeader's order. Without this arm a linked CLI reports
+    // itself unconfigured, which reads as a broken install to the one flow
+    // that was supposed to make setup finish cleanly.
+    authMethod  = "linked (auth:link)";
+    authPreview = globalConfig.cliToken.slice(0, 8) + "...";
   } else if (result) {
     authMethod  = `api_key (${result.source})`;
     authPreview = result.key.slice(0, 8) + "...";
@@ -1656,15 +1675,138 @@ async function cmdMediaUpload(args) {
 }
 
 // ============================================================================
+// auth:link — pair this CLI to the connection the agent already has
+// ============================================================================
+//
+// The MCP server and this CLI are two surfaces. An agent that signed in to the
+// server over OAuth holds a credential this CLI cannot see, which is why the
+// setup document used to tell those users to export an API key they were never
+// issued. This pairs the two without a second sign-in.
+//
+// The secret is generated HERE and never leaves this machine. `--begin` prints
+// a public code and the SHA-256 challenge of a verifier it keeps; the agent
+// passes only those two public values to the `link_cli` tool; `--claim`
+// presents the verifier and receives the credential directly. So what lands in
+// the agent's transcript — and in the model-provider request, and in whatever
+// ships that client's logs — is a code that is worthless without a verifier it
+// never saw.
+//
+// Deliberately non-blocking. `--begin` makes no network call and opens no
+// browser, so an unattended agent can run it and keep going.
+
+const LINK_CODE_PREFIX = "link_";
+
+function b64url(buf) {
+  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function s256Challenge(verifier) {
+  return b64url(createHash("sha256").update(verifier, "ascii").digest());
+}
+
+/** Pending verifiers, keyed by the code they belong to. */
+function readPendingLinks() {
+  return readConfigFile(GLOBAL_CONFIG_FILE)?.pendingLinks || {};
+}
+
+function savePendingLink(code, verifier) {
+  const existing = readConfigFile(GLOBAL_CONFIG_FILE) || {};
+  const pending = { ...(existing.pendingLinks || {}) };
+  // One at a time. A stale verifier is useless once its code expires, and
+  // keeping a pile of them is just more secret material at rest.
+  pending[code] = { verifier, created_at: new Date().toISOString() };
+  writeConfig(GLOBAL_CONFIG_FILE, { ...existing, pendingLinks: { [code]: pending[code] } });
+}
+
+function takePendingLink(code) {
+  const existing = readConfigFile(GLOBAL_CONFIG_FILE) || {};
+  const pending = existing.pendingLinks || {};
+  const entry = pending[code];
+  delete pending[code];
+  writeConfig(GLOBAL_CONFIG_FILE, { ...existing, pendingLinks: pending });
+  return entry || null;
+}
+
+function saveCliToken(token) {
+  const existing = readConfigFile(GLOBAL_CONFIG_FILE) || {};
+  writeConfig(GLOBAL_CONFIG_FILE, { ...existing, cliToken: token });
+}
+
+async function cmdAuthLink(args) {
+  const parsed = parseArgs(args, { begin: "boolean", claim: "string" });
+
+  if (parsed.begin) {
+    const verifier = b64url(randomBytes(32));
+    const code = LINK_CODE_PREFIX + b64url(randomBytes(32));
+    savePendingLink(code, verifier);
+    output({
+      link_code: code,
+      code_challenge: s256Challenge(verifier),
+      expires_in: 120,
+      next: [
+        "Call the Postey MCP tool link_cli with the link_code and code_challenge above.",
+        `Then run: postey.js auth:link --claim ${code}`,
+      ],
+      note: "No credential exists yet. Nothing secret is printed here.",
+    });
+    return;
+  }
+
+  const code = parsed.claim || parsed._positional[0];
+  if (!code) {
+    error("Pass --begin to start a link, or --claim <code> to finish one", {
+      actions: ["postey.js auth:link --begin"],
+    });
+  }
+
+  const pending = takePendingLink(code);
+  if (!pending) {
+    error("No pending link for that code on this machine. Start again.", {
+      actions: ["postey.js auth:link --begin"],
+    });
+  }
+
+  const res = await fetch(`${API_BASE}/auth/mcp/cli-link/claim`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ link_code: code, code_verifier: pending.verifier }),
+  });
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    error(data.detail || `Link failed (HTTP ${res.status})`, {
+      actions: ["postey.js auth:link --begin"],
+    });
+  }
+  if (!data.token) {
+    error("The server returned no credential. Start the link again.", {
+      actions: ["postey.js auth:link --begin"],
+    });
+  }
+
+  saveCliToken(data.token);
+  // The token is never printed. Its prefix is enough to identify the row in
+  // Connected agents, and enough for a human to confirm something happened.
+  output({
+    linked: true,
+    token_prefix: data.token_prefix || null,
+    client_id: data.client_id || null,
+    stored_in: GLOBAL_CONFIG_FILE,
+    note: "The CLI now uses the same access as your agent. Revoke it in Postey settings under Connected agents.",
+  });
+}
+
+// ============================================================================
 // Main Router
 // ============================================================================
 
 const COMMANDS = {
   "auth:login":    cmdAuthLogin,
+  "auth:link":     cmdAuthLink,
   "auth:logout":   cmdAuthLogout,
   setup:           cmdSetup,
   // No drafts:get / posts:create — reading and creating posts are MCP's
-  // (get_specific_post_content, create_post). See docs/skills-mcp-contract.md.
+  // (get_post_content, create_post). See docs/skills-mcp-contract.md.
   "media:upload":  cmdMediaUpload,
   video:           cmdVideoGroup,
   "config:show":   cmdConfigShow,

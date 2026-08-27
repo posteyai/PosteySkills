@@ -22,7 +22,9 @@ skills/  (repo: posteyai/skills)
 │   ├── lib/
 │   │   ├── skills.js          — discoverSkills(): the single definition of "what counts as a skill". Every multi-skill check consumes this
 │   │   └── cross-skill-links.js — reference scanner (markdown links + backtick refs) behind check-cross-skill-links.js
-│   ├── check-versions.js      — CI: verify SKILL.md version == plugin.json == marketplace == pack.json == REGISTRY.md == README badge (per skill)
+│   ├── check-versions.js      — CI: verify SKILL.md version == plugin.json == marketplace == pack.json == REGISTRY.md == README badge (per skill) == .codex-plugin == .cursor-plugin
+│   ├── set-version.mjs        — write every version place from one argument (release step; --check to dry-run)
+│   ├── check-release-tag.mjs  — CI on main: the released version's tag exists on the remote (rawBase pins it)
 │   ├── check-cross-skill-links.js — CI: no skill may reference a file it does not ship
 │   ├── check-doc-commands.js  — CI: verify every documented command exists in the CLI COMMANDS table
 │   ├── check-mcp-tool-sync.js — CI: verify SKILL.md mcp-tools.tools: == MCP server registry
@@ -135,7 +137,11 @@ There is no build step, no lint config, and no formatter config in this repo.
 
 ## When Editing the Skill or CLI
 
-1. **Update `version:`** in `skills/postey/SKILL.md` frontmatter, `skills/postey/.claude-plugin/plugin.json`, the plugin entry in `.claude-plugin/marketplace.json`, `skills/postey/pack.json` (version AND the tag in `rawBase`), the `skills/REGISTRY.md` row, and the README badge — all must match. Run `node scripts/check-versions.js` to verify. **At release, push the tag `skills/postey/vX.Y.Z`** — pack.json's `rawBase` points at it, so fetch-based installs 404 until the tag exists.
+1. **Set the version with `node scripts/set-version.mjs X.Y.Z`.** It writes all nine places — `skills/postey/SKILL.md` frontmatter, `skills/postey/.claude-plugin/plugin.json`, the plugin entry in `.claude-plugin/marketplace.json`, `skills/postey/pack.json` (version AND the tag in `rawBase`), the `skills/REGISTRY.md` row, the README badge, and (hub only) `.codex-plugin/plugin.json` and `.cursor-plugin/plugin.json`. It fails loudly if any file or anchor is missing rather than writing eight of nine. `--check` reports without writing. Then run `node scripts/check-versions.js` — the writer and the assertion are separate programs on purpose, so a bug in one cannot silence the other.
+
+   **After the release merges, push the tag: `git tag skills/postey/vX.Y.Z <merge-sha> && git push origin skills/postey/vX.Y.Z`.** pack.json's `rawBase` pins it, so every fetch-based install 404s until it exists. `scripts/check-release-tag.mjs` asserts this against the remote and runs in CI on `main` only — a release PR legitimately carries a version whose tag is not pushed yet.
+
+   Note the version ceiling: `skills/postey/v3.0.0` and `v3.0.1` are already taken by the `program/postey-skills-pillars` lineage and are not ancestors of `main`. Main's next release is a 2.x.
 2. **Update `skills/postey/CHANGELOG.md`** for user-facing changes (new commands/flags, behavior changes, bug fixes). Skip internal refactors, test/CI changes, formatting-only edits.
 3. **Keep SKILL.md and CLI in sync**: if you add/rename a command or flag, update `command-reference.md`. The command list in `command-reference.md` is the contract agents read.
 4. **SKILL.md body must stay under 500 lines** — move heavy content to supporting files (`command-reference.md`, `video-workflow.md`, `routing-guide.md`).

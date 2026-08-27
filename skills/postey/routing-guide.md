@@ -43,7 +43,7 @@ command not in it is a bug.
      - Post content → postey://posts/{id}/content/{platform}
 
 4. Is the task CONTENT VALIDATION or VIRALITY REVIEW before publishing?
-   → MCP tools: validate_post_content, review_post_content_and_add_comments_for_virality
+   → MCP tools: validate_post_content, review_post
      No CLI equivalent — do not skip in any MCP-capable session.
 
 5. Is it a WRITE (create, update, publish, schedule, delete, tag, upload by URL)?
@@ -74,7 +74,7 @@ These operations have no CLI equivalent and **must** use MCP tools:
 
 - Every write — creating, updating, publishing, scheduling, deleting and tagging posts
 - `validate_post_content` — validate before creating a draft
-- `review_post_content_and_add_comments_for_virality` — virality coaching
+- `review_post` — virality coaching
 - Reading resources: `postey://accounts`, `postey://teams`, `postey://posts/{id}/content/{platform}`
 
 ## Layered Workflow (Correct Pattern)
@@ -103,4 +103,4 @@ or from stored config; never guess one.
 | Hosted connector (claude.ai, ChatGPT) | MCP resources, or `get_accounts` / `get_posts` if resource-blind | MCP tools | Not available (no shell) — the user must supply a URL |
 | Cursor / Windsurf | MCP resources or read tools (both support MCP) | MCP tools | CLI |
 | SDK agent / CI/CD / npx **with the MCP server configured** | `get_accounts` / `get_posts` read tools | MCP tools | CLI |
-| Any environment with **no MCP server** | Not available — ask the user | **Not possible.** No write path exists without MCP; tell the user to connect the server at https://app.postey.ai?settings=integrations | CLI runs, but its output is only the input to a write that still needs MCP |
+| Any environment with **no MCP server** | Not available — ask the user | **Not possible.** No write path exists without MCP; tell the user to connect the server at https://app.postey.ai?settings=agents&section=advanced | CLI runs, but its output is only the input to a write that still needs MCP |

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://cursor.com/schemas/cursor-plugin/plugin.json",
+  "name": "postey",
+  "displayName": "Postey",
+  "version": "2.6.0",
+  "description": "Draft, schedule and publish social posts across X, LinkedIn, Instagram, TikTok, YouTube, Threads, Bluesky, Facebook and Pinterest. Reshape one draft per network against each one's real limits, keep everything a draft until you approve, and hand back a share link.",
+  "author": {
+    "name": "Postey",
+    "email": "support@postey.ai"
+  },
+  "publisher": "Postey",
+  "homepage": "https://postey.ai",
+  "repository": "https://github.com/posteyai/skills",
+  "license": "MIT",
+  "logo": "assets/logo.png",
+  "category": "productivity",
+  "keywords": [
+    "postey",
+    "social-media",
+    "scheduling",
+    "publishing",
+    "captions",
+    "cross-posting",
+    "content-calendar",
+    "viral-content",
+    "hooks",
+    "engagement",
+    "x",
+    "linkedin",
+    "instagram",
+    "tiktok",
+    "youtube"
+  ],
+  "tags": [
+    "social-media",
+    "scheduling",
+    "content",
+    "publishing",
+    "marketing",
+    "productivity"
+  ],
+  "skills": [
+    "./skills/postey/"
+  ]
+}

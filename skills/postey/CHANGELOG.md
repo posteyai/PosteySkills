@@ -85,7 +85,74 @@ strictly worse than the unreachable destination it fixes. Push `skills/postey/v3
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-08-27
+
+### Added
+
+- **`auth:link` — one consent now covers the server and the CLI.** A user on the OAuth track
+  finished setup with a credential the MCP server could use and a CLI that held nothing, so
+  `setup.md` told them to `export POSTEY_API_KEY` — a key that track was never issued. Every
+  local-file command failed after an install that reported success. `auth:link --begin` generates a
+  PKCE verifier and keeps it on disk, prints only a public code and challenge, and `--claim`
+  collects the credential directly. Nothing secret passes through the agent's conversation.
+- **The plugin now registers the MCP server.** `skills/postey/.mcp.json` ships at the plugin root,
+  so `claude plugin install postey@postey-skills` registers the server as well as the skill. Claude
+  Code users run no `claude mcp add` and cannot hit the `url`-without-`type` trap.
+- **`scripts/set-version.mjs`** writes all seven version declarations from one argument, including
+  the tag inside `pack.json`'s `rawBase`, and **`scripts/check-release-tag.mjs`** asserts that tag
+  exists on the remote and that the shipped content has not moved past it.
+
+### Changed
+
+- **`setup.md` runs Steps 1 to 6 without stopping.** The reload sat in the middle, with three steps
+  parked behind it that need no Postey tool. It now sits at Step 7, and Step 7 writes a resume line
+  into the agent's instructions file so the next session finishes on its own. Step 9 deletes it.
+- **The document's promise is now the one that holds.** It said it "only ever reads"; Step 5 issues
+  a credential. It now says it touches no content, and names the one thing it creates.
+
 ### Fixed
+
+- **`config:show` reported a linked CLI as unconfigured**, which reads as a broken install.
+- **A guard that admitted what the crypto layer could not take.** `str.isalnum()` is Unicode-aware,
+  so a non-ASCII challenge passed validation and then raised inside `secrets.compare_digest` — a 500
+  raised *after* the link code was spent, leaving no way to retry. Found four times in the same
+  shape; both sides of the comparison are now shape-checked against an explicit ASCII set, and the
+  verifier accepts the full RFC 7636 unreserved range rather than base64url alone.
+
+
+### Fixed
+
+- **The Hermes setup told a headless host to use OAuth, which it can never finish.** `setup.md`
+  Step 2 set `auth oauth` unconditionally for every Hermes install, and Step 3's login table
+  offered `hermes mcp login postey` with no caveat. A Hermes gateway runs as a background service
+  and cannot reach a browser, and there is no `client_credentials` grant — so it registered an
+  OAuth client, never received a token, and parked the server. Worse, `auth: oauth` decides the
+  method before `headers` is read, so a valid MCP key sitting in the config was never tried. One
+  host lost several days to that state, with a cron reporting success while publishing nothing.
+  Step 2 is now split by track: headless Hermes uses `auth none` with the key in `headers`, which
+  is the configuration confirmed working on a live host.
+- **The API-key link opened the wrong settings panel.** `SKILL.md`, `README.md` (×3),
+  `routing-guide.md` and the CLI's own `API_KEY_URL` — which feeds the `requireApiKey` error, the
+  `setup` prompt and `config:show` — pointed at `?settings=api` or `?settings=integrations`.
+  The first opens Integrations, where the plan-gated general-purpose keys live; the second maps to
+  no panel at all. MCP keys live at `?settings=agents&section=advanced`, are not plan-gated, and
+  never expire.
+- **`README.md` recommended a credential that can no longer be created.** It led browserless
+  callers to a `pat_` agent token; the app no longer mints those, they expire 90 days after
+  minting, and there is no replacement path. It now leads with the MCP key.
+- **The skill told an agent to stop with no way forward.** `SKILL.md` correctly said to stop when
+  the Postey tools are absent, but never named the server address, the `X-API-Key` header, or
+  where to go next — so a headless agent that loaded the skill had no route to a working
+  connection.
+
+### Changed
+
+- `setup.md` records that Postey now answers a preflight probe of `/mcp` with `application/json`
+  rather than `text/plain`, so Hermes' `skip_preflight` is no longer required to connect. It stays
+  in the documented steps because it is harmless and keeps the setup working against an older
+  deployment. Two symptoms are added to the troubleshooting table: the `OAuthNonInteractiveError`
+  park, and a gateway that connects and lists tools while `tool_search` finds none — which needs a
+  gateway restart from another terminal, because a reconnect alone does not rebuild the catalog.
 
 - **Routing no longer sends writes to a CLI that has no write commands.** `routing-guide.md` (steps
   3 and 6, and the environment table) and `SKILL.md` both told CI/CD, shell scripts, Cursor, Windsurf
@@ -96,6 +163,22 @@ strictly worse than the unreachable destination it fixes. Push `skills/postey/v3
   and hand back the fields for `create_post`.
 
 ### Added
+
+- **`references/mcp-workflows.md` gains `## Local Files and Large Uploads`.** The instruction block's
+  ledger has pointed a fourth entry — which upload paths survive without this skill installed — at
+  `mcp-workflows.md#local-files-and-large-uploads` since 2026-08-24. The file was loadable but the
+  heading did not exist on any branch or tag, so the anchor resolved to the top of the file and the
+  rule it names was documented nowhere. It now states, per path, which side of the local-disk line
+  each upload sits on: `url`, `base64` and `file_manager` need nothing installed; `local_path`,
+  chunked upload above 50 MB and local transcription are the CLI's and ship with this skill.
+
+- **`references/mcp-authentication.md`** — the auth guidance the MCP instruction block relocated here
+  and never delivered. The block's own ledger has pointed three entries at this file since 2026-08-24;
+  the file did not exist and was not in `pack.json`, so a fetch-installed client could not load any of
+  them. It now carries the OAuth scope list, the MCP-key path and the two agent-token mint endpoints,
+  under the anchors the ledger names. Version bumped to 2.5.1 because a new `references[]` entry is
+  read from `main` while the file is fetched from the pinned tag: shipping the entry without a matching
+  release tag would 404 on every new install.
 
 - **`scripts/check-doc-commands.js`** — CI now fails when shipped guidance names a CLI command that is
   not in the COMMANDS table, or routes an MCP-owned operation to the CLI in `SKILL.md`'s `routing:`

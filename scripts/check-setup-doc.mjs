@@ -125,8 +125,18 @@ const FENCE = /^\s*```/;
 function chatCommandInLoadSection(markdown) {
 	const problems = [];
 	let inSection = false;
+	let seenSection = false;
+	// Matched on the TITLE, at either heading level, with or without a step
+	// number. This rule was anchored on `### Load the server`; promoting that
+	// section to `## Step 7 — Load the server` made it match nothing, so the
+	// check reported clean while asserting nothing about the section it exists
+	// for. A heading level and a step number are both presentation.
+	const isLoadHeading = (line) => /^#{2,3}\s+(?:Step\s+\d+\s+[—-]\s+)?Load the server\b/.test(line);
 	markdown.split('\n').forEach((line, i) => {
-		if (/^###\s/.test(line)) inSection = /^###\s+Load the server\b/.test(line);
+		if (/^#{2,3}\s/.test(line)) {
+			inSection = isLoadHeading(line);
+			if (inSection) seenSection = true;
+		}
 		if (!inSection) return;
 		if (/`\/[a-z][a-z0-9-]*`/.test(line)) {
 			problems.push({
@@ -137,8 +147,17 @@ function chatCommandInLoadSection(markdown) {
 			});
 		}
 	});
+	// `seenSection` is returned rather than turned into a problem here: this
+	// function also runs against minimal fixtures that legitimately have no such
+	// section. That the REAL document has one — so this rule is not silently
+	// scanning nothing — is asserted in tests/setup-doc.test.mjs, where it
+	// belongs.
+	loadSectionSeen = seenSection;
 	return problems;
 }
+
+/** Whether the last load-section scan found its section. Read by the tests. */
+export let loadSectionSeen = false;
 
 function commandLines(markdown) {
 	const out = [];
@@ -200,7 +219,24 @@ export function checkSetupDoc(markdown) {
 	const bySection = sections(markdown);
 	// Step 2 registers the server; Step 6 records the rules. An agent named in
 	// Step 0 and absent from either is told to identify itself for nothing.
-	const required = [...bySection.keys()].filter((h) => /^Step (2|6)\b/.test(h));
+	// Selected by TITLE, not by number. Anchoring on `^Step (2|6)` meant a
+	// renumbering dropped a section out of `required` silently — the check kept
+	// passing, having asserted less. Numbers are ordering; the titles are what
+	// these two sections ARE.
+	const REQUIRED_TITLES = [/Register the Postey MCP server/, /Record usage rules/];
+	const required = [...bySection.keys()].filter((h) =>
+		REQUIRED_TITLES.some((t) => t.test(h))
+	);
+	if (required.length !== REQUIRED_TITLES.length) {
+		problems.push({
+			rule: 'required-step-missing',
+			line: 0,
+			why:
+				`expected ${REQUIRED_TITLES.length} required sections, found ${required.length}` +
+				' — an agent named in Step 0 is being checked against fewer steps than intended',
+			text: ''
+		});
+	}
 	for (const agent of agents) {
 		for (const heading of required) {
 			const body = bySection.get(heading).join('\n');

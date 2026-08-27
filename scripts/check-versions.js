@@ -102,6 +102,17 @@ for (const { name: skill, dir: skillDir } of discoverSkills(skillsDir)) {
     if (badgeVersion && badgeVersion !== frontmatterVersion) {
       fail(`${badgeFile} badge version (${badgeVersion}) != skills/${skill} SKILL.md version (${frontmatterVersion})`);
     }
+
+    // Codex and Cursor read their own root manifests, and each carries its own
+    // copy of the version. They are keyed to the hub because that is the plugin
+    // both agents install; a pack ships inside it, not as a separate listing.
+    // Unpinned, they silently advertise a stale version to two whole ecosystems.
+    for (const manifest of ['.codex-plugin/plugin.json', '.cursor-plugin/plugin.json']) {
+      const manifestVersion = parsePluginJsonVersion(path.join(ROOT, manifest));
+      if (manifestVersion && manifestVersion !== frontmatterVersion) {
+        fail(`${manifest} version (${manifestVersion}) != SKILL.md version (${frontmatterVersion})`);
+      }
+    }
   }
 
   if (!errors) {

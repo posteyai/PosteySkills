@@ -26,6 +26,18 @@ jobs:
       - name: Check version consistency
         run: node scripts/check-versions.js
 
+      # pack.json's rawBase pins refs/tags/skills/<skill>/v<version>, so a
+      # version released without its tag pushed 404s every fetch-based install.
+      # Reads the remote, because actions/checkout fetches no tags and a local
+      # `git tag -l` would pass vacuously here.
+      #
+      # main only. A release PR legitimately carries a version whose tag does
+      # not exist yet — the tag is pushed after the merge, and this is what
+      # notices when nobody did.
+      - name: Check the released version has its tag
+        if: github.ref == 'refs/heads/main'
+        run: node scripts/check-release-tag.mjs
+
       # Two scopes on purpose. Full repo: secret-shaped patterns + committed
       # high-entropy hashes (root tests/ is skipped inside the scanner —
       # synthetic secret-shaped fixtures). No private secret here: the private

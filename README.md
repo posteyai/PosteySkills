@@ -8,9 +8,35 @@ AI agent skills for drafting, scheduling, and managing social media posts on eve
 
 One install gives your agent four guided content flows: **Brand voice** (learn a brand's voice from a handle or website), **Video everywhere** (any video URL becomes a per-platform multi-draft), **Trends** (fresh niche content daily), and **Idea to posts** (one idea, every platform, scheduled). No plugin system? Any connected agent can self-install with the one-paste prompt in [`skills/postey/bootstrap-prompt.md`](skills/postey/bootstrap-prompt.md), which fetches [`skills/postey/pack.json`](skills/postey/pack.json).
 
+## The Postey MCP server
+
+If you arrived here from an MCP registry, this is what you want:
+
+```
+https://srvr.postey.ai/mcp
+```
+
+Streamable HTTP, hosted, nothing to install. Connect it in one line:
+
+```
+claude mcp add --transport http postey https://srvr.postey.ai/mcp
+```
+
+Two ways to authenticate:
+
+- **OAuth 2.1 + PKCE**, with dynamic client registration. Interactive — it needs a browser.
+- **`X-API-Key: mk_...`** for headless and CI agents, from **AI & Agents → Advanced** in the app.
+  There is no `client_credentials` grant, so this is the only browserless path.
+
+Full tool list and setup guides: **[postey.ai/mcp](https://postey.ai/mcp)**. The server also
+publishes a machine-readable summary at
+[`/connect`](https://srvr.postey.ai/connect), which needs no credential.
+
+Connecting is free. Everything below is the skill layer that sits on top.
+
 ## The skill and the MCP server are layers, not alternatives
 
-The [Postey MCP server](https://app.postey.ai?settings=integrations) carries the capability. This skill is a **strict extension** of it: it adds only what the server cannot reach, and it never ships a second path to something the server already does. You are not choosing between them — connect the server, then install the skill on top of it.
+The [Postey MCP server](https://app.postey.ai?settings=agents&section=advanced) carries the capability. This skill is a **strict extension** of it: it adds only what the server cannot reach, and it never ships a second path to something the server already does. You are not choosing between them — connect the server, then install the skill on top of it.
 
 Which surface owns a capability is decided in advance, by one question (from the [contract](docs/skills-mcp-contract.md)):
 
@@ -89,7 +115,7 @@ not read `.agents/skills/`.
 
 ### Connect the MCP server
 
-Whichever install method you use, connect the Postey MCP server at https://app.postey.ai?settings=integrations. It is the layer underneath — reads, writes and permissions all go through it, so the skill's flows are incomplete without it.
+Whichever install method you use, connect the Postey MCP server at https://app.postey.ai?settings=agents&section=advanced. It is the layer underneath — reads, writes and permissions all go through it, so the skill's flows are incomplete without it.
 
 ## Setup
 
@@ -98,13 +124,18 @@ Whichever install method you use, connect the Postey MCP server at https://app.p
 Most agents complete OAuth themselves, and then there is nothing to copy. Trigger
 your agent's MCP login for `postey`.
 
-For an agent that cannot open a browser, such as a CI job or a container, create an
-agent token at https://app.postey.ai/?settings=api. A token belongs to a connected
-agent, expires after 90 days, and dies when you revoke that agent. Pass it as
-`POSTEY_AUTH_TOKEN`.
+An agent that cannot open a browser, such as a CI job or a container, cannot finish
+OAuth at all — there is no `client_credentials` grant. It needs an **MCP key**, created
+under **AI & Agents → Advanced** at
+https://app.postey.ai?settings=agents&section=advanced. The key starts with `mk_`, never
+expires, and works on every plan including the free one. Set it as `POSTEY_API_KEY` and
+keep it in a secret manager. Creating one needs a signed-in browser, so a headless run
+has to stop and ask the user for it.
 
-An API key still works and is set with `POSTEY_API_KEY`. It does not expire, so keep
-it in a secret manager.
+An older install may still hold an agent token starting with `pat_`, passed as
+`POSTEY_AUTH_TOKEN`. The app no longer creates these, and each one expires 90 days after
+it was minted with no way to mint a replacement. The server still accepts every token
+already issued, but use an MCP key for anything new.
 
 ### 2. Run setup
 
@@ -156,7 +187,7 @@ The CLI requires Node.js 18+ (for built-in `fetch`). Install a recent Node.js ve
 ### API errors (401, 403)
 
 - Verify your API key is correct
-- Check that your key has the required permissions at https://app.postey.ai?settings=api
+- Check that your key has the required permissions at https://app.postey.ai?settings=agents&section=advanced
 
 ### Drafts not appearing
 

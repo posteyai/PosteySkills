@@ -1,0 +1,10 @@
+# Not skills. Keep them out of a ClawHub import — slugs are first-come and
+# permanent, so a scaffold published once cannot be reclaimed.
+
+# The starter template every new skill is copied from. It has no content.
+skills/_template/
+
+# Repo tooling and CI, not shipped with any skill.
+scripts/
+tests/
+docs/

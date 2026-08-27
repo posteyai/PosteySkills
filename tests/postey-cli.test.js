@@ -180,7 +180,7 @@ test('config:show returns configured=false when no API key configured', async ()
     assert.deepEqual(parseJsonOrNull(result.stdout), {
       configured: false,
       hint: 'Run: postey.js auth:login  (OAuth)  or  postey.js setup  (API key)',
-      api_key_url: 'https://app.postey.ai?settings=api',
+      api_key_url: 'https://app.postey.ai?settings=agents&section=advanced',
     });
   } finally {
     await sandbox.cleanup();
@@ -368,6 +368,184 @@ test('video post refuses to schedule or publish', async () => {
     );
     assert.equal(result.code, 1);
     assert.match(parseJsonOrNull(result.stdout)?.error ?? '', /MCP operations/);
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
+
+// ── auth:link ────────────────────────────────────────────────────────────────
+//
+// The flow exists so that one consent covers the MCP server and this CLI. Its
+// security rests on the credential never travelling through the agent, so the
+// tests below assert what is ABSENT from `--begin`'s output as carefully as
+// what is present.
+
+const { writeFileSync, mkdirSync, readFileSync } = require('node:fs');
+
+function writeGlobalConfig(home, obj) {
+  const dir = path.join(home, '.config', 'postey');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(path.join(dir, 'config.json'), JSON.stringify(obj), { mode: 0o600 });
+}
+
+function readGlobalConfig(home) {
+  return JSON.parse(readFileSync(path.join(home, '.config', 'postey', 'config.json'), 'utf8'));
+}
+
+test('auth:link --begin prints a code and a challenge, and no secret', async () => {
+  const sandbox = await makeSandbox();
+  try {
+    const result = await runCli(['auth:link', '--begin'], {
+      cwd: sandbox.cwd,
+      env: { HOME: sandbox.home, POSTEY_API_KEY: '' },
+    });
+    assert.equal(result.code, 0);
+    const out = JSON.parse(result.stdout);
+
+    assert.match(out.link_code, /^link_[A-Za-z0-9_-]{43}$/);
+    assert.match(out.code_challenge, /^[A-Za-z0-9_-]{43}$/);
+
+    // The verifier is the secret. It must be on disk and nowhere in stdout —
+    // stdout is what the agent reads, and what its transcript keeps forever.
+    const stored = readGlobalConfig(sandbox.home).pendingLinks[out.link_code].verifier;
+    assert.ok(stored && stored.length >= 43);
+    assert.ok(!result.stdout.includes(stored), 'the verifier leaked into stdout');
+    assert.ok(!/token/i.test(result.stdout), 'begin must not mention a token');
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
+test('auth:link --begin makes no network call', async () => {
+  // An unattended agent runs this mid-turn. If it reached the network it could
+  // block, and rule 1 of setup.md is that a setup step never blocks.
+  const sandbox = await makeSandbox();
+  const mock = createMockServer();
+  const { baseUrl } = await mock.listen();
+  try {
+    await runCli(['auth:link', '--begin'], {
+      cwd: sandbox.cwd,
+      env: { HOME: sandbox.home, POSTEY_API_KEY: '', POSTEY_API_BASE: baseUrl },
+    });
+    assert.equal(mock.requests.length, 0);
+  } finally {
+    await mock.close();
+    await sandbox.cleanup();
+  }
+});
+
+test('auth:link --claim sends the verifier, stores the token, prints neither', async () => {
+  const sandbox = await makeSandbox();
+  const mock = createMockServer();
+  const { baseUrl } = await mock.listen();
+  try {
+    const begun = JSON.parse(
+      (await runCli(['auth:link', '--begin'], {
+        cwd: sandbox.cwd,
+        env: { HOME: sandbox.home, POSTEY_API_KEY: '' },
+      })).stdout
+    );
+    const verifier = readGlobalConfig(sandbox.home).pendingLinks[begun.link_code].verifier;
+
+    mock.expect('POST', '/auth/mcp/cli-link/claim', {
+      assert: (req) => {
+        assert.equal(req.bodyJson.link_code, begun.link_code);
+        assert.equal(req.bodyJson.code_verifier, verifier);
+      },
+      json: { token: 'pat_secret_value', token_prefix: 'pat_secr', client_id: 'self:postey-cli' },
+    });
+
+    const result = await runCli(['auth:link', '--claim', begun.link_code], {
+      cwd: sandbox.cwd,
+      env: { HOME: sandbox.home, POSTEY_API_KEY: '', POSTEY_API_BASE: baseUrl },
+    });
+
+    assert.equal(result.code, 0);
+    assert.ok(!result.stdout.includes('pat_secret_value'), 'the token leaked into stdout');
+    assert.equal(readGlobalConfig(sandbox.home).cliToken, 'pat_secret_value');
+    mock.assertNoPendingExpectations();
+  } finally {
+    await mock.close();
+    await sandbox.cleanup();
+  }
+});
+
+test('a claim can only be made once', async () => {
+  const sandbox = await makeSandbox();
+  const mock = createMockServer();
+  const { baseUrl } = await mock.listen();
+  try {
+    const begun = JSON.parse(
+      (await runCli(['auth:link', '--begin'], {
+        cwd: sandbox.cwd, env: { HOME: sandbox.home, POSTEY_API_KEY: '' },
+      })).stdout
+    );
+    mock.expect('POST', '/auth/mcp/cli-link/claim', {
+      json: { token: 'pat_one', token_prefix: 'pat_one' },
+    });
+    const env = { HOME: sandbox.home, POSTEY_API_KEY: '', POSTEY_API_BASE: baseUrl };
+    await runCli(['auth:link', '--claim', begun.link_code], { cwd: sandbox.cwd, env });
+
+    // The verifier is consumed locally, so a replay never reaches the server.
+    const second = await runCli(['auth:link', '--claim', begun.link_code], { cwd: sandbox.cwd, env });
+    assert.notEqual(second.code, 0);
+    assert.equal(mock.requests.length, 1, 'the replay hit the network');
+  } finally {
+    await mock.close();
+    await sandbox.cleanup();
+  }
+});
+
+test('a linked CLI authenticates as a bearer, never as X-API-Key', async () => {
+  // A pat_ presented in X-API-Key is resolved by a different server path and
+  // would 401, so the header this picks is load-bearing, not cosmetic.
+  const sandbox = await makeSandbox();
+  const mock = createMockServer();
+  const { baseUrl } = await mock.listen();
+  try {
+    writeGlobalConfig(sandbox.home, { cliToken: 'pat_linked_token' });
+    const clip = path.join(sandbox.cwd, 'clip.mp4');
+    writeFileSync(clip, Buffer.from('00000018667479706d703432', 'hex'));
+
+    // Under the 50 MB chunked threshold, so this is the single-shot path.
+    mock.expect('POST', '/media/unlinked', {
+      status: 500,
+      json: { detail: 'stop here — the header is what this test is for' },
+    });
+
+    await runCli(['media:upload', '--file', clip, '--platform', 'X'], {
+      cwd: sandbox.cwd,
+      env: { HOME: sandbox.home, POSTEY_API_KEY: '', POSTEY_API_BASE: baseUrl },
+    });
+
+    // Asserted on the RECORDED request, not inside the mock's `assert` hook.
+    // A throw in that hook is caught by the server, answered as a 500, and the
+    // expectation is consumed either way — so a header assertion written there
+    // passes whatever the CLI sent. This was verified by sending the token in
+    // X-API-Key on purpose: the hook version stayed green.
+    assert.equal(mock.requests.length, 1, 'the CLI never made the request');
+    const sent = mock.requests[0].headers;
+    assert.equal(sent.authorization, 'Bearer pat_linked_token');
+    assert.equal(sent['x-api-key'], undefined);
+  } finally {
+    await mock.close();
+    await sandbox.cleanup();
+  }
+});
+
+test('config:show reports a linked CLI as configured', async () => {
+  const sandbox = await makeSandbox();
+  try {
+    writeGlobalConfig(sandbox.home, { cliToken: 'pat_linked_token' });
+    const result = await runCli(['config:show'], {
+      cwd: sandbox.cwd,
+      env: { HOME: sandbox.home, POSTEY_API_KEY: '' },
+    });
+    const out = JSON.parse(result.stdout);
+    assert.equal(out.configured, true);
+    assert.equal(out.auth_method, 'linked (auth:link)');
+    assert.ok(!result.stdout.includes('pat_linked_token'), 'the token leaked into config:show');
   } finally {
     await sandbox.cleanup();
   }
