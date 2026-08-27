@@ -82,3 +82,29 @@ copied into each pack.
 If a flow tells you to establish the user's voice first and no brand profile exists, say so and
 offer it. The brand-voice flow ships separately; do not improvise a voice interview inside a
 trends or ideas run.
+
+## Tell the user the loop closes
+
+Ideas here start generic and get specific as published history accumulates. **Say so, once, at
+the end of a flow** — the user needs to know cadence is what sharpens the suggestions, not a
+better prompt.
+
+Phrase it as what changes, not as a promise:
+
+> Publish these and I'll have something to read next time. Once a few are out, I can look at
+> what actually got replies and saves for this account and bring ideas shaped like the ones that
+> worked, instead of ideas shaped like the topic.
+
+| Published posts on the account | What this skill can offer |
+|---|---|
+| None | Topic-led ideas only — trends and the user's raw material |
+| A few | Which formats the account has actually used, and gaps |
+| Enough for a pattern | Ideas shaped like that account's own top performers |
+
+**Say it once per session, at the end, and never as a reason to publish now.** Everything is
+still a draft, scheduling still counts as publishing, and the user's approval is still required.
+A nudge toward cadence must never read as pressure to approve the drafts on screen.
+
+The reading itself is not this skill's job — `postey-analytics` owns
+`analytics.top_posts` and `post.analytics`. If it is not installed, say the loop needs it rather
+than implying this pack will do it.

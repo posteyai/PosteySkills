@@ -61,8 +61,13 @@ routing:
 
 Two ways to learn a voice, and they compose:
 
-- **Cold start** — read what the user has already published and derive the observable habits.
-- **Warm loop** — record what happens to every draft, and let the corrections teach.
+| | Cold start | Warm loop |
+|---|---|---|
+| **What it reads** | Posts already published | What happens to each draft — edits, approvals, deletions |
+| **When it runs** | Once, on first use | Every time a draft is acted on |
+| **Needs history?** | Yes — nothing to read on a new account | No, it builds its own |
+| **Produces** | The initial profile | Rules appended to the ledger |
+| **Recoverable later?** | Yes, published posts persist | **No** — capture live or lose it |
 
 ## What this skill cannot know
 

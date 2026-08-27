@@ -103,7 +103,7 @@ Three rules that survive every platform:
 
 ## Show the user before sending
 
-`reply_to_platform_comment` is a public write. Draft every reply, show them together, and send only
+`reply_comment` is a public write. Draft every reply, show them together, and send only
 what the user approves. Batch approval is fine — silent sending is not.
 
 ## Auto-DM funnels
