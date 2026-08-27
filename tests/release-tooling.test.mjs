@@ -31,6 +31,8 @@ function fixtureRoot({ version = '1.0.0', omit = [] } = {}) {
 	const skill = path.join(root, 'skills', 'postey');
 	fs.mkdirSync(path.join(skill, '.claude-plugin'), { recursive: true });
 	fs.mkdirSync(path.join(root, '.claude-plugin'), { recursive: true });
+	fs.mkdirSync(path.join(root, '.codex-plugin'), { recursive: true });
+	fs.mkdirSync(path.join(root, '.cursor-plugin'), { recursive: true });
 
 	const write = (rel, body) => {
 		if (omit.includes(rel)) return;
@@ -39,6 +41,11 @@ function fixtureRoot({ version = '1.0.0', omit = [] } = {}) {
 
 	write('skills/postey/SKILL.md', `---\nname: postey\nversion: ${version}\n---\n\nbody\n`);
 	write('skills/postey/.claude-plugin/plugin.json', JSON.stringify({ name: 'postey', version }, null, 2));
+	// Codex and Cursor read their own root manifests, each carrying its own copy
+	// of the version. The fixture mirrors the real repo so the writer is exercised
+	// against every place it must move.
+	write('.codex-plugin/plugin.json', JSON.stringify({ name: 'postey', version }, null, 2));
+	write('.cursor-plugin/plugin.json', JSON.stringify({ name: 'postey', version }, null, 2));
 	write(
 		'.claude-plugin/marketplace.json',
 		JSON.stringify(
@@ -72,14 +79,16 @@ const read = (root, rel) => fs.readFileSync(path.join(root, rel), 'utf8');
 
 // ── set-version ──────────────────────────────────────────────────────────────
 
-test('writes every one of the seven places, including the rawBase tag', () => {
+test('writes every one of the nine places, including the rawBase tag', () => {
 	const root = fixtureRoot();
 	const changed = setVersion('2.6.0', { root });
-	assert.strictEqual(changed.length, 7, `expected 7 edits, got ${changed.length}:\n${changed.join('\n')}`);
+	assert.strictEqual(changed.length, 9, `expected 9 edits, got ${changed.length}:\n${changed.join('\n')}`);
 
 	assert.match(read(root, 'skills/postey/SKILL.md'), /^version: 2\.6\.0$/m);
 	assert.strictEqual(JSON.parse(read(root, 'skills/postey/.claude-plugin/plugin.json')).version, '2.6.0');
 	assert.strictEqual(JSON.parse(read(root, 'skills/postey/pack.json')).version, '2.6.0');
+	assert.strictEqual(JSON.parse(read(root, '.codex-plugin/plugin.json')).version, '2.6.0');
+	assert.strictEqual(JSON.parse(read(root, '.cursor-plugin/plugin.json')).version, '2.6.0');
 	assert.match(read(root, 'skills/REGISTRY.md'), /\| 2\.6\.0 \|/);
 	assert.match(read(root, 'README.md'), /badge\/version-2\.6\.0-green/);
 
@@ -107,7 +116,7 @@ test('--check writes nothing', () => {
 	const root = fixtureRoot();
 	const before = read(root, 'skills/postey/pack.json');
 	const changed = setVersion('2.6.0', { root, check: true });
-	assert.strictEqual(changed.length, 7);
+	assert.strictEqual(changed.length, 9);
 	assert.strictEqual(read(root, 'skills/postey/pack.json'), before, 'fixture was mutated under --check');
 });
 
