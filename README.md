@@ -8,6 +8,32 @@ AI agent skills for drafting, scheduling, and managing social media posts on eve
 
 One install gives your agent four guided content flows: **Brand voice** (learn a brand's voice from a handle or website), **Video everywhere** (any video URL becomes a per-platform multi-draft), **Trends** (fresh niche content daily), and **Idea to posts** (one idea, every platform, scheduled). No plugin system? Any connected agent can self-install with the one-paste prompt in [`skills/postey/bootstrap-prompt.md`](skills/postey/bootstrap-prompt.md), which fetches [`skills/postey/pack.json`](skills/postey/pack.json).
 
+## The Postey MCP server
+
+If you arrived here from an MCP registry, this is what you want:
+
+```
+https://srvr.postey.ai/mcp
+```
+
+Streamable HTTP, hosted, nothing to install. Connect it in one line:
+
+```
+claude mcp add --transport http postey https://srvr.postey.ai/mcp
+```
+
+Two ways to authenticate:
+
+- **OAuth 2.1 + PKCE**, with dynamic client registration. Interactive — it needs a browser.
+- **`X-API-Key: mk_...`** for headless and CI agents, from **AI & Agents → Advanced** in the app.
+  There is no `client_credentials` grant, so this is the only browserless path.
+
+Full tool list and setup guides: **[postey.ai/mcp](https://postey.ai/mcp)**. The server also
+publishes a machine-readable summary at
+[`/connect`](https://srvr.postey.ai/connect), which needs no credential.
+
+Connecting is free. Everything below is the skill layer that sits on top.
+
 ## The skill and the MCP server are layers, not alternatives
 
 The [Postey MCP server](https://app.postey.ai?settings=agents&section=advanced) carries the capability. This skill is a **strict extension** of it: it adds only what the server cannot reach, and it never ships a second path to something the server already does. You are not choosing between them — connect the server, then install the skill on top of it.
