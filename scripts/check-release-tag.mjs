@@ -56,8 +56,8 @@ export function remoteTags(remote = 'origin', run = defaultRun) {
 	return tags;
 }
 
-function defaultRun(cmd, args) {
-	return execFileSync(cmd, args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+function defaultRun(cmd, args, cwd = ROOT) {
+	return execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
 /** Every skill directory that carries a pack.json, with its declared version. */
@@ -90,15 +90,15 @@ export function packagedSkills(root = ROOT) {
  * Returns null when the comparison cannot be made (no tag locally, not a git
  * tree). A comparison that cannot run says so rather than reporting agreement.
  */
-export function contentDiffersFromTag(skill, version, run = defaultRun) {
+export function contentDiffersFromTag(skill, version, run = defaultRun, root = ROOT) {
 	const tag = tagFor(skill, version);
 	try {
-		run('git', ['rev-parse', '--verify', `${tag}^{commit}`]);
+		run('git', ['rev-parse', '--verify', `${tag}^{commit}`], root);
 	} catch {
 		return null;
 	}
 	try {
-		run('git', ['diff', '--quiet', tag, 'HEAD', '--', `skills/${skill}/`]);
+		run('git', ['diff', '--quiet', tag, 'HEAD', '--', `skills/${skill}/`], root);
 		return false;
 	} catch (err) {
 		// git diff --quiet exits 1 when there IS a difference, and >1 on error.
@@ -115,7 +115,7 @@ export function checkReleaseTags({ root = ROOT, tags, only, run = defaultRun } =
 		const tag = tagFor(skill, version);
 
 		if (tags.has(tag)) {
-			const drifted = contentDiffersFromTag(skill, version, run);
+			const drifted = contentDiffersFromTag(skill, version, run, root);
 			if (drifted === true) {
 				problems.push(
 					`skills/${skill}: the shipped content differs from ${tag}, which pack.json pins.\n` +

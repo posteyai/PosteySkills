@@ -38,10 +38,10 @@ mcp-tools:
     - configure_auto_dm
     - get_platform_comments
     - get_posts
-    - reply_to_platform_comment
+    - reply_comment
     # Fallbacks only: each is superseded by a postey:// resource this skill
     # declares. Use them when the client cannot read MCP resources.
-    - get_specific_post_content
+    - get_post_content
   prompts:
 
 routing:

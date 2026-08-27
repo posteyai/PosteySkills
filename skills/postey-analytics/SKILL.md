@@ -36,7 +36,7 @@ mcp-tools:
     - get_posts
     # Fallbacks only: each is superseded by a postey:// resource this skill
     # declares. Use them when the client cannot read MCP resources.
-    - get_specific_post_content
+    - get_post_content
   prompts:
     - analyze-engagement
 

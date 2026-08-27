@@ -47,7 +47,7 @@ mcp-tools:
     # Fallbacks only: each is superseded by a postey:// resource this skill
     # declares. Use them when the client cannot read MCP resources.
     - get_internal_comments
-    - get_specific_post_content
+    - get_post_content
   prompts:
     - improve-post
 

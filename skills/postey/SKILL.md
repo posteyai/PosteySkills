@@ -1,10 +1,6 @@
 ---
 name: postey
-<<<<<<< HEAD
 version: 3.1.0
-=======
-version: 2.6.0
->>>>>>> origin/main
 # No `platforms:` list. The platform set lives on the server and is mirrored into
 # capability-snapshot.json by scripts/refresh-capability-snapshot.js. A copy here
 # would be a fourth hand-maintained list agreeing with the other three and with
@@ -28,6 +24,7 @@ mcp-tools:
     - postey://posts/{post_id}/content/{platform}
     - postey://platform-limits
     - postey://platforms/{platform}/rules
+    - postey://platforms/{platform}/actions
     - postey://posts/{post_id}/analytics
     - postey://accounts/{account_id}
     - postey://teams/{team_id}/members
@@ -35,39 +32,21 @@ mcp-tools:
   tools:
     # GENERATED from capabilities: by scripts/gen-mcp-tools.js — do not hand-edit.
     - add_tag
-<<<<<<< HEAD
     - connect_account
-=======
-    - remove_tag
-    - upload_media
-    - reply_comment
-    - connect_account
-    - configure_auto_dm
-    # Read operations (fallback tools when resources unavailable)
-    - get_accounts
-    - get_teams
-    - get_team_info
-    - get_posts
-    - get_post_content
-    - resolve_share_link
-    - get_schedule
-    - get_platform_comments
-    - get_internal_comments
-    # AI-enhanced operations (no CLI equivalent — always use MCP)
-    - validate_post_content
-    - review_post
->>>>>>> origin/main
     - convert_post_content
     - create_post
     - delete_draft
     - file_manager
     - get_posts
     - get_schedule
+    - link_cli
     - list_files
     - publish_draft
     - read_file
     - remove_tag
-    - review_post_content_and_add_comments_for_virality
+    - restore_post
+    - restore_posts
+    - review_post
     - schedule_post
     - transcribe_video
     - unschedule_post
@@ -78,7 +57,7 @@ mcp-tools:
     # Fallbacks only: each is superseded by a postey:// resource this skill
     # declares. Use them when the client cannot read MCP resources.
     - get_accounts
-    - get_specific_post_content
+    - get_post_content
   prompts:
     - compose-post
     - review-for-virality
@@ -106,14 +85,19 @@ capabilities:
     - account.tags
     - platform.limits
     - platform.rules
+    - platform.actions
     - server.manifest
     - setup.read
+    - cli.link
     # Authoring and the post lifecycle
     - post.create
     - post.read
     - post.list
     - post.update
     - post.delete
+    - post.restore
+    - post.restore_many
+    - post.trash.list
     - post.convert
     - post.review
     - post.validate
@@ -483,11 +467,8 @@ short list and run whichever the user picks. Two minutes to a share link is the 
   [references/mcp-workflows.md](references/mcp-workflows.md)
 - OAuth scopes, the MCP-key path and the agent-token mint endpoints:
   [references/mcp-authentication.md](references/mcp-authentication.md)
-<<<<<<< HEAD
-=======
 - Connecting the server itself — address, per-client registration, config paths:
   <https://raw.githubusercontent.com/posteyai/skills/main/setup.md>
->>>>>>> origin/main
 - Full command reference: [command-reference.md](command-reference.md)
 - Video transcription workflow: [video-workflow.md](video-workflow.md)
 - Platform caption templates: [prompts.md](prompts.md)

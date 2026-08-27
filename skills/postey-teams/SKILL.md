@@ -29,18 +29,19 @@ mcp-tools:
   resources:
     - postey://accounts
     - postey://teams
+    - postey://teams/{team_id}
     - postey://teams/{team_id}/members
     - postey://posts/{post_id}/comments/{platform}
     - postey://posts/{post_id}/content/{platform}
   tools:
     # GENERATED from capabilities: by scripts/gen-mcp-tools.js — do not hand-edit.
-    - get_post_by_share_link
     - get_posts
-    - get_team_info
+    - resolve_share_link
     # Fallbacks only: each is superseded by a postey:// resource this skill
     # declares. Use them when the client cannot read MCP resources.
     - get_internal_comments
-    - get_specific_post_content
+    - get_post_content
+    - get_team_info
     - get_teams
   prompts:
 
