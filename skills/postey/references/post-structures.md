@@ -196,21 +196,29 @@ replies punish it.
 
 ## Porting a structure off X
 
-These were measured on X. They are not all portable, and the ones that are get dressed
-differently — see [platform-archetypes.md](platform-archetypes.md) for each network's shape.
+> **Untested — this section is reasoning, not measurement.** Everything above comes from
+> top-vs-bottom quintile analysis of real posts. Nothing below does: the corpus is X-only, so
+> no data here says how these structures behave on LinkedIn, Instagram or TikTok. Treat it as a
+> starting hypothesis, and say so if a user asks why a structure was chosen for a non-X platform.
+> When the account has its own cross-platform history, `postey-analytics` on that account beats
+> this table — use it instead.
 
-| Ports well | Structures | Note |
+One thing here **is** grounded: on Instagram and TikTok the structure governs the **spoken** hook,
+not the caption. The caption follows its platform archetype
+([platform-archetypes.md](platform-archetypes.md)), and the structure only shapes the first line.
+
+The rest is inference from what each structure depends on:
+
+| Structure depends on | So it likely needs | Structures |
 |---|---|---|
-| **Everywhere** | Receipts List, Two-Types Split, Mechanism Explainer | Value-per-line survives any format |
-| **LinkedIn especially** | Operator Confession, Timeline, Human Post, Build Log | Longer form and a professional register suit these |
-| **Instagram / TikTok** | Aphorism, Zero Stack, Two-Types Split | Short enough to be a spoken hook; the caption carries the rest |
-| **X and Threads only** | Ship Note, Genuine Question, Demo Drop | Depend on reply culture or on pasting a raw artifact |
+| Value-per-line alone | nothing platform-specific | Receipts List, Two-Types Split, Mechanism Explainer |
+| Room to develop a thought | a long-form surface | Operator Confession, Timeline, Human Post, Build Log |
+| Compression to a single line | works as a spoken hook | Aphorism, Zero Stack, Two-Types Split |
+| Reply culture, or pasting a raw artifact | a conversational text feed | Ship Note, Genuine Question, Demo Drop |
+| A reader who follows a dense argument | X or LinkedIn behaviour | Reframe Hook, Number Compression |
 
-Two structures do not port: **Reframe Hook** and **Number Compression** need a reader who will
-follow a dense argument, which is an X and LinkedIn behaviour.
-
-On Instagram and TikTok the structure becomes the **spoken** hook, not the caption. The caption
-then follows its platform archetype, and the structure only governs the first line.
+Read the middle column, not the platform names — the dependency is the durable part, and it is
+what tells you whether a structure survives a surface this table never anticipated.
 
 ## Self-check before returning a draft
 
