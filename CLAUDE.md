@@ -19,7 +19,7 @@ skills/  (repo: posteyai/skills)
 ├── .github/workflows/
 │   └── test.yml               — CI: node --test + check-versions + check-leaks (2 scopes) + check-setup-links + check-capability-overlap + check-doc-commands + refresh-capability-snapshot + check-mcp-tool-sync
 ├── scripts/
-│   ├── check-versions.js      — CI: verify SKILL.md version == plugin.json == marketplace == pack.json == REGISTRY.md == README badge
+│   ├── check-versions.js      — CI: verify SKILL.md version == plugin.json == marketplace == pack.json == REGISTRY.md == README badge == .codex-plugin == .cursor-plugin
 │   ├── set-version.mjs        — write all seven version places from one argument (release step; --check to dry-run)
 │   ├── check-release-tag.mjs  — CI on main: the released version's tag exists on the remote (rawBase pins it)
 │   ├── check-doc-commands.js  — CI: verify every documented command exists in the CLI COMMANDS table
@@ -130,7 +130,7 @@ There is no build step, no lint config, and no formatter config in this repo.
 
 ## When Editing the Skill or CLI
 
-1. **Set the version with `node scripts/set-version.mjs X.Y.Z`.** It writes all seven places — `skills/postey/SKILL.md` frontmatter, `skills/postey/.claude-plugin/plugin.json`, the plugin entry in `.claude-plugin/marketplace.json`, `skills/postey/pack.json` (version AND the tag in `rawBase`), the `skills/REGISTRY.md` row, and the README badge. It fails loudly if any file or anchor is missing rather than writing six of seven. `--check` reports without writing. Then run `node scripts/check-versions.js` — the writer and the assertion are separate programs on purpose, so a bug in one cannot silence the other.
+1. **Set the version with `node scripts/set-version.mjs X.Y.Z`.** It writes all nine places — `skills/postey/SKILL.md` frontmatter, `skills/postey/.claude-plugin/plugin.json`, the plugin entry in `.claude-plugin/marketplace.json`, `skills/postey/pack.json` (version AND the tag in `rawBase`), the `skills/REGISTRY.md` row, the README badge, and (hub only) `.codex-plugin/plugin.json` and `.cursor-plugin/plugin.json`. It fails loudly if any file or anchor is missing rather than writing eight of nine. `--check` reports without writing. Then run `node scripts/check-versions.js` — the writer and the assertion are separate programs on purpose, so a bug in one cannot silence the other.
 
    **After the release merges, push the tag: `git tag skills/postey/vX.Y.Z <merge-sha> && git push origin skills/postey/vX.Y.Z`.** pack.json's `rawBase` pins it, so every fetch-based install 404s until it exists. `scripts/check-release-tag.mjs` asserts this against the remote and runs in CI on `main` only — a release PR legitimately carries a version whose tag is not pushed yet.
 

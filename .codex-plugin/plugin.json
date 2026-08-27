@@ -1,0 +1,49 @@
+{
+  "name": "postey",
+  "version": "2.5.2",
+  "description": "Draft, schedule and publish social posts across X, LinkedIn, Instagram, TikTok, YouTube, Threads, Bluesky, Facebook and Pinterest. Reshape one draft per network against each one's real limits, keep everything a draft until you approve, and hand back a share link.",
+  "author": {
+    "name": "Postey",
+    "email": "support@postey.ai",
+    "url": "https://postey.ai"
+  },
+  "homepage": "https://postey.ai",
+  "repository": "https://github.com/posteyai/skills",
+  "license": "MIT",
+  "keywords": [
+    "postey",
+    "social-media",
+    "scheduling",
+    "publishing",
+    "captions",
+    "cross-posting",
+    "content-calendar",
+    "viral-content",
+    "hooks",
+    "engagement",
+    "x",
+    "linkedin",
+    "instagram",
+    "tiktok",
+    "youtube"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Postey",
+    "shortDescription": "Write once, publish to nine social networks",
+    "longDescription": "Postey turns your agent into a social media manager. Write a post once and it is reshaped for each network against that network's real character limits, hashtag conventions and format — never one caption pasted nine times. Everything stays a draft until you say publish, and scheduling counts as publishing, so nothing goes out without your approval. Reads your connected accounts rather than assuming them, and every task ends with a share link you can send to a reviewer.",
+    "developerName": "Postey",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://postey.ai",
+    "defaultPrompt": [
+      "Draft a post about this and show me a version for each of my platforms",
+      "What should I post today?",
+      "Turn this video into a reel caption for Instagram and TikTok",
+      "What's scheduled this week, and did last week's posts actually go out?"
+    ],
+    "brandColor": "#0a0a0a",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/logo.png"
+  }
+}

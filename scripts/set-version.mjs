@@ -73,6 +73,23 @@ function edits(skill, version, root) {
 			what: 'README badge',
 			skip: skill !== 'postey', // the repo-level badge tracks postey only
 			apply: (s) => replaceOne(s, /(badge\/version-)([0-9.]+)(-)/, `$1${version}$3`)
+		},
+		// Codex and Cursor read their own root manifests. Like the README badge
+		// these track the hub, because that is the plugin both agents install —
+		// a pack ships inside it, not as a separate listing. Left out here they
+		// would go on advertising a stale version to two whole ecosystems, and
+		// nothing in a green build would say so.
+		{
+			file: path.join(root, '.codex-plugin', 'plugin.json'),
+			what: '.codex-plugin/plugin.json',
+			skip: skill !== 'postey',
+			apply: (s) => replaceOne(s, /("version":\s*")([^"]+)(")/, `$1${version}$3`)
+		},
+		{
+			file: path.join(root, '.cursor-plugin', 'plugin.json'),
+			what: '.cursor-plugin/plugin.json',
+			skip: skill !== 'postey',
+			apply: (s) => replaceOne(s, /("version":\s*")([^"]+)(")/, `$1${version}$3`)
 		}
 	];
 }
