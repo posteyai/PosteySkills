@@ -75,7 +75,7 @@
       "name": "postey-voice",
       "source": "./skills/postey-voice",
       "description": "Voice pack for Postey: learn how the user writes from their published posts and their draft verdicts. Requires the postey skill.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": {
         "name": "Postey",
         "url": "https://postey.ai"
