@@ -2,7 +2,7 @@
   "$schema": "https://cursor.com/schemas/cursor-plugin/plugin.json",
   "name": "postey",
   "displayName": "Postey",
-  "version": "2.5.2",
+  "version": "2.6.0",
   "description": "Draft, schedule and publish social posts across X, LinkedIn, Instagram, TikTok, YouTube, Threads, Bluesky, Facebook and Pinterest. Reshape one draft per network against each one's real limits, keep everything a draft until you approve, and hand back a share link.",
   "author": {
     "name": "Postey",
