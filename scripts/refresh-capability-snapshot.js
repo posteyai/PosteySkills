@@ -18,6 +18,14 @@
  * Add --check to fail instead of writing when the server has moved — that is the
  * drift gate CI runs; the offline tests can only prove internal consistency.
  *
+ * `--manifest-file <path>` builds from a manifest already in hand instead of
+ * fetching one. The reading of postey://skill-manifest needs a credential, and
+ * without one this script soft-skips — which is how the snapshot sat at
+ * server_version 2.1.0, naming four tools the server had already renamed, while
+ * every check stayed green. A manifest obtained by any means can now be turned
+ * into the snapshot by the same build(), so refreshing does not require the one
+ * credential the fetch path happens to need.
+ *
  * Exit codes: 0 = written (or already current), 1 = drift under --check, or error.
  */
 
@@ -28,17 +36,15 @@ const ROOT = path.resolve(__dirname, '..');
 const SNAPSHOT = path.join(ROOT, 'skills', 'postey', 'capability-snapshot.json');
 const CHECK_ONLY = process.argv.includes('--check');
 
+const fileFlag = process.argv.indexOf('--manifest-file');
+const MANIFEST_FILE = fileFlag === -1 ? null : process.argv[fileFlag + 1];
+if (fileFlag !== -1 && !MANIFEST_FILE) {
+  console.error('✗ --manifest-file needs a path');
+  process.exit(1);
+}
+
 const MCP_SERVER_URL = process.env.MCP_SERVER_URL;
 const POSTEY_API_KEY = process.env.POSTEY_API_KEY;
-
-if (!MCP_SERVER_URL) {
-  // Unconfigured (fork PRs have no secrets) soft-skips; CONFIGURED never degrades
-  // into a green skip — a fetch failure below is a hard failure. The offline tests
-  // still hold the snapshot internally consistent, so only server drift goes
-  // unchecked here, never repo drift.
-  console.log('⚠ MCP_SERVER_URL unset — skipping live snapshot check');
-  process.exit(0);
-}
 
 // `ui://` renderer prefabs are client-side UI, not Postey capability. Including
 // them would put an opaque hash in the snapshot that churns on every deploy.
@@ -114,9 +120,28 @@ function build(manifest) {
   };
 }
 
+// Exported so tests can drive build() against fixtures. A rule proven only
+// against the live server is a rule CI cannot check (F-046).
+module.exports = { build };
+
+// Only run when executed directly. Requiring this file must not exit the
+// process -- the tests import build() and would otherwise hit the soft-skip.
+if (require.main !== module) return;
+
 (async () => {
   try {
-    const next = JSON.stringify(build(await readManifest()), null, 2) + '\n';
+    if (!MCP_SERVER_URL && !MANIFEST_FILE) {
+      // Unconfigured (fork PRs have no secrets) soft-skips; CONFIGURED never
+      // degrades into a green skip -- a fetch failure below is a hard failure.
+      // The offline tests still hold the snapshot internally consistent, so only
+      // server drift goes unchecked here, never repo drift.
+      console.log('⚠ MCP_SERVER_URL unset and no --manifest-file — skipping live snapshot check');
+      return;
+    }
+    const manifest = MANIFEST_FILE
+      ? JSON.parse(fs.readFileSync(MANIFEST_FILE, 'utf8'))
+      : await readManifest();
+    const next = JSON.stringify(build(manifest), null, 2) + '\n';
     const current = fs.existsSync(SNAPSHOT) ? fs.readFileSync(SNAPSHOT, 'utf8') : '';
 
     if (next === current) {

@@ -6,7 +6,8 @@
     "Rahul Adhikari"
   ],
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "check:server-card": "node scripts/check-server-card.js"
   },
   "devDependencies": {}
 }

@@ -40,7 +40,7 @@ mcp-tools:
     - add_tag
     - remove_tag
     - upload_media
-    - reply_to_platform_comment
+    - reply_comment
     - connect_account
     - configure_auto_dm
     # Read operations (fallback tools when resources unavailable)
@@ -48,14 +48,14 @@ mcp-tools:
     - get_teams
     - get_team_info
     - get_posts
-    - get_specific_post_content
-    - get_post_by_share_link
+    - get_post_content
+    - resolve_share_link
     - get_schedule
     - get_platform_comments
     - get_internal_comments
     # AI-enhanced operations (no CLI equivalent — always use MCP)
     - validate_post_content
-    - review_post_content_and_add_comments_for_virality
+    - review_post
     - convert_post_content
     - transcribe_video
   prompts:
@@ -75,7 +75,7 @@ routing:
   platform-limits:     mcp-resource  # postey://platform-limits / postey://platforms/{p}/rules
   analytics:           mcp-resource  # postey://posts/{id}/analytics
   validation:          mcp-tool      # validate_post_content (no CLI equivalent)
-  virality-review:     mcp-tool      # review_post_content_and_add_comments_for_virality
+  virality-review:     mcp-tool      # review_post
   comment-read:        mcp-tool      # get_platform_comments / get_internal_comments
   convert-content:     mcp-tool      # convert_post_content
   write-post:          mcp-tool      # create/update/publish/schedule/delete → MCP tools, in EVERY environment
@@ -149,7 +149,7 @@ paths: <https://raw.githubusercontent.com/posteyai/skills/main/setup.md>. The ke
      `get_posts`) always use the tool.
 
 4. **Content validation or virality review** before publishing?
-   → **MCP tools** — `validate_post_content`, `review_post_content_and_add_comments_for_virality` — no CLI equivalent; do not skip these in any MCP-capable session.
+   → **MCP tools** — `validate_post_content`, `review_post` — no CLI equivalent; do not skip these in any MCP-capable session.
 
 5. **All other writes** (create, update, publish, schedule, delete, tag, upload by URL)?
    → **MCP tools, in every environment** — `create_post`, `update_post`, `publish_draft`, `schedule_post`, `delete_draft`.
@@ -166,14 +166,14 @@ paths: <https://raw.githubusercontent.com/posteyai/skills/main/setup.md>. The ke
 | Validate content before posting | MCP tool | No CLI equivalent |
 | Virality review | MCP tool | No CLI equivalent |
 | Create / update / publish / schedule / delete | MCP tool | `create_post`, `update_post`, `publish_draft`, `schedule_post`, `delete_draft` |
-| Get single draft content | MCP | `postey://posts/{id}/content/{platform}`, or `get_specific_post_content` |
+| Get single draft content | MCP | `postey://posts/{id}/content/{platform}`, or `get_post_content` |
 | Cursor, SDK agent, CI/CD environment | Same as above — unchanged | The environment decides whether the CLI is *available*, never who owns the operation |
 
 ### Anti-Patterns
 
 - **Never** call `get_accounts` when your client can read MCP resources — read `postey://accounts` instead. Resource-blind clients (many hosted connectors) may use the tool.
 - **Never** call `upload_media` for a local file — it accepts URLs only.
-- **Never** skip `validate_post_content` / `review_post_content_and_add_comments_for_virality` in any MCP-capable session.
+- **Never** skip `validate_post_content` / `review_post` in any MCP-capable session.
 - **Never** use CLI `drafts:create` / `drafts:publish` / `drafts:schedule` — these commands are removed; use MCP tools. The same holds in CI/CD, Cursor, Windsurf and SDK agents: without an MCP server there is no write path, not a CLI one.
 - **Never** call REST endpoints directly (e.g. `GET /accounts`) — always use MCP resources or tools.
 - **Never** guess or invent an `account_id` — always read the accounts (`postey://accounts`, or `get_accounts` for resource-blind clients) and confirm with the user.
@@ -361,7 +361,7 @@ House rules for every flow (non-negotiable):
    platform with its caption, then one `update_post` per remaining platform with that platform's
    caption — same `post_id` throughout.
 4. Verify each platform after creating — read `postey://posts/{id}/content/{platform}` (or call
-   `get_specific_post_content` if your client cannot read resources) — and run
+   `get_post_content` if your client cannot read resources) — and run
    `validate_post_content` per platform, then fix before presenting.
 5. End every flow by giving the user the draft's share link.
 6. Tag agent-created posts: an agent tag (default `Agent`, ask the user once if they prefer

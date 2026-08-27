@@ -59,7 +59,7 @@ The CLI has been converging on this rule for some time:
 | `drafts:delete` | `delete_draft` |
 | `drafts:schedule` | `schedule_post` |
 | `drafts:content` | `postey://posts/{id}/content/{platform}` |
-| `drafts:get` | `get_specific_post_content` / the content resource |
+| `drafts:get` | `get_post_content` / the content resource |
 | `posts:create` | `create_post` |
 
 `video post` and `video transcribe` still handle the video itself — that needs the user's disk and
