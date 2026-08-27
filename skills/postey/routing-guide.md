@@ -88,8 +88,13 @@ the machine, MCP for the state and the write:
      --platforms INSTAGRAM --account-id <id>                       ← CLI: uploads, returns fields
 3. Validate content via validate_post_content                      ← MCP tool
 4. create_post (account_id=…, platforms=…, media_urls from step 2) ← MCP write
-5. publish_draft (post_id=…, platforms=[…])                        ← MCP write
+5. Show the user the per-platform copy and wait for an explicit yes
+6. publish_draft (post_id=…, platforms=[…])                        ← MCP write, only after step 5
 ```
+
+Step 5 is not optional and does not collapse into step 6. `publish_draft` and `schedule_post` are
+the two irreversible calls in this document — scheduling counts as publishing, because a scheduled
+post publishes itself. A routing decision never doubles as approval.
 
 ## Environment-Specific Guidance
 

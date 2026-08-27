@@ -32,10 +32,37 @@
 const fs = require('fs');
 const path = require('path');
 
+const { discoverSkills } = require('./lib/skills');
+
 const ROOT = path.resolve(__dirname, '..');
 const SKILL_DIR = path.join(ROOT, 'skills', 'postey');
 const CLI = path.join(SKILL_DIR, 'scripts', 'postey.js');
+// The snapshot is shipped data, not CI-only data: postey.js requires it at runtime
+// for SOCIAL_PLATFORMS. It therefore stays inside the skill, and the hub's copy is
+// authoritative for CI.
 const SNAPSHOT = path.join(SKILL_DIR, 'capability-snapshot.json');
+
+/**
+ * Every skill that ships a CLI, as [{ name, cli }]. A skill has a CLI when one of
+ * its scripts/*.js declares a COMMANDS table. Prose-only skills have none and are
+ * simply absent — they cannot overlap MCP because they invoke nothing.
+ */
+function skillClis() {
+  const out = [];
+  for (const skill of discoverSkills(path.join(ROOT, 'skills'))) {
+    const scriptsDir = path.join(skill.dir, 'scripts');
+    if (!fs.existsSync(scriptsDir)) continue;
+    for (const file of fs.readdirSync(scriptsDir).sort()) {
+      if (!file.endsWith('.js')) continue;
+      const full = path.join(scriptsDir, file);
+      if (/const COMMANDS\s*=\s*\{/.test(fs.readFileSync(full, 'utf8'))) {
+        out.push({ name: skill.name, cli: full });
+        break;
+      }
+    }
+  }
+  return out;
+}
 
 /**
  * Capabilities the CONTRACT assigns to the skill even though MCP also serves the
@@ -77,11 +104,11 @@ const fail = (msg) => {
   errors++;
 };
 
-function cliCommands() {
-  const src = fs.readFileSync(CLI, 'utf8');
+function cliCommands(cliPath = CLI) {
+  const src = fs.readFileSync(cliPath, 'utf8');
   const block = src.match(/const COMMANDS\s*=\s*\{([\s\S]*?)\n\};/);
   if (!block) {
-    console.error('✗ could not locate the COMMANDS table in postey.js');
+    console.error(`✗ could not locate the COMMANDS table in ${path.basename(cliPath)}`);
     process.exit(1);
   }
   const top = block[1]
@@ -127,14 +154,11 @@ function subcommandsOf(group, src) {
   )];
 }
 
-function main() {
-  const snapshot = JSON.parse(fs.readFileSync(SNAPSHOT, 'utf8'));
-  const canonical = snapshot.canonical || {};
-  const mcpTools = new Set(snapshot.tools || []);
-  const commands = cliCommands();
+function checkOneCli(label, cliPath, canonical, mcpTools) {
+  const commands = cliCommands(cliPath);
 
   if (commands.length === 0) {
-    console.error('✗ parsed zero CLI commands — the check would pass vacuously');
+    console.error(`✗ ${label}: parsed zero CLI commands — the check would pass vacuously`);
     process.exit(1);
   }
 
@@ -183,12 +207,35 @@ function main() {
     );
   }
 
+  return commands;
+}
+
+function main() {
+  const snapshot = JSON.parse(fs.readFileSync(SNAPSHOT, 'utf8'));
+  const canonical = snapshot.canonical || {};
+  const mcpTools = new Set(snapshot.tools || []);
+
+  const clis = skillClis();
+  if (clis.length === 0) {
+    console.error('✗ no skill ships a CLI — the check would pass vacuously');
+    process.exit(1);
+  }
+
+  const seen = new Set();
+  let total = 0;
+  for (const { name, cli } of clis) {
+    const commands = checkOneCli(`skills/${name}`, cli, canonical, mcpTools);
+    commands.forEach((c) => seen.add(c));
+    total += commands.length;
+  }
+
   // The inverse rot: an exemption for a command that no longer exists quietly
-  // grants cover to whatever later takes that name.
+  // grants cover to whatever later takes that name. Checked against the union,
+  // so a prose-only skill cannot make a live exemption look stale.
   for (const command of Object.keys(SKILL_OWNED)) {
-    if (!commands.includes(command)) {
+    if (!seen.has(command)) {
       fail(
-        `SKILL_OWNED lists \`${command}\` but the CLI has no such command — ` +
+        `SKILL_OWNED lists \`${command}\` but no skill CLI has such a command — ` +
           `remove the stale exemption`
       );
     }
@@ -198,11 +245,13 @@ function main() {
     console.error(`\n✗ ${errors} capability overlap(s) — see docs/skills-mcp-contract.md`);
     process.exit(1);
   }
-  console.log(`✓ ${commands.length} CLI commands, no undeclared overlap with MCP`);
+  console.log(
+    `✓ ${total} CLI command(s) across ${clis.length} skill(s), no undeclared overlap with MCP`
+  );
 }
 
 // `cliCommands` is the one parser of the COMMANDS table; check-doc-commands.js
 // reuses it rather than growing a second copy that could disagree with this one.
-module.exports = { cliCommands };
+module.exports = { cliCommands, skillClis };
 
 if (require.main === module) main();

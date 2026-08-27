@@ -1,20 +1,25 @@
 ---
 name: postey
-version: 2.6.0
+version: 3.1.0
 # No `platforms:` list. The platform set lives on the server and is mirrored into
 # capability-snapshot.json by scripts/refresh-capability-snapshot.js. A copy here
 # would be a fourth hand-maintained list agreeing with the other three and with
 # nothing that ships (S9.5).
 description: >
   Create, schedule, and manage social media posts via Postey across X, LinkedIn,
-  Instagram, TikTok, YouTube, Threads, Bluesky, Facebook, and Pinterest. Handles video/reel workflows:
-  transcribe any video URL and cross-post, or use `video post` for single-command
-  upload with auto cover thumbnail.
+  Instagram, TikTok, YouTube, Threads, Bluesky, Facebook, and Pinterest. The hub:
+  accounts, platform truth, the post lifecycle, and the shared craft layer that
+  decides how a post is written — plus the local-file and large-upload paths the
+  MCP server cannot reach. Content flows ship as optional packs that require this
+  one: install `postey-video` to transcribe a video and turn it into per-platform
+  posts, `postey-ideas` to decide what to post.
 when_to_use: >
   Use when asked to: draft a tweet, post to LinkedIn, create a thread, schedule
-  content, publish a post, check scheduled or published posts, upload a video to
-  Instagram/TikTok/YouTube, cross-post to multiple platforms, manage social drafts,
-  generate captions from a video URL, or any social media publishing task.
+  content, publish a post, check scheduled or published posts, upload a video or
+  image from local disk to Instagram/TikTok/YouTube, cross-post to multiple
+  platforms, manage social drafts, or any social media publishing task. Transcribing
+  a video into captions belongs to `postey-video`; deciding what to post belongs to
+  `postey-ideas`; confirming something actually went out belongs to `postey-ops`.
 allowed-tools:
   - Bash(${CLAUDE_SKILL_DIR}/scripts/postey.js:*)
 mcp-tools:
@@ -24,40 +29,38 @@ mcp-tools:
     - postey://posts/{post_id}/content/{platform}
     - postey://platform-limits
     - postey://platforms/{platform}/rules
+    - postey://platforms/{platform}/actions
     - postey://posts/{post_id}/analytics
     - postey://accounts/{account_id}
     - postey://teams/{team_id}/members
     - postey://skill-manifest
   tools:
-    # Write operations — MCP only. The CLI has no write command; there is no fallback.
-    - create_post
-    - update_post
-    - delete_draft
-    - publish_draft
-    - schedule_post
-    - unschedule_post
-    - update_schedule
+    # GENERATED from capabilities: by scripts/gen-mcp-tools.js — do not hand-edit.
     - add_tag
-    - remove_tag
-    - upload_media
-    - reply_comment
     - connect_account
-    - configure_auto_dm
-    # Read operations (fallback tools when resources unavailable)
-    - get_accounts
-    - get_teams
-    - get_team_info
-    - get_posts
-    - get_post_content
-    - resolve_share_link
-    - get_schedule
-    - get_platform_comments
-    - get_internal_comments
-    # AI-enhanced operations (no CLI equivalent — always use MCP)
-    - validate_post_content
-    - review_post
     - convert_post_content
+    - create_post
+    - delete_draft
+    - file_manager
+    - get_posts
+    - get_schedule
+    - link_cli
+    - list_files
+    - publish_draft
+    - read_file
+    - remove_tag
+    - review_post
+    - schedule_post
     - transcribe_video
+    - unschedule_post
+    - update_post
+    - update_schedule
+    - upload_media
+    - validate_post_content
+    # Fallbacks only: each is superseded by a postey:// resource this skill
+    # declares. Use them when the client cannot read MCP resources.
+    - get_accounts
+    - get_post_content
   prompts:
     - compose-post
     - review-for-virality
@@ -66,6 +69,54 @@ mcp-tools:
     - analyze-engagement
     - generate-captions-from-transcript
     - generate-captions-batch
+# Capability-keyed ownership. Keys are `canonical` entries from
+# capability-snapshot.json — the server's vocabulary, never raw tool names, so this
+# cannot drift into a second hand-kept list (S9.5). `owns` is exclusive: exactly one
+# skill may own a key. `reads` is shared. Contract: docs/skills-mcp-contract.md.
+#
+# Every capability the server exposes now has an owner; the unclaimed allowlist is
+# empty and check-capability-contract keeps it that way. Claiming a key this skill
+# does not actually document would defeat the coverage check.
+capabilities:
+  owns:
+    # Accounts, platform truth, setup — the hub's operations layer
+    - account.connect
+    - account.list
+    - account.read
+    - account.tags
+    - platform.limits
+    - platform.rules
+    - platform.actions
+    - server.manifest
+    - setup.read
+    - cli.link
+    # Authoring and the post lifecycle
+    - post.create
+    - post.read
+    - post.list
+    - post.update
+    - post.delete
+    - post.convert
+    - post.review
+    - post.validate
+    - post.tag.add
+    - post.tag.remove
+    - publish.now
+    - schedule.create
+    - schedule.read
+    - schedule.update
+    - schedule.delete
+    # Media and local files (the only capability the CLI may hold)
+    - media.upload
+    - file.list
+    - file.read
+    - file.upload
+  reads:
+    - media.transcribe
+  prompts:
+    - compose-post
+    - review-for-virality
+
 # Machine-readable routing rules (mirrors routing-guide.md; used by CI and agents).
 # Values: a single path, or "primary > fallback" — use the fallback only when
 # your client lacks the primary capability (cannot read MCP resources, or has
@@ -199,12 +250,18 @@ paths: <https://raw.githubusercontent.com/posteyai/skills/main/setup.md>. The ke
 2. `POSTEY_AUTH_TOKEN` environment variable — a bearer token the MCP server sets when it runs this
    CLI for an OAuth-authenticated caller. Not something you set by hand.
 3. OAuth session from `postey.js auth:login`
-4. `./.postey/config.json` (project-local)
-5. `~/.config/postey/config.json` (user-global)
+4. A linked credential from `postey.js auth:link` — the CLI copying the access this
+   connection already has. This is what `setup.md` Step 5 sets up.
+5. `./.postey/config.json` (project-local)
+6. `~/.config/postey/config.json` (user-global)
 
 ### When "API key not found" appears
 
-Tell the user to run the setup command interactively — you cannot run it on their behalf. **Stop and wait** for them to confirm setup before proceeding. Do not attempt to find credentials in keychains, `.env` files, or config directories.
+If your client is already connected to the MCP server, run `postey.js auth:link --begin` and call
+the `link_cli` tool with the code it prints — that copies this connection's access to the CLI and
+needs no second sign-in. Otherwise tell the user to run the setup command interactively; you cannot
+run it on their behalf, so **stop and wait**. Never run bare `setup` unattended: it prompts on
+stdin. Do not look for credentials in keychains, `.env` files, or config directories.
 
 ## Account Selection
 
@@ -339,7 +396,8 @@ ${CLAUDE_SKILL_DIR}/scripts/postey.js video post <account_id> \
 
 ## Video → Captions → Cross-Post
 
-For transcription-based workflows, see [video-workflow.md](video-workflow.md).
+Transcription is `postey-video`'s — install that pack for it. Uploading a video or image from local
+disk is this skill's: see [video-workflow.md](video-workflow.md).
 For platform-specific caption rules, see [prompts.md](prompts.md).
 
 ## Content Flows
@@ -370,21 +428,29 @@ House rules for every flow (non-negotiable):
    reuse the tag names visible on recent posts (`get_posts` returns each post's tags) instead of
    inventing near-duplicates. `remove_tag` undoes a mis-tag.
 
-| Flow | The user says something like | Load |
-|------|------------------------------|------|
-| Brand voice | "Learn my voice", "write like me", a handle or website | [references/brand-voice.md](references/brand-voice.md) |
-| Video everywhere | a video URL, "post this video everywhere" | [references/video-to-everywhere.md](references/video-to-everywhere.md) |
-| Trends | "what should I post today?", "find something trending" | [references/trends-to-posts.md](references/trends-to-posts.md) |
-| Idea to posts | one rough idea, "turn this into posts" | [references/idea-to-posts.md](references/idea-to-posts.md) |
+**Ships in** names the skill that carries each flow. A flow whose pack is not installed is not
+available — say so and offer the ones that are, rather than improvising the flow from memory. CI
+(`scripts/check-pack-discovery.js`) fails if this table advertises a pack that does not exist.
 
-Shared knowledge the flows cite: [references/caption-playbook.md](references/caption-playbook.md)
-(universal rules and pre-upload checklist), [references/platform-archetypes.md](references/platform-archetypes.md),
+| Flow | The user says something like | Ships in | Load |
+|------|------------------------------|----------|------|
+| Brand voice | "Learn my voice", "write like me", a handle or website | `postey-voice` | that pack's own flow file |
+| Video everywhere | a video URL, "post this video everywhere" | `postey-video` | that pack's own flow file |
+| Trends | "what should I post today?", "find something trending" | `postey-ideas` | that pack's own flow file |
+| Idea to posts | one rough idea, "turn this into posts" | `postey-ideas` | that pack's own flow file |
+
+**The craft layer always ships here**, in the hub, because every flow cites it — wherever the flow
+itself lives: [references/caption-playbook.md](references/caption-playbook.md) (universal rules and
+pre-upload checklist), [references/platform-archetypes.md](references/platform-archetypes.md),
+[references/post-structures.md](references/post-structures.md) (the 18 structures, each with the
+condition that selects it and the way it fails — read this when choosing a shape, before drafting),
 [references/hook-formulas.md](references/hook-formulas.md), [references/x-algorithm.md](references/x-algorithm.md),
 [references/thread-and-video-formats.md](references/thread-and-video-formats.md), and
-[references/brand-profile-template.md](references/brand-profile-template.md).
+[references/brand-profile-template.md](references/brand-profile-template.md) (the schema for the
+per-brand profile every flow reads before drafting).
 
-First-run greeting: after verifying accounts, offer the four flows in one short list and run
-whichever the user picks. Two minutes to a share link is the goal.
+First-run greeting: after verifying accounts, offer the flows this installation actually has in one
+short list and run whichever the user picks. Two minutes to a share link is the goal.
 
 ## Automation Guidelines
 
@@ -392,7 +458,10 @@ whichever the user picks. Two minutes to a share link is the goal.
 - No unsolicited automated replies
 - No trending manipulation or fake engagement
 - Respect API rate limits
-- **Always confirm before publishing** unless user explicitly says "post now" or "publish immediately" — drafts are private; publishing is irreversible
+- **Never publish or schedule without the user's explicit yes in the current turn.** Scheduling
+  counts as publishing, because a scheduled post publishes itself. "Post this now" asks for a
+  draft you then show them — it approves the intent, never text they have not seen. Show the
+  exact per-platform copy and wait. Publishing is irreversible and public; drafts are private.
 
 ## Tips
 

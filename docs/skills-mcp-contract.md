@@ -66,15 +66,52 @@ The CLI has been converging on this rule for some time:
 local ffmpeg — but they stop at the upload and return the fields for `create_post` rather than
 creating the draft themselves.
 
+## Ownership is capability-keyed
+
+> **Amended 2026-08-02** (owner-approved). The rule above answers *skill or MCP*. Once the repo holds
+> more than one skill it must also answer **which** skill — otherwise two skills ship rival guidance
+> for the same capability, or a capability the server exposes is documented by nobody. Both had
+> already happened: `postey://notifications` and `postey://posts/{id}/publish-status` shipped with
+> zero coverage in any skill, and six of seven MCP prompts were declared and never routed to.
+
+Every skill declares, in `SKILL.md` frontmatter, what it is responsible for — in **canonical
+capability keys**, never raw tool names:
+
+```yaml
+capabilities:
+  owns:    [post.create, post.update, …]   # exclusive
+  reads:   [analytics.top_posts, …]        # shared
+  prompts: [compose-post, …]
+```
+
+The vocabulary is `capability-snapshot.json`'s `canonical` map, which is generated from
+`postey://skill-manifest`. Declaring in the server's own keys is the same principle as S9.5: a
+hand-maintained list agreeing with the other lists and with nothing that ships is the defect.
+
+- **`owns`** — exactly one skill per key. Owning a capability means carrying the guidance for using
+  it. A skill must not claim a capability it does not actually document; claiming it to silence the
+  coverage check defeats the check.
+- **`reads`** — unrestricted. Several skills legitimately read the same state. Only *ownership* is
+  exclusive.
+- `mcp-tools.tools:` is **derived** from `capabilities:`, not hand-written.
+
 ## Enforcement
 
-A contract that is only prose is the failure mode this exists to prevent. Two mechanical checks are
-intended:
+A contract that is only prose is the failure mode this exists to prevent. Six mechanical checks:
 
-1. **Non-intersection check.** The skill's documented command list must not intersect the MCP tool
-   list taken from server discovery. Any overlap fails the build.
-2. **Capability-source check.** The skill declares no hand-maintained platform or tool list; it reads
-   them from discovery.
+| # | Check | Enforces |
+|---|-------|----------|
+| **C1** | **Cover** — every `canonical` key is claimed by some skill | a new server capability fails the build until a skill owns it |
+| **C2** | **Exclusive** — no key appears in two skills' `owns` | no rival guidance for one capability |
+| **C3** | **Resource-first** — no skill names a `superseded_by` tool as its path | "Reads are resource-first", above |
+| **C4** | **Prompts owned** — every declared prompt is claimed | prompts cannot ship unrouted |
+| **C5** | **Derived tool lists** — `mcp-tools.tools:` regenerates identically from `capabilities:` | no hand-maintained tool list |
+| **C6** | **Non-intersection** — documented CLI commands ∩ server tools = ∅ | "No overlapping capability", above |
 
-Both depend on the server publishing its real surface through discovery. Until that lands, this
-document is the authority and the boundary is maintained by review.
+C6 is the original intended check 1. The original check 2 (capability-source) is now structural
+rather than a check: the skill has no hand-maintained tool list left to audit, because C5 generates
+it.
+
+While the pillar skills are still being built, C1 and C4 carry a time-boxed allowlist of unclaimed
+keys and prompts. Each entry names the stage that clears it, and the allowlist reaching **empty** is
+the completion test for the split — not a step that can be quietly skipped.

@@ -4,6 +4,142 @@ All notable user-facing changes to the Postey skill and its CLI are documented h
 
 The format is based on Keep a Changelog.
 
+## 3.1.0
+
+**A fetch-based install of the hub shipped a CLI that could not start.** `pack.json` listed the
+three `scripts/*.js` files but not `capability-snapshot.json`, which `postey.js` requires at load —
+so every command, including `--help`, died with `MODULE_NOT_FOUND`. The manifest now lists it, and a
+test asserts that every runtime `require` of a packaged CLI is itself in the manifest.
+
+**`setup` without `--key` no longer hangs an unattended agent.** It prompts on stdin, and the flag
+that was supposed to prevent that actually meant "a key was supplied", so it could never fire. With
+no TTY the command now fails immediately with a JSON error naming `--key`.
+
+**`auth:logout` now clears the credential `auth:link` writes.** It only ever cleared the OAuth
+session, so a linked CLI reported "nothing to clear" and stayed fully authenticated.
+
+**`config:show` no longer calls a `POSTEY_AUTH_TOKEN`-only caller unconfigured**, and
+`auth:link --claim` no longer destroys the local verifier before the network call succeeds — a
+timeout used to make the code unclaimable from that machine. Inherited property names
+(`__proto__`, `constructor`) are no longer mistaken for a pending link.
+
+**Publishing guidance no longer contradicts itself.** The hub's automation section waived
+confirmation when the user had said "post now" and omitted scheduling entirely; `routing-guide.md`'s
+block labelled "Correct Pattern" ended in an ungated `publish_draft`; and `video-workflow.md` gave a
+publish recipe with no approval step. All three now state the same rule: explicit yes in the current
+turn, on copy the user has actually seen, and scheduling counts as publishing. `video-workflow.md`
+also stopped advertising `--schedule` and `--publish-now`, which the CLI rejects outright.
+
+**Restoring a deleted post is documented, in `postey-ops`.** `post.restore`, `post.restore_many` and
+`post.trash.list` had no owner; they now belong to the pack that triages failures, which previously
+told agents to recreate a post because restore was invisible to it.
+
+**Arming an auto-DM funnel now needs an explicit yes.** `configure_auto_dm` had design rules but no
+approval gate, while `reply_comment` had one. An armed automation messages every person who hits the
+trigger with no further review, so it now requires the same confirmation, naming the trigger word,
+the payload, the account and the post before anything is armed.
+
+**`postey-engagement` now says which kind of comment it is holding.** Audience comments
+(`get_platform_comments`) and internal team notes (`postey://posts/{post_id}/comments/{platform}`)
+are different things; replying to the second with `reply_comment` would put a colleague's private
+note on a public timeline.
+
+**The hub no longer advertises the video workflow it does not own.** `media.transcribe` belongs to
+`postey-video`; the hub's description and `when_to_use` promised transcription and caption
+generation, which would route an agent to the hub and leave the pack uninstalled. They now name the
+pack that owns each flow.
+
+**`postey-video`'s mirrored CLI was stale.** Its copy of `postey.js` had drifted 5.7KB from the
+hub's and its `capability-snapshot.json` still pinned server 2.1.0 against the hub's 2.3.0.
+`postey.js` reads the snapshot at runtime, so the pack was shipping a different program. Both are
+now byte-identical to the hub's, which `check-script-parity.js` enforces.
+
+**`setup` now tightens an existing config file.** `writeFileSync`'s `mode` applies only when it
+creates the file, so a `config.json` that already sat at 0644 kept those bits after an API key was
+written into it. It is chmodded to 0600 explicitly.
+
+**Post restore and trash now have an owner.** `post.restore`, `post.restore_many` and
+`post.trash.list` — along with `platform.actions` and `cli.link` — were exposed by the server and
+claimed by no skill. They belong to the hub, next to `post.delete`.
+
+
+**New: `references/post-structures.md`** — eighteen post structures in the craft layer, each with
+the condition that selects it, its shape, a length rule, and the way it typically fails. Derived
+from measured top-vs-bottom quintile analysis of high-performing operator accounts on X.
+
+Adds two things the craft layer did not carry:
+
+- **The density rule.** Two lengths perform — under ~140 characters, or over ~600 with new facts
+  throughout. Between 200 and 500 is a dead zone, and a draft landing there needs compressing or
+  more material, not trimming.
+- **Portability off X.** Which structures survive on LinkedIn, Instagram and TikTok, which are
+  X-and-Threads only, and the two that do not port at all. On Instagram and TikTok the structure
+  governs the spoken hook, not the caption.
+
+Every flow that already cites `hook-formulas.md` and `platform-archetypes.md` can now cite a named
+structure and its failure mode instead of choosing a shape implicitly.
+
+## 3.0.0
+
+**Breaking — the content flows now ship as separate, optional packs.** The hub keeps routing,
+accounts, platform truth, the CLI and the shared craft layer. Install a pack only if you want its
+flow:
+
+| Flow | Pack |
+|---|---|
+| Trends to posts · idea to posts | `postey-ideas` |
+| Video everywhere | `postey-video` |
+| Brand voice | `postey-voice` |
+
+`references/trends-to-posts.md`, `references/idea-to-posts.md`, `references/video-to-everywhere.md`
+and `references/brand-voice.md` are no longer in this skill. The craft layer they cite —
+`caption-playbook.md`, `hook-formulas.md`, `platform-archetypes.md`, `x-algorithm.md`,
+`thread-and-video-formats.md` and `brand-profile-template.md` — stays here, because every pack reads
+it. A pack cannot be installed usefully without this skill.
+
+The Content Flows section is now a discovery table naming which pack carries each flow, so an agent
+can tell the user a flow is not installed rather than improvising it.
+
+`mcp-tools.tools:` is generated from a new `capabilities:` block rather than hand-maintained.
+Regenerating it corrected drift in both directions: seven tools were granted for capabilities this
+skill does not document, and three the skill does need — `file_manager`, `list_files`, `read_file` —
+had been missing.
+
+## [3.0.1]
+
+### Added
+
+- **`references/mcp-authentication.md`** — the auth guidance this line has never shipped. The 3.0.0
+  consolidation cut the hub's references from eleven to seven, correctly: the four it dropped were
+  content flows that moved to `postey-ideas`, `postey-video` and `postey-voice`. Auth was not one of
+  them — it was never a reference here at all. The MCP instruction block relocated the OAuth scope
+  list, the MCP-key path and the two agent-token mint endpoints out to this path on 2026-08-24
+  (mcp-northstar N1.4) and the file did not exist on either line, so `skills/postey/v3.0.0` is a
+  published, installable tag whose pack contains no auth documentation and no path to any
+  (mcp-northstar F-081).
+
+  It sits in the hub because the hub is the one guaranteed dependency — every optional pack requires
+  it, so auth is documented once and read by all of them. It is a separate file rather than a section
+  of `mcp-workflows.md` because that file is scoped to sequencing and craft, and because the
+  instruction block's ledger names this exact path: one destination that now resolves on both lines.
+
+  Written for this line rather than copied from 2.5.1: it opens on setup.md's A/B/C tracks and states
+  that **track B mints nothing**, it notes that installing a pack does not widen a grant, and it names
+  the CLI's credential order because Step 5 sets `POSTEY_API_KEY` separately from Step 3's OAuth.
+
+- **`references/mcp-workflows.md` gains `## Local Files and Large Uploads`.** A fourth ledger entry —
+  which upload paths survive without this skill installed — has pointed at
+  `mcp-workflows.md#local-files-and-large-uploads` since 2026-08-24. The file was loadable but the
+  heading existed on no branch and no tag, so the anchor resolved silently to the top of the file. It
+  now states, per path, which side of the local-disk line each upload sits on: `url`, `base64` and
+  `file_manager` need nothing installed; `local_path`, chunked upload above 50 MB and local
+  transcription are the CLI's.
+
+**Why 3.0.1 and not an edit in place.** `rawBase` pins `refs/tags/skills/postey/v<version>`. The
+bootstrap reads this manifest from the branch but every listed file from the tag, so a new
+`references[]` entry shipped without a matching pushed tag is a live 404 on every new install —
+strictly worse than the unreachable destination it fixes. Push `skills/postey/v3.0.1` at release.
+
 ## [Unreleased]
 
 ## [2.6.0] - 2026-08-27
@@ -19,9 +155,6 @@ The format is based on Keep a Changelog.
 - **The plugin now registers the MCP server.** `skills/postey/.mcp.json` ships at the plugin root,
   so `claude plugin install postey@postey-skills` registers the server as well as the skill. Claude
   Code users run no `claude mcp add` and cannot hit the `url`-without-`type` trap.
-- **`scripts/set-version.mjs`** writes all seven version declarations from one argument, including
-  the tag inside `pack.json`'s `rawBase`, and **`scripts/check-release-tag.mjs`** asserts that tag
-  exists on the remote and that the shipped content has not moved past it.
 
 ### Changed
 

@@ -66,64 +66,22 @@ ${CLAUDE_SKILL_DIR}/scripts/postey.js video post \
 --youtube-title <str>    YouTube video title
 --title <str>            Internal draft title
 --tags <CSV>             Comma-separated numeric tag IDs
---schedule <iso>         Schedule at ISO-8601 UTC datetime
---publish-now            Publish immediately after creation
 --dry-run                Validate + print payload without calling API
 ```
 
 ---
 
-## Workflow B — Transcribe → Generate Captions → Post
+## Transcription lives in `postey-video`
 
-**Default when no caption is provided.** Use when the user shares a video URL without caption text, or when you want Whisper-generated captions refined before posting.
-
-**Step 1** — Transcribe only:
-```bash
-${CLAUDE_SKILL_DIR}/scripts/postey.js video transcribe --input https://youtu.be/abc123
-```
-
-Output includes `transcript` and `suggested_captions` per platform (truncated to each platform's character limit).
-
-**Step 2** — Generate polished captions from the `transcript` field using the rules in [prompts.md](prompts.md). Apply the rules yourself — never paste the raw transcript as a caption.
-
-**Step 3** — Create the draft with the polished captions. Draft creation is MCP's:
-```text
-mcp create_post account_id=317 platform=INSTAGRAM contents=[{text: "<instagram_caption>"}]
-# Returns post_id
-
-# Attach additional platforms via MCP update_post:
-# mcp update_post post_id=<post_id> platform=LINKEDIN contents=[{text: "<linkedin_caption>"}]
-```
-
-**Step 4** — Publish or schedule via MCP:
-```
-mcp publish_draft post_id=<post_id>
-# or
-mcp schedule_post post_id=<post_id> scheduled_at="2026-05-07T10:00:00Z"
-```
-
-**One-step transcribe + draft** (uses raw transcript, skips caption refinement):
-```bash
-${CLAUDE_SKILL_DIR}/scripts/postey.js video transcribe \
-  --input https://youtu.be/abc123 \
-  --platform INSTAGRAM,X \
-  --account-id 317
-```
-
-`video transcribe` flags:
+Turning a video into per-platform captions is `media.transcribe`, which the `postey-video` pack
+owns — this skill only reads it. Install the pack and follow its `video-workflow.md`:
 
 ```
---input <url|path>       Video URL or local file path (required)
---platform <CSV>         If set, also creates a draft (requires --account-id)
---account-id <id>        Account to post to when --platform is given
---model <size>           Whisper model: tiny|base|small|medium|large (default: small)
---translate              Translate audio to English
---keep-files             Keep downloaded temp files after transcription
---output-dir <path>      Directory for temp files (default: system temp)
---dry-run                Show what would be posted without API calls
+claude plugin install postey-video@postey-skills
 ```
 
----
+Everything above — upload, cover extraction, chunked upload, trimming, inspection — is this
+skill's own and needs no pack.
 
 ## Utility Commands
 

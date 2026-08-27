@@ -1,7 +1,7 @@
 {
   "name": "postey",
-  "version": "2.6.0",
-  "description": "Postey social publishing skill: MCP/CLI routing plus four guided content flows (brand voice, video everywhere, trends, idea to posts). Fetch skill + docs + references for a complete install; load references on demand.",
+  "version": "3.1.0",
+  "description": "Postey hub: MCP/CLI routing, accounts, platform truth, the post lifecycle and the shared craft layer, plus the local-file and large-upload paths the MCP server cannot reach. Content flows ship as optional packs that require this one (postey-ideas, postey-video, postey-voice, postey-engagement, postey-analytics, postey-ops, postey-teams). Load references on demand.",
   "note": "rawBase pins the immutable release tag skills/postey/v<version>. Push that tag when releasing (see CLAUDE.md) or fetches 404. The bootstrap prompt fetches this manifest from main; everything else is fetched from the pinned tag so a later push to main cannot rewrite already-installed playbooks.",
   "skill": "SKILL.md",
   "bootstrapPrompt": "bootstrap-prompt.md",
@@ -14,21 +14,19 @@
   "scripts": [
     "scripts/mediaValidator.js",
     "scripts/postey.js",
-    "scripts/videoUtils.js"
+    "scripts/videoUtils.js",
+    "capability-snapshot.json"
   ],
   "references": [
     "references/brand-profile-template.md",
-    "references/brand-voice.md",
     "references/caption-playbook.md",
     "references/hook-formulas.md",
-    "references/idea-to-posts.md",
     "references/mcp-authentication.md",
     "references/mcp-workflows.md",
     "references/platform-archetypes.md",
     "references/thread-and-video-formats.md",
-    "references/trends-to-posts.md",
-    "references/video-to-everywhere.md",
-    "references/x-algorithm.md"
+    "references/x-algorithm.md",
+    "references/post-structures.md"
   ],
-  "rawBase": "https://raw.githubusercontent.com/posteyai/skills/refs/tags/skills/postey/v2.6.0/skills/postey/"
+  "rawBase": "https://raw.githubusercontent.com/posteyai/skills/refs/tags/skills/postey/v3.1.0/skills/postey/"
 }

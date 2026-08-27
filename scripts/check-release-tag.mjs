@@ -24,7 +24,7 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -56,8 +56,8 @@ export function remoteTags(remote = 'origin', run = defaultRun) {
 	return tags;
 }
 
-function defaultRun(cmd, args) {
-	return execFileSync(cmd, args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+function defaultRun(cmd, args, cwd = ROOT) {
+	return execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
 /** Every skill directory that carries a pack.json, with its declared version. */
@@ -90,15 +90,15 @@ export function packagedSkills(root = ROOT) {
  * Returns null when the comparison cannot be made (no tag locally, not a git
  * tree). A comparison that cannot run says so rather than reporting agreement.
  */
-export function contentDiffersFromTag(skill, version, run = defaultRun) {
+export function contentDiffersFromTag(skill, version, run = defaultRun, root = ROOT) {
 	const tag = tagFor(skill, version);
 	try {
-		run('git', ['rev-parse', '--verify', `${tag}^{commit}`]);
+		run('git', ['rev-parse', '--verify', `${tag}^{commit}`], root);
 	} catch {
 		return null;
 	}
 	try {
-		run('git', ['diff', '--quiet', tag, 'HEAD', '--', `skills/${skill}/`]);
+		run('git', ['diff', '--quiet', tag, 'HEAD', '--', `skills/${skill}/`], root);
 		return false;
 	} catch (err) {
 		// git diff --quiet exits 1 when there IS a difference, and >1 on error.
@@ -110,12 +110,16 @@ export function contentDiffersFromTag(skill, version, run = defaultRun) {
 /** @returns {string[]} one message per problem; empty when every tag is present and current. */
 export function checkReleaseTags({ root = ROOT, tags, only, run = defaultRun } = {}) {
 	const problems = [];
-	for (const { skill, version } of packagedSkills(root)) {
+	const packaged = packagedSkills(root);
+	if (only && !packaged.some((p) => p.skill === only)) {
+		throw new Error(`no packaged skill named ${only} — the check has nothing to assert, which is a failure`);
+	}
+	for (const { skill, version } of packaged) {
 		if (only && skill !== only) continue;
 		const tag = tagFor(skill, version);
 
 		if (tags.has(tag)) {
-			const drifted = contentDiffersFromTag(skill, version, run);
+			const drifted = contentDiffersFromTag(skill, version, run, root);
 			if (drifted === true) {
 				problems.push(
 					`skills/${skill}: the shipped content differs from ${tag}, which pack.json pins.\n` +
@@ -139,7 +143,11 @@ export function checkReleaseTags({ root = ROOT, tags, only, run = defaultRun } =
 	return problems;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+const invokedDirectly =
+	process.argv[1] &&
+	import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href;
+
+if (invokedDirectly) {
 	const only = process.argv.includes('--skill')
 		? process.argv[process.argv.indexOf('--skill') + 1]
 		: undefined;

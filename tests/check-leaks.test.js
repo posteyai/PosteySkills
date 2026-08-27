@@ -162,11 +162,30 @@ test('tests/ is skipped only at the scan root, not inside shipped content', () =
   }
 });
 
-test('a linked worktree .git FILE is skipped, not scanned', () => {
-  // In a linked worktree `.git` is a file holding `gitdir: <absolute path>`.
-  // Skipping `.git` only when it is a directory let that absolute path be
-  // scanned, so every run inside a worktree reported a finding for the path
-  // itself — in a repo whose own workflow is one worktree per task.
+// In a git worktree `.git` is a FILE holding `gitdir: <absolute path>`, not a
+// directory. Skipping by name only inside the isDirectory branch let that file be
+// scanned, so every local run from a worktree failed on its own gitdir path.
+test('.git is skipped whether it is a directory or a worktree gitdir file', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'leakgit-'));
+  try {
+    fs.writeFileSync(path.join(dir, '.git'), 'gitdir: /some/path/zzsecretname/worktrees/x');
+    assert.deepStrictEqual(scanTree(dir, dl), [], 'a .git file must not be scanned');
+
+    fs.rmSync(path.join(dir, '.git'));
+    fs.mkdirSync(path.join(dir, '.git'));
+    fs.writeFileSync(path.join(dir, '.git', 'config'), 'zzsecretname');
+    assert.deepStrictEqual(scanTree(dir, dl), [], 'a .git directory must not be scanned');
+
+    fs.writeFileSync(path.join(dir, 'node_modules'), 'zzsecretname');
+    assert.deepStrictEqual(scanTree(dir, dl), [], 'node_modules is skipped by name too');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// The companion case: skipping `.git` by name must not become so broad that a
+// look-alike sibling directory stops being scanned.
+test('a linked worktree .git FILE is skipped, but a look-alike directory is not', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'leakworktree-'));
   try {
     fs.writeFileSync(path.join(dir, '.git'), 'gitdir: /somewhere/zzsecretname/.git/worktrees/task\n');

@@ -2,6 +2,17 @@
 
 All commands run via `${CLAUDE_SKILL_DIR}/scripts/postey.js <command> [args]`.
 
+## Auth and setup
+
+| Command | Description |
+|---------|-------------|
+| `auth:link --begin` | Print a link code and PKCE challenge. Hand the code to the `link_cli` MCP tool, then claim it. Copies this connection's access to the CLI — no second sign-in. |
+| `auth:link --claim <code>` | Complete the link and store the credential. The token is never printed. |
+| `auth:login [--local]` | Interactive OAuth in a browser. `--local` writes to `./.postey/`; prefer global. |
+| `auth:logout` | Clear the local credential — the OAuth session and any linked token. Server-side grants are revoked in Postey settings. |
+| `setup --key <key> [--location global\|local]` | Store an API key. `--key` is required unattended: without it the command prompts on stdin. |
+| `config:show` | Report which credential is active and where it came from. Values are previewed, never printed. |
+
 ## Media
 
 | Command | Description |

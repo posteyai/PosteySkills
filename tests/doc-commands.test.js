@@ -20,12 +20,13 @@ const OVERLAP_REL = path.join('scripts', 'check-capability-overlap.js');
 const CLI_REL = path.join('skills', 'postey', 'scripts', 'postey.js');
 const SNAP_REL = path.join('skills', 'postey', 'capability-snapshot.json');
 const GUIDE_REL = path.join('skills', 'postey', 'routing-guide.md');
+const LIB_REL = path.join('scripts', 'lib', 'skills.js');
 
 function scratchRepo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'doccmd-'));
-  fs.mkdirSync(path.join(dir, 'scripts'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'scripts', 'lib'), { recursive: true });
   fs.mkdirSync(path.join(dir, 'skills', 'postey', 'scripts'), { recursive: true });
-  for (const rel of [CHECK_REL, OVERLAP_REL, CLI_REL, SNAP_REL]) {
+  for (const rel of [CHECK_REL, OVERLAP_REL, CLI_REL, SNAP_REL, LIB_REL]) {
     fs.copyFileSync(path.join(ROOT, rel), path.join(dir, rel));
   }
   // Only the docs matter to this check; copy the ones that name commands.

@@ -14,6 +14,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        # check-release-tag compares shipped content against the tag pack.json
+        # pins. That comparison reads local refs, so without full history and
+        # tags it returns "cannot compare" and the drift half never fires.
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -66,6 +72,37 @@ jobs:
       # pattern in it can match `npx` or `claude plugin`. Offline.
       - name: Check setup doc is agent-executable
         run: node scripts/check-setup-doc.mjs
+
+      # C5: mcp-tools.tools: is derived from capabilities:, never hand-written.
+      # The hand-kept list had silently omitted file_manager, list_files and
+      # read_file — capabilities the skill claims but could not call. Offline.
+      - name: Check mcp-tools.tools is derived from capabilities
+        run: node scripts/gen-mcp-tools.js --check
+
+      # The capability contract: every capability the server exposes is owned by
+      # exactly one skill. C1's allowlist of not-yet-claimed capabilities shrinks
+      # as each pillar ships, and an entry that becomes claimed fails as stale —
+      # so the list cannot rot into a permanent exemption. Offline.
+      - name: Check capability contract (C1 cover, C2 exclusive)
+        run: node scripts/check-capability-contract.js
+
+      # A skill that mirrors the hub's CLI must mirror it byte-for-byte, snapshot
+      # included — postey.js requires it at runtime. Offline.
+      - name: Check mirrored CLI copies are byte-identical
+        run: node scripts/check-script-parity.js
+
+      # Shipped docs must not advertise a pack that does not exist. The Content
+      # Flows table names the skill carrying each flow, and during the split those
+      # packs appear one at a time. Offline.
+      - name: Check no doc advertises a nonexistent pack
+        run: node scripts/check-pack-discovery.js
+
+      # A skill must ship every file it references. Once skills are split, a
+      # reference to a file that moved elsewhere still reads fine in prose but is
+      # simply not installed. Catches markdown links AND backtick refs — the
+      # content flows cite the craft layer with backticks. Offline.
+      - name: Check no skill references a file it does not ship
+        run: node scripts/check-cross-skill-links.js
 
       # S9.6 — enforcement. The responsibility contract is prose until a build
       # fails on it. Offline: reads the committed snapshot, so it runs on forks.

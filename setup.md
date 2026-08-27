@@ -428,7 +428,7 @@ Three more rules bind the credential.
 
 ## Step 4 — Install the Postey skill
 
-Steps 0 to 4 gave you everything the server does: reading accounts, posts and
+Steps 0 to 3 gave you everything the server does: reading accounts, posts and
 schedules, and creating, updating, publishing and scheduling them.
 
 The skill adds only what a server cannot reach, which is your machine:
@@ -491,6 +491,40 @@ read. Claude Code does not. Use `~/.claude/skills/` there.
 `scripts/postey.js` exists inside the installed skill directory. A listing proves the directory
 exists. It does not prove the skill works, and a hand-copied `SKILL.md` alone lists as installed.
 
+### Optional packs
+
+`postey` is the hub and is not optional: it carries the routing, the accounts, the write path and
+the shared craft layer. Everything below is an add-on that requires it. Install only what the user
+wants — a pack the user never asked for is context they pay for on every turn.
+
+| Pack | Install when the user wants to |
+|---|---|
+| `postey-ideas` | turn a trend or a rough idea into per-platform posts |
+| `postey-video` | transcribe a video and cross-post it, or post local video files |
+| `postey-voice` | have the agent learn how they write and keep matching it |
+| `postey-engagement` | reply to comments, or run comment-to-DM funnels |
+| `postey-analytics` | read what worked and decide what to make next |
+| `postey-ops` | check things actually published, and chase what failed |
+| `postey-teams` | send drafts for review before anything goes out |
+
+```
+claude plugin install postey-ideas@postey-skills
+claude plugin install postey-video@postey-skills
+claude plugin install postey-voice@postey-skills
+claude plugin install postey-engagement@postey-skills
+claude plugin install postey-analytics@postey-skills
+claude plugin install postey-ops@postey-skills
+claude plugin install postey-teams@postey-skills
+```
+
+Every other agent, one `-s` per pack:
+
+```
+npx -y skills add posteyai/skills -a <agent> -s postey-ideas -y
+```
+
+**Verify:** name which packs you installed, or say "hub only" if none.
+
 The division is fixed. It is not negotiated per task. The server owns all state and
 every change to it. The skill owns local files, video processing and craft. Never use
 a skill command to reach an effect the server already provides. See
@@ -503,6 +537,8 @@ a skill command to reach an effect the server already provides. See
 | `Invalid agents: hermes` | The identifier is wrong | Use `hermes-agent` |
 | The skill installs but the tools are missing | Step 2 is incomplete | Redo Step 2, then Step 8 |
 | A skill command reports `Unknown command` | The server owns that effect | Use the server tool the error names, or read `CHANGELOG.md` |
+| `API key not found` | The skill's own tool has no credential | Track C: export `POSTEY_API_KEY`. Track A: do Step 5 |
+| `setup` waits and never returns | It prompts on stdin, and nothing is answering | Re-run with `--key <the key>`; never run bare `setup` unattended |
 
 ---
 

@@ -1,0 +1,10 @@
+{
+  "name": "postey-ops",
+  "version": "1.0.1",
+  "description": "Ops pack for Postey: publish-status checks, failure triage and queue health. Requires the postey skill.",
+  "skill": "SKILL.md",
+  "docs": [],
+  "scripts": [],
+  "references": [],
+  "rawBase": "https://raw.githubusercontent.com/posteyai/skills/refs/tags/skills/postey-ops/v1.0.1/skills/postey-ops/"
+}

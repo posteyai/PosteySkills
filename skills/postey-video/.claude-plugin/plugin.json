@@ -1,0 +1,12 @@
+{
+  "name": "postey-video",
+  "description": "Turn one video into per-platform posts with Postey: transcribe, caption, upload with a cover frame",
+  "version": "1.0.1",
+  "author": {
+    "name": "Postey",
+    "url": "https://postey.ai"
+  },
+  "homepage": "https://postey.ai",
+  "repository": "https://github.com/posteyai/skills",
+  "license": "MIT"
+}

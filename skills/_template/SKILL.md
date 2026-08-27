@@ -38,6 +38,23 @@ description: >
 #     # AI-enhanced (no CLI equivalent — always use MCP tool)
 #     - mcp__claude_ai_SomeService__validate_item
 
+# REQUIRED: capability-keyed ownership. Keys are `canonical` entries from
+# capability-snapshot.json — the server's own vocabulary. Never list raw tool
+# names here; SKILL.md's mcp-tools.tools: is derived from these keys.
+#   owns    — exclusive. Exactly one skill in the repo may own a key, and owning
+#             it means this skill carries the guidance for using it.
+#   reads   — shared. Any number of skills may read the same capability.
+#   prompts — MCP prompt names the skill routes to.
+# CI fails if a key is unknown, owned twice, or owned by nobody.
+# Full contract: docs/skills-mcp-contract.md.
+# capabilities:
+#   owns:
+#     - post.create
+#   reads:
+#     - analytics.top_posts
+#   prompts:
+#     - compose-post
+
 # Machine-readable routing rules — mirrors any prose routing-guide.md.
 # Values: mcp-resource | mcp-tool | cli
 # mcp-server-module: ""   # e.g. "app.core.mcp" — path used by check-mcp-tool-sync.js
