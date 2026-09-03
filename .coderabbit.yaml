@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# Canonical copy and rationale: MarqetiveKnowledge/standards/14-PR-DESCRIPTION-STANDARD.md section 10.
+language: en-US
+tone_instructions: "Plain technical English. Active voice. No contractions, no em dashes. Cite file and line. Short sentences."
+reviews:
+  request_changes_workflow: false
+  high_level_summary: true
+  high_level_summary_in_walkthrough: true
+  review_status: true
+  collapse_walkthrough: false
+  changed_files_summary: true
+  sequence_diagrams: false
+  poem: false
+  pre_merge_checks:
+    title:
+      mode: warning
+      requirements: "Conventional Commits form type(scope): imperative summary. Lowercase type. 72 characters maximum. No trailing period."
+    description:
+      mode: warning
+    issue_assessment:
+      mode: warning
+    docstrings:
+      mode: off
+  auto_review:
+    enabled: true
+    drafts: false
+    # base_branches stays at the default (main only). See Standard 14 section 10 before widening.
